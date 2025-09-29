@@ -1,0 +1,857 @@
+# 设计文档
+
+## 概述
+
+小魔推碰一碰是一个基于NFC技术的智能营销内容生成平台，通过"碰一碰"触发AI内容生成，实现从线下场景到线上传播的全链路营销转化。系统采用简化架构，重点关注功能实现和用户体验，为实体门店提供零门槛的专业营销内容创作能力。
+
+## 技术标准对齐
+
+### 技术栈选择
+- **前端**: uni-app (Vue 3版本) + Vue.js管理后台
+- **UI框架**: uView Plus 3.0
+- **状态管理**: Pinia
+- **后端框架**: ThinkPHP 8.0
+- **数据库**: MySQL 5.7
+- **缓存**: Redis
+- **文件存储**: 阿里云OSS
+- **AI服务**:
+  - 文案生成：百度文心一言 / 讯飞星火
+  - 视频生成：剪映API / 腾讯智影
+- **第三方集成**: 微信支付、抖音开放平台、小红书API
+
+### MySQL 5.7配置说明
+```sql
+-- MySQL 5.7 特殊配置
+-- 1. 需要设置 sql_mode
+SET sql_mode = 'STRICT_TRANS_TABLES,NO_ZERO_DATE,NO_ZERO_IN_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION';
+
+-- 2. 字符集使用 utf8mb4_general_ci (5.7兼容)
+-- 3. JSON字段使用TEXT类型存储JSON字符串
+-- 4. 时间戳默认值需要明确指定
+-- 5. 建议开启 innodb_file_per_table = 1
+```
+
+### 项目结构规范
+```
+xiaomotui/
+├── api/                     # ThinkPHP后端API
+│   ├── app/
+│   │   ├── controller/      # 控制器
+│   │   ├── model/          # 模型
+│   │   ├── service/        # 业务逻辑层
+│   │   └── validate/       # 数据验证
+│   ├── config/             # 配置文件
+│   ├── route/              # 路由配置
+│   └── database/           # 数据库迁移文件
+├── uni-app/                # uni-app前端
+│   ├── pages/              # 页面文件
+│   │   ├── index/          # 首页
+│   │   ├── nfc/            # NFC功能
+│   │   ├── content/        # 内容生成
+│   │   ├── publish/        # 发布管理
+│   │   ├── user/           # 用户中心
+│   │   └── merchant/       # 商家管理
+│   ├── components/         # 组件
+│   │   ├── common/         # 通用组件
+│   │   └── business/       # 业务组件
+│   ├── api/                # API接口
+│   ├── store/              # Pinia状态管理
+│   ├── utils/              # 工具函数
+│   ├── static/             # 静态资源
+│   ├── uni_modules/        # uni插件
+│   ├── App.vue             # 应用入口
+│   ├── main.js             # 主入口
+│   ├── manifest.json       # 配置文件
+│   └── pages.json          # 页面路由
+├── admin/                  # Vue.js管理后台
+│   ├── src/
+│   │   ├── views/          # 页面组件
+│   │   ├── components/     # 通用组件
+│   │   └── api/            # API调用
+│   └── public/
+└── database/
+    └── migrations/         # 数据库迁移脚本
+```
+
+## 数据库设计
+
+### 用户相关表
+
+#### 用户表 (users)
+```sql
+CREATE TABLE `users` (
+  `id` int(11) unsigned NOT NULL AUTO_INCREMENT COMMENT '用户ID',
+  `openid` varchar(64) NOT NULL COMMENT '微信openid',
+  `unionid` varchar(64) DEFAULT NULL COMMENT '微信unionid',
+  `phone` varchar(20) DEFAULT NULL COMMENT '手机号',
+  `nickname` varchar(50) DEFAULT NULL COMMENT '昵称',
+  `avatar` varchar(255) DEFAULT NULL COMMENT '头像',
+  `gender` tinyint(1) DEFAULT '0' COMMENT '性别 0未知 1男 2女',
+  `member_level` enum('BASIC','VIP','PREMIUM') DEFAULT 'BASIC' COMMENT '会员等级',
+  `points` int(11) DEFAULT '0' COMMENT '积分',
+  `status` tinyint(1) DEFAULT '1' COMMENT '状态 0禁用 1正常',
+  `last_login_time` datetime DEFAULT NULL COMMENT '最后登录时间',
+  `create_time` datetime NOT NULL COMMENT '创建时间',
+  `update_time` datetime NOT NULL COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `openid` (`openid`),
+  KEY `phone` (`phone`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户表';
+```
+
+#### 商家表 (merchants)
+```sql
+CREATE TABLE `merchants` (
+  `id` int(11) unsigned NOT NULL AUTO_INCREMENT COMMENT '商家ID',
+  `user_id` int(11) unsigned NOT NULL COMMENT '关联用户ID',
+  `name` varchar(100) NOT NULL COMMENT '商家名称',
+  `category` varchar(50) NOT NULL COMMENT '商家类别',
+  `address` varchar(255) NOT NULL COMMENT '地址',
+  `longitude` decimal(10,7) DEFAULT NULL COMMENT '经度',
+  `latitude` decimal(10,7) DEFAULT NULL COMMENT '纬度',
+  `phone` varchar(20) DEFAULT NULL COMMENT '联系电话',
+  `description` text COMMENT '商家描述',
+  `logo` varchar(255) DEFAULT NULL COMMENT '商家logo',
+  `business_hours` text COMMENT '营业时间JSON',
+  `status` tinyint(1) DEFAULT '1' COMMENT '状态 0禁用 1正常 2审核中',
+  `create_time` datetime NOT NULL COMMENT '创建时间',
+  `update_time` datetime NOT NULL COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  KEY `user_id` (`user_id`),
+  KEY `category` (`category`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='商家表';
+```
+
+### NFC设备相关表
+
+#### NFC设备表 (nfc_devices)
+```sql
+CREATE TABLE `nfc_devices` (
+  `id` int(11) unsigned NOT NULL AUTO_INCREMENT COMMENT '设备ID',
+  `merchant_id` int(11) unsigned NOT NULL COMMENT '所属商家ID',
+  `device_code` varchar(32) NOT NULL COMMENT '设备编码',
+  `device_name` varchar(100) NOT NULL COMMENT '设备名称',
+  `location` varchar(100) DEFAULT NULL COMMENT '设备位置',
+  `type` enum('TABLE','WALL','COUNTER','ENTRANCE') DEFAULT 'TABLE' COMMENT '设备类型',
+  `trigger_mode` enum('VIDEO','COUPON','WIFI','CONTACT','MENU') DEFAULT 'VIDEO' COMMENT '触发模式',
+  `template_id` int(11) DEFAULT NULL COMMENT '内容模板ID',
+  `redirect_url` varchar(255) DEFAULT NULL COMMENT '跳转链接',
+  `wifi_ssid` varchar(50) DEFAULT NULL COMMENT 'WiFi名称',
+  `wifi_password` varchar(50) DEFAULT NULL COMMENT 'WiFi密码',
+  `status` tinyint(1) DEFAULT '1' COMMENT '状态 0离线 1在线 2维护',
+  `battery_level` tinyint(3) DEFAULT NULL COMMENT '电池电量',
+  `last_heartbeat` datetime DEFAULT NULL COMMENT '最后心跳时间',
+  `create_time` datetime NOT NULL COMMENT '创建时间',
+  `update_time` datetime NOT NULL COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `device_code` (`device_code`),
+  KEY `merchant_id` (`merchant_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='NFC设备表';
+```
+
+### 内容生成相关表
+
+#### 内容模板表 (content_templates)
+```sql
+CREATE TABLE `content_templates` (
+  `id` int(11) unsigned NOT NULL AUTO_INCREMENT COMMENT '模板ID',
+  `merchant_id` int(11) unsigned DEFAULT NULL COMMENT '商家ID 为空表示系统模板',
+  `name` varchar(100) NOT NULL COMMENT '模板名称',
+  `type` enum('VIDEO','TEXT','IMAGE') NOT NULL COMMENT '模板类型',
+  `category` varchar(50) NOT NULL COMMENT '模板分类',
+  `style` varchar(50) DEFAULT NULL COMMENT '风格标签',
+  `content` text NOT NULL COMMENT '模板内容配置JSON',
+  `preview_url` varchar(255) DEFAULT NULL COMMENT '预览图',
+  `usage_count` int(11) DEFAULT '0' COMMENT '使用次数',
+  `is_public` tinyint(1) DEFAULT '0' COMMENT '是否公开 0私有 1公开',
+  `status` tinyint(1) DEFAULT '1' COMMENT '状态 0禁用 1启用',
+  `create_time` datetime NOT NULL COMMENT '创建时间',
+  `update_time` datetime NOT NULL COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  KEY `merchant_id` (`merchant_id`),
+  KEY `category` (`category`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='内容模板表';
+```
+
+#### 内容生成任务表 (content_tasks)
+```sql
+CREATE TABLE `content_tasks` (
+  `id` int(11) unsigned NOT NULL AUTO_INCREMENT COMMENT '任务ID',
+  `user_id` int(11) unsigned NOT NULL COMMENT '用户ID',
+  `merchant_id` int(11) unsigned NOT NULL COMMENT '商家ID',
+  `device_id` int(11) unsigned DEFAULT NULL COMMENT '设备ID',
+  `template_id` int(11) unsigned DEFAULT NULL COMMENT '模板ID',
+  `type` enum('VIDEO','TEXT','IMAGE') NOT NULL COMMENT '内容类型',
+  `status` enum('PENDING','PROCESSING','COMPLETED','FAILED') DEFAULT 'PENDING' COMMENT '任务状态',
+  `input_data` text COMMENT '输入数据JSON',
+  `output_data` text COMMENT '输出数据JSON',
+  `ai_provider` varchar(20) DEFAULT NULL COMMENT 'AI服务商',
+  `generation_time` int(11) DEFAULT NULL COMMENT '生成耗时(秒)',
+  `error_message` text COMMENT '错误信息',
+  `create_time` datetime NOT NULL COMMENT '创建时间',
+  `update_time` datetime NOT NULL COMMENT '更新时间',
+  `complete_time` datetime DEFAULT NULL COMMENT '完成时间',
+  PRIMARY KEY (`id`),
+  KEY `user_id` (`user_id`),
+  KEY `merchant_id` (`merchant_id`),
+  KEY `device_id` (`device_id`),
+  KEY `status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='内容生成任务表';
+```
+
+### 平台分发相关表
+
+#### 发布任务表 (publish_tasks)
+```sql
+CREATE TABLE `publish_tasks` (
+  `id` int(11) unsigned NOT NULL AUTO_INCREMENT COMMENT '发布任务ID',
+  `content_task_id` int(11) unsigned NOT NULL COMMENT '内容任务ID',
+  `user_id` int(11) unsigned NOT NULL COMMENT '用户ID',
+  `platforms` text NOT NULL COMMENT '发布平台配置JSON',
+  `status` enum('PENDING','PUBLISHING','COMPLETED','PARTIAL','FAILED') DEFAULT 'PENDING' COMMENT '发布状态',
+  `results` text COMMENT '发布结果JSON',
+  `scheduled_time` datetime DEFAULT NULL COMMENT '定时发布时间',
+  `publish_time` datetime DEFAULT NULL COMMENT '实际发布时间',
+  `create_time` datetime NOT NULL COMMENT '创建时间',
+  `update_time` datetime NOT NULL COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  KEY `content_task_id` (`content_task_id`),
+  KEY `user_id` (`user_id`),
+  KEY `status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='发布任务表';
+```
+
+#### 平台账号表 (platform_accounts)
+```sql
+CREATE TABLE `platform_accounts` (
+  `id` int(11) unsigned NOT NULL AUTO_INCREMENT COMMENT '账号ID',
+  `user_id` int(11) unsigned NOT NULL COMMENT '用户ID',
+  `platform` enum('DOUYIN','XIAOHONGSHU','WECHAT','WEIBO') NOT NULL COMMENT '平台类型',
+  `platform_uid` varchar(100) NOT NULL COMMENT '平台用户ID',
+  `platform_name` varchar(100) DEFAULT NULL COMMENT '平台昵称',
+  `access_token` text COMMENT '访问令牌',
+  `refresh_token` text COMMENT '刷新令牌',
+  `expires_time` datetime DEFAULT NULL COMMENT '令牌过期时间',
+  `avatar` varchar(255) DEFAULT NULL COMMENT '头像',
+  `follower_count` int(11) DEFAULT '0' COMMENT '粉丝数',
+  `status` tinyint(1) DEFAULT '1' COMMENT '状态 0失效 1正常',
+  `create_time` datetime NOT NULL COMMENT '创建时间',
+  `update_time` datetime NOT NULL COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  KEY `user_id` (`user_id`),
+  KEY `platform` (`platform`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='平台账号表';
+```
+
+### 营销活动相关表
+
+#### 优惠券表 (coupons)
+```sql
+CREATE TABLE `coupons` (
+  `id` int(11) unsigned NOT NULL AUTO_INCREMENT COMMENT '优惠券ID',
+  `merchant_id` int(11) unsigned NOT NULL COMMENT '商家ID',
+  `name` varchar(100) NOT NULL COMMENT '优惠券名称',
+  `type` enum('DISCOUNT','FULL_REDUCE','FREE_SHIPPING') NOT NULL COMMENT '优惠券类型',
+  `value` decimal(10,2) NOT NULL COMMENT '优惠金额',
+  `min_amount` decimal(10,2) DEFAULT '0.00' COMMENT '最低消费金额',
+  `total_count` int(11) NOT NULL COMMENT '总发放数量',
+  `used_count` int(11) DEFAULT '0' COMMENT '已使用数量',
+  `per_user_limit` int(11) DEFAULT '1' COMMENT '每人限领数量',
+  `valid_days` int(11) DEFAULT '30' COMMENT '有效天数',
+  `start_time` datetime NOT NULL COMMENT '开始时间',
+  `end_time` datetime NOT NULL COMMENT '结束时间',
+  `status` tinyint(1) DEFAULT '1' COMMENT '状态 0禁用 1启用',
+  `create_time` datetime NOT NULL COMMENT '创建时间',
+  `update_time` datetime NOT NULL COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  KEY `merchant_id` (`merchant_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='优惠券表';
+```
+
+#### 用户优惠券表 (user_coupons)
+```sql
+CREATE TABLE `user_coupons` (
+  `id` int(11) unsigned NOT NULL AUTO_INCREMENT COMMENT 'ID',
+  `user_id` int(11) unsigned NOT NULL COMMENT '用户ID',
+  `coupon_id` int(11) unsigned NOT NULL COMMENT '优惠券ID',
+  `code` varchar(32) NOT NULL COMMENT '优惠券码',
+  `status` enum('UNUSED','USED','EXPIRED') DEFAULT 'UNUSED' COMMENT '使用状态',
+  `source` varchar(50) DEFAULT NULL COMMENT '获取来源',
+  `get_time` datetime NOT NULL COMMENT '获取时间',
+  `use_time` datetime DEFAULT NULL COMMENT '使用时间',
+  `expire_time` datetime NOT NULL COMMENT '过期时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `code` (`code`),
+  KEY `user_id` (`user_id`),
+  KEY `coupon_id` (`coupon_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户优惠券表';
+```
+
+### 数据统计相关表
+
+#### 设备触发记录表 (device_triggers)
+```sql
+CREATE TABLE `device_triggers` (
+  `id` int(11) unsigned NOT NULL AUTO_INCREMENT COMMENT '记录ID',
+  `device_id` int(11) unsigned NOT NULL COMMENT '设备ID',
+  `user_id` int(11) unsigned DEFAULT NULL COMMENT '用户ID',
+  `trigger_type` varchar(20) NOT NULL COMMENT '触发类型',
+  `ip_address` varchar(45) DEFAULT NULL COMMENT 'IP地址',
+  `user_agent` varchar(255) DEFAULT NULL COMMENT '用户代理',
+  `result` enum('SUCCESS','FAILED') DEFAULT 'SUCCESS' COMMENT '触发结果',
+  `response_time` int(11) DEFAULT NULL COMMENT '响应时间(毫秒)',
+  `create_time` datetime NOT NULL COMMENT '创建时间',
+  PRIMARY KEY (`id`),
+  KEY `device_id` (`device_id`),
+  KEY `user_id` (`user_id`),
+  KEY `create_time` (`create_time`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='设备触发记录表';
+```
+
+#### 数据统计表 (statistics)
+```sql
+CREATE TABLE `statistics` (
+  `id` int(11) unsigned NOT NULL AUTO_INCREMENT COMMENT '统计ID',
+  `merchant_id` int(11) unsigned DEFAULT NULL COMMENT '商家ID',
+  `date` date NOT NULL COMMENT '统计日期',
+  `metric_type` varchar(50) NOT NULL COMMENT '指标类型',
+  `metric_value` decimal(15,2) NOT NULL COMMENT '指标数值',
+  `extra_data` text COMMENT '额外数据JSON',
+  `create_time` datetime NOT NULL COMMENT '创建时间',
+  PRIMARY KEY (`id`),
+  KEY `merchant_id` (`merchant_id`),
+  KEY `date` (`date`),
+  KEY `metric_type` (`metric_type`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='数据统计表';
+```
+
+## 架构设计
+
+采用经典的MVC三层架构，uni-app实现多端适配：
+
+```mermaid
+graph TB
+    subgraph "多端前端层"
+        A[uni-app H5]
+        B[uni-app 小程序]
+        C[uni-app APP]
+        D[管理后台]
+        E[NFC设备]
+    end
+
+    subgraph "应用层"
+        F[ThinkPHP API]
+        G[业务逻辑层]
+        H[数据访问层]
+    end
+
+    subgraph "数据层"
+        I[MySQL数据库]
+        J[Redis缓存]
+        K[阿里云OSS]
+    end
+
+    subgraph "外部服务"
+        L[百度文心一言]
+        M[剪映API]
+        N[抖音API]
+        O[小红书API]
+    end
+
+    A --> F
+    B --> F
+    C --> F
+    D --> F
+    E --> F
+    F --> G
+    G --> H
+    H --> I
+    G --> J
+    G --> K
+    G --> L
+    G --> M
+    G --> N
+    G --> O
+```
+
+## 认证系统设计
+
+### 微信小程序认证流程
+
+#### 登录时序图
+```mermaid
+sequenceDiagram
+    participant MP as 微信小程序
+    participant API as ThinkPHP API
+    participant WX as 微信服务器
+
+    MP->>WX: wx.login() 获取code
+    WX-->>MP: 返回临时code
+    MP->>API: POST /api/auth/login {code}
+    API->>WX: 调用微信接口换取openid
+    WX-->>API: 返回openid、session_key
+    API->>API: 生成JWT token
+    API-->>MP: 返回token和用户信息
+    MP->>MP: 存储token到storage
+```
+
+#### JWT Token设计
+```php
+// JWT载荷结构
+{
+    "iss": "xiaomotui",           // 签发者
+    "aud": "miniprogram",         // 接收者
+    "iat": 1640995200,            // 签发时间
+    "exp": 1641081600,            // 过期时间(24小时)
+    "sub": "user_12345",          // 用户ID
+    "openid": "wx_openid_123",    // 微信openid
+    "role": "user",               // 用户角色 user/merchant/admin
+    "merchant_id": 123            // 商家ID(可选)
+}
+```
+
+### 权限控制系统
+
+#### 角色权限定义
+```php
+// 权限配置
+const PERMISSIONS = [
+    'user' => [
+        'nfc.trigger',           // NFC触发
+        'content.generate',      // 内容生成
+        'content.view',          // 查看内容
+        'publish.own'            // 发布自己的内容
+    ],
+    'merchant' => [
+        'device.manage',         // 设备管理
+        'template.manage',       // 模板管理
+        'coupon.manage',         // 优惠券管理
+        'statistics.view'        // 数据统计
+    ],
+    'admin' => [
+        'system.manage',         // 系统管理
+        'user.manage',           // 用户管理
+        'merchant.audit'         // 商家审核
+    ]
+];
+```
+
+## API接口规范
+
+### 统一响应格式
+
+#### 成功响应
+```json
+{
+    "code": 200,
+    "message": "success",
+    "data": {
+        // 具体数据
+    },
+    "timestamp": 1640995200
+}
+```
+
+#### 错误响应
+```json
+{
+    "code": 400,
+    "message": "参数错误",
+    "error": "validation_failed",
+    "errors": {
+        "phone": ["手机号格式不正确"]
+    },
+    "timestamp": 1640995200
+}
+```
+
+#### 分页响应
+```json
+{
+    "code": 200,
+    "message": "success",
+    "data": {
+        "list": [],
+        "pagination": {
+            "current_page": 1,
+            "per_page": 20,
+            "total": 100,
+            "last_page": 5
+        }
+    },
+    "timestamp": 1640995200
+}
+```
+
+### HTTP状态码规范
+
+```php
+const HTTP_CODES = [
+    200 => '请求成功',
+    201 => '创建成功',
+    400 => '请求参数错误',
+    401 => '未授权',
+    403 => '权限不足',
+    404 => '资源不存在',
+    422 => '数据验证失败',
+    429 => '请求频率超限',
+    500 => '服务器内部错误'
+];
+```
+
+## 组件和接口设计
+
+### 认证相关接口
+
+#### 用户认证控制器 (AuthController)
+```php
+class AuthController extends BaseController
+{
+    /**
+     * 微信登录
+     * POST /api/auth/login
+     */
+    public function login()
+    {
+        // 请求参数
+        {
+            "code": "wx_code_123",      // 微信临时code
+            "encrypted_data": "",       // 加密数据(可选)
+            "iv": ""                    // 初始向量(可选)
+        }
+
+        // 响应数据
+        {
+            "token": "jwt_token_string",
+            "expires_in": 86400,
+            "user": {
+                "id": 123,
+                "openid": "wx_openid_123",
+                "nickname": "用户昵称",
+                "avatar": "头像URL",
+                "member_level": "BASIC"
+            }
+        }
+    }
+
+    /**
+     * 刷新Token
+     * POST /api/auth/refresh
+     */
+    public function refresh()
+    {
+        // 请求头: Authorization: Bearer old_token
+
+        // 响应数据
+        {
+            "token": "new_jwt_token",
+            "expires_in": 86400
+        }
+    }
+
+    /**
+     * 退出登录
+     * POST /api/auth/logout
+     */
+    public function logout()
+    {
+        // 请求头: Authorization: Bearer token
+
+        // 响应: 仅返回状态码200
+    }
+}
+```
+
+### NFC设备相关接口
+
+#### NFC控制器 (NfcController)
+```php
+class NfcController extends BaseController
+{
+    /**
+     * NFC设备触发
+     * POST /api/nfc/trigger
+     */
+    public function trigger()
+    {
+        // 请求参数
+        {
+            "device_code": "NFC001",    // 设备编码
+            "user_location": {          // 用户位置(可选)
+                "latitude": 39.9042,
+                "longitude": 116.4074
+            },
+            "extra_data": {}            // 额外数据
+        }
+
+        // 响应数据
+        {
+            "trigger_id": "trigger_123",
+            "action": "generate_content",
+            "redirect_url": "",
+            "content_task_id": 456,
+            "message": "内容生成任务已创建"
+        }
+    }
+
+    /**
+     * 设备状态上报
+     * POST /api/nfc/device/status
+     */
+    public function deviceStatus()
+    {
+        // 请求参数
+        {
+            "device_code": "NFC001",
+            "battery_level": 85,
+            "signal_strength": -45,
+            "last_trigger_time": "2024-01-01 12:00:00"
+        }
+    }
+
+    /**
+     * 获取设备配置
+     * GET /api/nfc/device/{device_code}/config
+     */
+    public function getConfig($deviceCode)
+    {
+        // 响应数据
+        {
+            "device_info": {
+                "id": 123,
+                "device_code": "NFC001",
+                "device_name": "前台设备",
+                "trigger_mode": "VIDEO",
+                "template_id": 456
+            },
+            "merchant_info": {
+                "name": "咖啡店",
+                "category": "餐饮",
+                "logo": "logo_url"
+            }
+        }
+    }
+}
+```
+
+### 内容生成相关接口
+
+#### 内容控制器 (ContentController)
+```php
+class ContentController extends BaseController
+{
+    /**
+     * 创建内容生成任务
+     * POST /api/content/generate
+     */
+    public function generate()
+    {
+        // 请求参数
+        {
+            "type": "VIDEO",            // VIDEO/TEXT/IMAGE
+            "template_id": 123,         // 模板ID(可选)
+            "merchant_id": 456,         // 商家ID
+            "device_id": 789,           // 设备ID(可选)
+            "input_data": {
+                "scene": "咖啡店",
+                "style": "温馨",
+                "requirements": "突出环境氛围"
+            }
+        }
+
+        // 响应数据
+        {
+            "task_id": 123,
+            "status": "PENDING",
+            "estimated_time": 30,
+            "message": "任务已创建，预计30秒完成"
+        }
+    }
+
+    /**
+     * 查询任务状态
+     * GET /api/content/task/{task_id}/status
+     */
+    public function taskStatus($taskId)
+    {
+        // 响应数据
+        {
+            "task_id": 123,
+            "status": "COMPLETED",      // PENDING/PROCESSING/COMPLETED/FAILED
+            "progress": 100,
+            "result": {
+                "video_url": "https://xxx.mp4",
+                "text": "生成的文案内容",
+                "duration": 15,
+                "file_size": 2048000
+            },
+            "generation_time": 25
+        }
+    }
+
+    /**
+     * 获取模板列表
+     * GET /api/content/templates
+     */
+    public function templates()
+    {
+        // 查询参数
+        // ?type=VIDEO&category=餐饮&page=1&limit=20
+
+        // 响应数据
+        {
+            "list": [
+                {
+                    "id": 123,
+                    "name": "温馨咖啡店模板",
+                    "type": "VIDEO",
+                    "category": "餐饮",
+                    "preview_url": "preview.jpg",
+                    "usage_count": 156
+                }
+            ],
+            "pagination": {
+                "current_page": 1,
+                "per_page": 20,
+                "total": 50,
+                "last_page": 3
+            }
+        }
+    }
+}
+```
+
+### 平台发布相关接口
+
+#### 发布控制器 (PublishController)
+```php
+class PublishController extends BaseController
+{
+    /**
+     * 发布内容到平台
+     * POST /api/publish
+     */
+    public function publish()
+    {
+        // 请求参数
+        {
+            "content_task_id": 123,     // 内容任务ID
+            "platforms": [
+                {
+                    "platform": "DOUYIN",
+                    "account_id": 456,
+                    "config": {
+                        "title": "自定义标题",
+                        "tags": ["咖啡", "探店"]
+                    }
+                }
+            ],
+            "scheduled_time": "2024-01-01 18:00:00"  // 定时发布(可选)
+        }
+
+        // 响应数据
+        {
+            "publish_task_id": 789,
+            "status": "PENDING",
+            "platforms_count": 1,
+            "message": "发布任务已创建"
+        }
+    }
+
+    /**
+     * 平台授权
+     * GET /api/publish/platform/{platform}/auth
+     */
+    public function platformAuth($platform)
+    {
+        // 响应数据
+        {
+            "auth_url": "https://platform.com/oauth/authorize?xxx",
+            "state": "random_state_string"
+        }
+    }
+
+    /**
+     * 平台授权回调
+     * POST /api/publish/platform/{platform}/callback
+     */
+    public function authCallback($platform)
+    {
+        // 请求参数
+        {
+            "code": "platform_auth_code",
+            "state": "random_state_string"
+        }
+
+        // 响应数据
+        {
+            "account_info": {
+                "platform_uid": "douyin_123",
+                "platform_name": "用户昵称",
+                "avatar": "头像URL",
+                "follower_count": 1000
+            }
+        }
+    }
+}
+```
+
+### 服务层设计
+
+#### AI内容服务 (AiContentService)
+```php
+class AiContentService
+{
+    public function generateVideo($params) {
+        // 调用剪映API生成视频
+    }
+
+    public function generateText($params) {
+        // 调用文心一言生成文案
+    }
+
+    public function processTemplate($templateId, $data) {
+        // 处理模板生成
+    }
+}
+```
+
+#### 平台发布服务 (PublishService)
+```php
+class PublishService
+{
+    public function publishToDouyin($content, $account) {
+        // 发布到抖音
+    }
+
+    public function publishToXiaohongshu($content, $account) {
+        // 发布到小红书
+    }
+
+    public function schedulePublish($taskId, $time) {
+        // 定时发布
+    }
+}
+```
+
+## 错误处理策略
+
+### 常见错误场景
+
+1. **NFC设备离线**: 记录日志，推送告警给商家
+2. **AI生成失败**: 降级使用模板，重试3次
+3. **平台发布失败**: 记录错误原因，支持手动重试
+4. **网络超时**: 设置合理超时时间，提供友好错误提示
+
+## 测试策略
+
+### 功能测试
+- **API接口测试**: 使用Postman测试所有接口
+- **数据库测试**: 验证数据完整性和一致性
+- **业务流程测试**: 完整的用户使用流程测试
+
+### 性能测试
+- **并发测试**: 使用ab或wrk进行压力测试
+- **数据库优化**: 添加必要的索引和查询优化
+
+这个设计更加实用和简单，使用ThinkPHP框架便于快速开发，重点关注功能实现而不是复杂的架构设计。

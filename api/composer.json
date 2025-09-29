@@ -1,0 +1,56 @@
+{
+    "name": "xiaomotui/api",
+    "description": "小磨推ThinkPHP 8.0 API服务",
+    "type": "project",
+    "keywords": ["thinkphp", "api", "xiaomotui"],
+    "homepage": "https://www.thinkphp.cn/",
+    "license": "Apache-2.0",
+    "authors": [
+        {
+            "name": "xiaomotui",
+            "email": "admin@xiaomotui.com"
+        }
+    ],
+    "require": {
+        "php": ">=8.1.0",
+        "topthink/framework": "^8.0",
+        "topthink/think-orm": "^3.0",
+        "topthink/think-multi-app": "^1.0",
+        "topthink/think-view": "^2.0",
+        "topthink/think-captcha": "^3.0",
+        "topthink/think-redis": "^2.0",
+        "topthink/think-queue": "^3.0",
+        "firebase/php-jwt": "^6.0",
+        "guzzlehttp/guzzle": "^7.0",
+        "qiniu/php-sdk": "^7.0",
+        "aliyuncs/oss-sdk-php": "^2.0",
+        "overtrue/wechat": "^6.0",
+        "phpmailer/phpmailer": "^6.0",
+        "monolog/monolog": "^3.0",
+        "vlucas/phpdotenv": "^5.0"
+    },
+    "require-dev": {
+        "symfony/var-dumper": "^6.0",
+        "phpunit/phpunit": "^10.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "app\\": "app/"
+        },
+        "psr-0": {
+            "": "extend/"
+        }
+    },
+    "config": {
+        "preferred-install": "dist",
+        "allow-plugins": {
+            "topthink/think-installer": true
+        }
+    },
+    "scripts": {
+        "post-autoload-dump": [
+            "@php think service:discover",
+            "@php think vendor:publish"
+        ]
+    }
+}
