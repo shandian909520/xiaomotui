@@ -15,10 +15,8 @@
         "php": ">=8.1.0",
         "topthink/framework": "^8.0",
         "topthink/think-orm": "^3.0",
-        "topthink/think-multi-app": "^1.0",
         "topthink/think-view": "^2.0",
         "topthink/think-captcha": "^3.0",
-        "topthink/think-redis": "^2.0",
         "topthink/think-queue": "^3.0",
         "firebase/php-jwt": "^6.0",
         "guzzlehttp/guzzle": "^7.0",
@@ -39,6 +37,11 @@
         },
         "psr-0": {
             "": "extend/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "tests\\": "tests/"
         }
     },
     "config": {

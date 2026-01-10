@@ -9,6 +9,8 @@ return [
     \think\middleware\SessionInit::class,
     // 跨域请求支持
     \app\middleware\AllowCrossDomain::class,
+    // 全局错误处理
+    \app\middleware\ErrorHandler::class,
     // API访问频次限制
     // \app\middleware\ApiThrottle::class,
 ];

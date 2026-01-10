@@ -1,0 +1,85 @@
+# 小魔推 API 定时任务配置
+# 版本: 1.0.0
+# 安装方法: crontab /var/www/xiaomotui/deploy/crontab.txt
+
+# ==================== 队列处理 ====================
+
+# 内容生成队列 - 每分钟执行一次
+*/1 * * * * cd /var/www/xiaomotui/api && php think queue:work --daemon >> /var/log/xiaomotui/queue.log 2>&1
+
+# ==================== 定时发布 ====================
+
+# 定时发布内容 - 每5分钟检查一次
+*/5 * * * * cd /var/www/xiaomotui/api && php think command:ScheduledPublish >> /var/log/xiaomotui/scheduled-publish.log 2>&1
+
+# ==================== 设备监控 ====================
+
+# 设备健康检查 - 每10分钟执行一次
+*/10 * * * * cd /var/www/xiaomotui/api && php think command:DeviceHealthCheck >> /var/log/xiaomotui/device-health.log 2>&1
+
+# 设备告警检查 - 每5分钟执行一次
+*/5 * * * * cd /var/www/xiaomotui/api && php think command:AlertMonitor >> /var/log/xiaomotui/alert-monitor.log 2>&1
+
+# ==================== 数据统计 ====================
+
+# 统计数据聚合 - 每天凌晨1点执行
+0 1 * * * cd /var/www/xiaomotui/api && php think command:AggregateStats >> /var/log/xiaomotui/stats.log 2>&1
+
+# 生成每日报表 - 每天凌晨2点执行
+0 2 * * * cd /var/www/xiaomotui/api && php think command:DailyReport >> /var/log/xiaomotui/report.log 2>&1
+
+# ==================== 数据清理 ====================
+
+# 清理过期日志 - 每天凌晨3点执行（保留7天）
+0 3 * * * find /var/log/xiaomotui -name "*.log" -mtime +7 -delete
+
+# 清理过期缓存 - 每天凌晨3点10分执行
+10 3 * * * cd /var/www/xiaomotui/api && php think clear:cache >> /var/log/xiaomotui/clear-cache.log 2>&1
+
+# 清理临时文件 - 每天凌晨3点20分执行
+20 3 * * * find /var/www/xiaomotui/api/runtime/temp -type f -mtime +1 -delete
+
+# 清理过期会话 - 每天凌晨3点30分执行
+30 3 * * * cd /var/www/xiaomotui/api && php think clear:session >> /var/log/xiaomotui/clear-session.log 2>&1
+
+# ==================== 数据备份 ====================
+
+# 每日备份 - 每天凌晨4点执行
+0 4 * * * /var/www/xiaomotui/deploy/backup.sh >> /var/log/xiaomotui/backup.log 2>&1
+
+# 数据库备份 - 每天凌晨4点30分执行
+30 4 * * * /var/www/xiaomotui/deploy/backup_database.sh >> /var/log/xiaomotui/db-backup.log 2>&1
+
+# ==================== 微信相关 ====================
+
+# 刷新微信 Access Token - 每小时执行一次
+0 * * * * cd /var/www/xiaomotui/api && php think command:RefreshWechatToken >> /var/log/xiaomotui/wechat-token.log 2>&1
+
+# 同步微信用户信息 - 每天凌晨5点执行
+0 5 * * * cd /var/www/xiaomotui/api && php think command:SyncWechatUsers >> /var/log/xiaomotui/wechat-sync.log 2>&1
+
+# ==================== 优惠券相关 ====================
+
+# 检查过期优惠券 - 每小时执行一次
+0 * * * * cd /var/www/xiaomotui/api && php think command:ExpireCoupons >> /var/log/xiaomotui/expire-coupons.log 2>&1
+
+# ==================== 性能优化 ====================
+
+# 预热缓存 - 每天凌晨6点执行
+0 6 * * * cd /var/www/xiaomotui/api && php think cache:warmup >> /var/log/xiaomotui/cache-warmup.log 2>&1
+
+# 优化数据库表 - 每周日凌晨5点执行
+0 5 * * 0 cd /var/www/xiaomotui/api && php think db:optimize >> /var/log/xiaomotui/db-optimize.log 2>&1
+
+# ==================== 监控和告警 ====================
+
+# 系统监控 - 每5分钟执行一次
+*/5 * * * * cd /var/www/xiaomotui/api && php think command:SystemMonitor >> /var/log/xiaomotui/system-monitor.log 2>&1
+
+# 错误日志监控 - 每10分钟检查一次
+*/10 * * * * cd /var/www/xiaomotui/api && php think command:ErrorLogMonitor >> /var/log/xiaomotui/error-monitor.log 2>&1
+
+# ==================== 日志轮转 ====================
+
+# 日志轮转 - 每天凌晨0点执行
+0 0 * * * /usr/sbin/logrotate /etc/logrotate.d/xiaomotui >> /var/log/xiaomotui/logrotate.log 2>&1

@@ -1,0 +1,241 @@
+﻿<?php
+declare (strict_types = 1);
+
+namespace app\controller;
+
+use app\service\AuthService;
+use app\validate\WechatAuth;
+use think\Request;
+
+/**
+ * 璁よ瘉鎺у埗鍣? */
+class Auth extends BaseController
+{
+    protected AuthService $authService;
+
+    protected function initialize(): void
+    {
+        parent::initialize();
+        $this->authService = new AuthService();
+    }
+
+    /**
+     * 寰俊灏忕▼搴忕櫥褰?     * POST /api/auth/login
+     */
+    public function login()
+    {
+        $data = $this->request->post();
+
+        try {
+            // 鏍规嵁鏄惁鏈夊姞瀵嗘暟鎹€夋嫨楠岃瘉鍦烘櫙
+            $scene = (!empty($data['encrypted_data']) && !empty($data['iv'])) ? 'loginWithUserInfo' : 'login';
+            $this->validate($data, 'WechatAuth.' . $scene);
+
+            $result = $this->authService->wechatLogin(
+                $data['code'],
+                $data['encrypted_data'] ?? '',
+                $data['iv'] ?? ''
+            );
+
+            return $this->success($result, '鐧诲綍鎴愬姛');
+        } catch (\Exception $e) {
+            return $this->error($e->getMessage(), 400, 'login_failed');
+        }
+    }
+
+    /**
+     * 鐢ㄦ埛娉ㄥ唽 (寰俊灏忕▼搴忎笉闇€瑕佸崟鐙敞鍐岋紝鐧诲綍鏃惰嚜鍔ㄥ垱寤?
+     * 淇濈暀姝ゆ帴鍙ｄ綔涓洪鐣?     */
+    public function register()
+    {
+        return $this->error('寰俊灏忕▼搴忎笉闇€瑕佸崟鐙敞鍐岋紝璇蜂娇鐢ㄧ櫥褰曟帴鍙?, 400, 'not_supported');
+    }
+
+    /**
+     * 鍒锋柊浠ょ墝
+     * POST /api/auth/refresh
+     */
+    public function refresh()
+    {
+        $data = $this->request->post();
+
+        try {
+            $this->validate($data, 'WechatAuth.refresh');
+
+            $result = $this->authService->refreshToken($data['refresh_token']);
+
+            return $this->success($result, '鍒锋柊鎴愬姛');
+        } catch (\Exception $e) {
+            return $this->error($e->getMessage(), 401, 'token_refresh_failed');
+        }
+    }
+
+    /**
+     * 鐢ㄦ埛鐧诲嚭
+     * POST /api/auth/logout
+     */
+    public function logout()
+    {
+        try {
+            $token = $this->request->header('Authorization');
+
+            if (empty($token)) {
+                return $this->error('鏈壘鍒版巿鏉冧护鐗?, 401, 'token_missing');
+            }
+
+            $this->authService->logout($token);
+
+            return $this->success(null, '鐧诲嚭鎴愬姛');
+        } catch (\Exception $e) {
+            return $this->error($e->getMessage(), 400, 'logout_failed');
+        }
+    }
+
+    /**
+     * 鑾峰彇鐢ㄦ埛淇℃伅
+     * GET /api/auth/info
+     * 闇€瑕佹巿鏉冭闂?     */
+    public function info()
+    {
+        try {
+            // 浠庤姹備腑鑾峰彇鐢ㄦ埛ID(鐢变腑闂翠欢璁剧疆)
+            $userId = $this->request->user_id ?? null;
+
+            if (!$userId) {
+                return $this->error('鐢ㄦ埛鏈櫥褰?, 401, 'unauthorized');
+            }
+
+            $userInfo = $this->authService->getUserInfo($userId);
+
+            return $this->success($userInfo, '鑾峰彇鎴愬姛');
+        } catch (\Exception $e) {
+            return $this->error($e->getMessage(), 400, 'get_user_info_failed');
+        }
+    }
+
+    /**
+     * 鏇存柊鐢ㄦ埛淇℃伅
+     * POST /api/auth/update
+     */
+    public function update()
+    {
+        $data = $this->request->post();
+        $userId = $this->request->user_id ?? null;
+
+        if (!$userId) {
+            return $this->error('鐢ㄦ埛鏈櫥褰?, 401, 'unauthorized');
+        }
+
+        try {
+            // 楠岃瘉鏇存柊鏁版嵁
+            $this->validate($data, [
+                'nickname' => 'length:1,50',
+                'phone' => 'mobile',
+                'avatar' => 'url'
+            ]);
+
+            $result = $this->authService->updateUserInfo($userId, $data);
+
+            return $this->success($result, '鏇存柊鎴愬姛');
+        } catch (\Exception $e) {
+            return $this->error($e->getMessage(), 400, 'update_failed');
+        }
+    }
+
+    /**
+     * 缁戝畾鎵嬫満鍙?     * POST /api/auth/bind-phone
+     */
+    public function bindPhone()
+    {
+        $data = $this->request->post();
+        $userId = $this->request->user_id ?? null;
+
+        if (!$userId) {
+            return $this->error('鐢ㄦ埛鏈櫥褰?, 401, 'unauthorized');
+        }
+
+        try {
+            $this->validate($data, [
+                'phone' => 'require|mobile',
+                'code' => 'require|length:6,6'
+            ]);
+
+            $result = $this->authService->bindPhone($userId, $data['phone'], $data['code']);
+
+            return $this->success($result, '缁戝畾鎴愬姛');
+        } catch (\Exception $e) {
+            return $this->error($e->getMessage(), 400, 'bind_phone_failed');
+        }
+    }
+
+    /**
+     * 鍙戦€侀獙璇佺爜锛圚5鐧诲綍锛?     * POST /api/auth/send-code
+     */
+    public function sendCode()
+    {
+        $data = $this->request->post();
+
+        try {
+            $this->validate($data, [
+                'phone' => 'require|mobile'
+            ]);
+
+            // 鐢熸垚6浣嶆暟楠岃瘉鐮?            $code = str_pad((string)rand(0, 999999), 6, '0', STR_PAD_LEFT);
+
+            // 灏嗛獙璇佺爜瀛樺偍鍒扮紦瀛橈紝鏈夋晥鏈?鍒嗛挓
+            $cacheKey = 'sms_code:' . $data['phone'];
+            cache($cacheKey, $code, 300);
+
+            // TODO: 瀹為檯椤圭洰涓簲璇ヨ皟鐢ㄧ煭淇℃湇鍔″彂閫侀獙璇佺爜
+            // 寮€鍙戠幆澧冪洿鎺ヨ繑鍥為獙璇佺爜锛堢敓浜х幆澧冨簲璇ュ垹闄ゆ琛岋級
+            $responseData = [
+                'message' => '楠岃瘉鐮佸凡鍙戦€?,
+                'code' => $code // 鐢熶骇鐜鍒犻櫎姝よ
+            ];
+
+            return $this->success($responseData, '楠岃瘉鐮佸凡鍙戦€?);
+        } catch (\Exception $e) {
+            return $this->error($e->getMessage(), 400, 'send_code_failed');
+        }
+    }
+
+    /**
+     * 鎵嬫満鍙烽獙璇佺爜鐧诲綍锛圚5锛?     * POST /api/auth/phone-login
+     */
+    public function phoneLogin()
+    {
+        $data = $this->request->post();
+
+        try {
+            $this->validate($data, [
+                'phone' => 'require|mobile',
+                'code' => 'require|length:6,6'
+            ]);
+
+            // 娴嬭瘯妯″紡锛氬厑璁哥壒瀹氶獙璇佺爜鐩存帴鐧诲綍
+            $testMode = env('app.debug', false);
+            $testCode = '123456';
+
+            if ($testMode && $data['code'] === $testCode) {
+                // 娴嬭瘯妯″紡涓嬬洿鎺ョ櫥褰?                $result = $this->authService->phoneLogin($data['phone']);
+                return $this->success($result, '鐧诲綍鎴愬姛(娴嬭瘯妯″紡)');
+            }
+
+            // 姝ｅ父妯″紡锛氶獙璇侀獙璇佺爜
+            $cacheKey = 'sms_code:' . $data['phone'];
+            $cachedCode = cache($cacheKey);
+
+            if (!$cachedCode || $cachedCode !== $data['code']) {
+                return $this->error('楠岃瘉鐮侀敊璇垨宸茶繃鏈?, 400, 'invalid_code');
+            }
+
+            // 鍒犻櫎宸蹭娇鐢ㄧ殑楠岃瘉鐮?            cache($cacheKey, null);
+
+            // 鏌ユ壘鎴栧垱寤虹敤鎴?            $result = $this->authService->phoneLogin($data['phone']);
+
+            return $this->success($result, '鐧诲綍鎴愬姛');
+        } catch (\Exception $e) {
+            return $this->error($e->getMessage(), 400, 'phone_login_failed');
+        }
+    }
+}

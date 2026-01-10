@@ -1,0 +1,301 @@
+{
+  "easycom": {
+    "autoscan": true,
+    "custom": {
+      "^uni-(.*)": "@dcloudio/uni-ui/lib/uni-$1/uni-$1.vue"
+    }
+  },
+  "pages": [
+    {
+      "path": "pages/auth/index",
+      "style": {
+        "navigationBarTitleText": "登录",
+        "navigationBarBackgroundColor": "#6366f1",
+        "navigationBarTextStyle": "white",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/index/index",
+      "style": {
+        "navigationBarTitleText": "小魔推",
+        "navigationBarBackgroundColor": "#6366f1",
+        "navigationBarTextStyle": "white",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
+      "path": "pages/nfc/trigger",
+      "style": {
+        "navigationBarTitleText": "碰一碰触发",
+        "navigationBarBackgroundColor": "#6366f1",
+        "navigationBarTextStyle": "white"
+      }
+    },
+    {
+      "path": "pages/content/preview",
+      "style": {
+        "navigationBarTitleText": "内容预览",
+        "navigationBarBackgroundColor": "#6366f1",
+        "navigationBarTextStyle": "white"
+      }
+    },
+    {
+      "path": "pages/content/generate",
+      "style": {
+        "navigationBarTitleText": "AI内容生成",
+        "navigationBarBackgroundColor": "#6366f1",
+        "navigationBarTextStyle": "white"
+      }
+    },
+    {
+      "path": "pages/publish/settings",
+      "style": {
+        "navigationBarTitleText": "发布设置",
+        "navigationBarBackgroundColor": "#6366f1",
+        "navigationBarTextStyle": "white"
+      }
+    },
+    {
+      "path": "pages/publish/schedule",
+      "style": {
+        "navigationBarTitleText": "定时发布",
+        "navigationBarBackgroundColor": "#6366f1",
+        "navigationBarTextStyle": "white"
+      }
+    },
+    {
+      "path": "pages/material/list",
+      "style": {
+        "navigationBarTitleText": "素材库",
+        "navigationBarBackgroundColor": "#6366f1",
+        "navigationBarTextStyle": "white",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
+      "path": "pages/material/detail",
+      "style": {
+        "navigationBarTitleText": "素材详情",
+        "navigationBarBackgroundColor": "#6366f1",
+        "navigationBarTextStyle": "white"
+      }
+    },
+    {
+      "path": "pages/merchant/info",
+      "style": {
+        "navigationBarTitleText": "商户信息",
+        "navigationBarBackgroundColor": "#6366f1",
+        "navigationBarTextStyle": "white"
+      }
+    },
+    {
+      "path": "pages/merchant/devices",
+      "style": {
+        "navigationBarTitleText": "设备管理",
+        "navigationBarBackgroundColor": "#6366f1",
+        "navigationBarTextStyle": "white",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
+      "path": "pages/statistics/overview",
+      "style": {
+        "navigationBarTitleText": "数据统计",
+        "navigationBarBackgroundColor": "#6366f1",
+        "navigationBarTextStyle": "white",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
+      "path": "pages/statistics/analysis",
+      "style": {
+        "navigationBarTitleText": "数据分析",
+        "navigationBarBackgroundColor": "#6366f1",
+        "navigationBarTextStyle": "white"
+      }
+    },
+    {
+      "path": "pages/user/profile",
+      "style": {
+        "navigationBarTitleText": "个人中心",
+        "navigationBarBackgroundColor": "#6366f1",
+        "navigationBarTextStyle": "white"
+      }
+    },
+    {
+      "path": "pages/user/settings",
+      "style": {
+        "navigationBarTitleText": "系统设置",
+        "navigationBarBackgroundColor": "#6366f1",
+        "navigationBarTextStyle": "white"
+      }
+    },
+    {
+      "path": "pages/error/404",
+      "style": {
+        "navigationBarTitleText": "页面不存在",
+        "navigationBarBackgroundColor": "#6366f1",
+        "navigationBarTextStyle": "white"
+      }
+    },
+    {
+      "path": "pages/error/500",
+      "style": {
+        "navigationBarTitleText": "服务器错误",
+        "navigationBarBackgroundColor": "#6366f1",
+        "navigationBarTextStyle": "white"
+      }
+    },
+    {
+      "path": "pages/error/network",
+      "style": {
+        "navigationBarTitleText": "网络错误",
+        "navigationBarBackgroundColor": "#6366f1",
+        "navigationBarTextStyle": "white"
+      }
+    }
+  ],
+  "subPackages": [
+    {
+      "root": "pages-sub/marketing",
+      "pages": [
+        {
+          "path": "coupon/list",
+          "style": {
+            "navigationBarTitleText": "优惠券管理",
+            "navigationBarBackgroundColor": "#6366f1",
+            "navigationBarTextStyle": "white"
+          }
+        },
+        {
+          "path": "coupon/create",
+          "style": {
+            "navigationBarTitleText": "创建优惠券",
+            "navigationBarBackgroundColor": "#6366f1",
+            "navigationBarTextStyle": "white"
+          }
+        },
+        {
+          "path": "groupbuy/list",
+          "style": {
+            "navigationBarTitleText": "团购活动",
+            "navigationBarBackgroundColor": "#6366f1",
+            "navigationBarTextStyle": "white"
+          }
+        },
+        {
+          "path": "groupbuy/create",
+          "style": {
+            "navigationBarTitleText": "创建团购",
+            "navigationBarBackgroundColor": "#6366f1",
+            "navigationBarTextStyle": "white"
+          }
+        }
+      ]
+    },
+    {
+      "root": "pages-sub/dining",
+      "pages": [
+        {
+          "path": "table/list",
+          "style": {
+            "navigationBarTitleText": "餐桌管理",
+            "navigationBarBackgroundColor": "#6366f1",
+            "navigationBarTextStyle": "white"
+          }
+        },
+        {
+          "path": "session/list",
+          "style": {
+            "navigationBarTitleText": "就餐记录",
+            "navigationBarBackgroundColor": "#6366f1",
+            "navigationBarTextStyle": "white"
+          }
+        },
+        {
+          "path": "session/detail",
+          "style": {
+            "navigationBarTitleText": "就餐详情",
+            "navigationBarBackgroundColor": "#6366f1",
+            "navigationBarTextStyle": "white"
+          }
+        }
+      ]
+    },
+    {
+      "root": "pages-sub/alert",
+      "pages": [
+        {
+          "path": "list",
+          "style": {
+            "navigationBarTitleText": "告警列表",
+            "navigationBarBackgroundColor": "#6366f1",
+            "navigationBarTextStyle": "white"
+          }
+        },
+        {
+          "path": "detail",
+          "style": {
+            "navigationBarTitleText": "告警详情",
+            "navigationBarBackgroundColor": "#6366f1",
+            "navigationBarTextStyle": "white"
+          }
+        },
+        {
+          "path": "rules",
+          "style": {
+            "navigationBarTitleText": "告警规则",
+            "navigationBarBackgroundColor": "#6366f1",
+            "navigationBarTextStyle": "white"
+          }
+        }
+      ]
+    }
+  ],
+  "tabBar": {
+    "color": "#7A7E83",
+    "selectedColor": "#6366f1",
+    "borderStyle": "black",
+    "backgroundColor": "#ffffff",
+    "list": [
+      {
+        "pagePath": "pages/index/index",
+        "iconPath": "static/tabbar/home.png",
+        "selectedIconPath": "static/tabbar/home-active.png",
+        "text": "首页"
+      },
+      {
+        "pagePath": "pages/material/list",
+        "iconPath": "static/tabbar/material.png",
+        "selectedIconPath": "static/tabbar/material-active.png",
+        "text": "素材"
+      },
+      {
+        "pagePath": "pages/statistics/overview",
+        "iconPath": "static/tabbar/stats.png",
+        "selectedIconPath": "static/tabbar/stats-active.png",
+        "text": "数据"
+      },
+      {
+        "pagePath": "pages/user/profile",
+        "iconPath": "static/tabbar/user.png",
+        "selectedIconPath": "static/tabbar/user-active.png",
+        "text": "我的"
+      }
+    ]
+  },
+  "globalStyle": {
+    "navigationBarTextStyle": "white",
+    "navigationBarTitleText": "小魔推碰一碰",
+    "navigationBarBackgroundColor": "#6366f1",
+    "backgroundColor": "#f8f9fa",
+    "backgroundTextStyle": "light",
+    "enablePullDownRefresh": false,
+    "app-plus": {
+      "titleNView": {
+        "buttons": []
+      }
+    }
+  }
+}

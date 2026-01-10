@@ -1,0 +1,285 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites>
+  <testsuite name="tests\api\NfcTest" file="D:\xiaomotui\api\tests\api\NfcTest.php" tests="20" assertions="0" errors="20" failures="0" skipped="0" time="0.000000">
+    <testcase name="testTriggerVideoModeSuccess" file="D:\xiaomotui\api\tests\api\NfcTest.php" line="214" class="tests\api\NfcTest" classname="tests.api.NfcTest" assertions="0" time="0.000000">
+      <error type="PDOException">tests\api\NfcTest::testTriggerVideoModeSuccess&#13;
+PDOException: SQLSTATE[HY000] [1045] Access denied for user 'root'@'localhost' (using password: NO)
+&#13;
+D:\xiaomotui\api\vendor\topthink\think-orm\src\db\PDOConnection.php:621
+D:\xiaomotui\api\vendor\topthink\think-orm\src\db\PDOConnection.php:578
+D:\xiaomotui\api\vendor\topthink\think-orm\src\db\PDOConnection.php:1824
+D:\xiaomotui\api\vendor\topthink\think-orm\src\db\PDOConnection.php:1552
+D:\xiaomotui\api\vendor\topthink\think-orm\src\DbManager.php:399
+D:\xiaomotui\api\vendor\topthink\think-container\src\Facade.php:97
+D:\xiaomotui\api\tests\TestCase.php:45
+D:\xiaomotui\api\tests\api\NfcTest.php:51
+D:\xiaomotui\api\vendor\bin\phpunit:122</error>
+    </testcase>
+    <testcase name="testTriggerWithInvalidDeviceCode" file="D:\xiaomotui\api\tests\api\NfcTest.php" line="251" class="tests\api\NfcTest" classname="tests.api.NfcTest" assertions="0" time="0.000000">
+      <error type="PDOException">tests\api\NfcTest::testTriggerWithInvalidDeviceCode&#13;
+PDOException: SQLSTATE[HY000] [1045] Access denied for user 'root'@'localhost' (using password: NO)
+&#13;
+D:\xiaomotui\api\vendor\topthink\think-orm\src\db\PDOConnection.php:621
+D:\xiaomotui\api\vendor\topthink\think-orm\src\db\PDOConnection.php:578
+D:\xiaomotui\api\vendor\topthink\think-orm\src\db\PDOConnection.php:1824
+D:\xiaomotui\api\vendor\topthink\think-orm\src\db\PDOConnection.php:1552
+D:\xiaomotui\api\vendor\topthink\think-orm\src\DbManager.php:399
+D:\xiaomotui\api\vendor\topthink\think-container\src\Facade.php:97
+D:\xiaomotui\api\tests\TestCase.php:45
+D:\xiaomotui\api\tests\api\NfcTest.php:51
+D:\xiaomotui\api\vendor\bin\phpunit:122</error>
+    </testcase>
+    <testcase name="testTriggerOfflineDeviceFailed" file="D:\xiaomotui\api\tests\api\NfcTest.php" line="267" class="tests\api\NfcTest" classname="tests.api.NfcTest" assertions="0" time="0.000000">
+      <error type="PDOException">tests\api\NfcTest::testTriggerOfflineDeviceFailed&#13;
+PDOException: SQLSTATE[HY000] [1045] Access denied for user 'root'@'localhost' (using password: NO)
+&#13;
+D:\xiaomotui\api\vendor\topthink\think-orm\src\db\PDOConnection.php:621
+D:\xiaomotui\api\vendor\topthink\think-orm\src\db\PDOConnection.php:578
+D:\xiaomotui\api\vendor\topthink\think-orm\src\db\PDOConnection.php:1824
+D:\xiaomotui\api\vendor\topthink\think-orm\src\db\PDOConnection.php:1552
+D:\xiaomotui\api\vendor\topthink\think-orm\src\DbManager.php:399
+D:\xiaomotui\api\vendor\topthink\think-container\src\Facade.php:97
+D:\xiaomotui\api\tests\TestCase.php:45
+D:\xiaomotui\api\tests\api\NfcTest.php:51
+D:\xiaomotui\api\vendor\bin\phpunit:122</error>
+    </testcase>
+    <testcase name="testTriggerCouponModeSuccess" file="D:\xiaomotui\api\tests\api\NfcTest.php" line="285" class="tests\api\NfcTest" classname="tests.api.NfcTest" assertions="0" time="0.000000">
+      <error type="PDOException">tests\api\NfcTest::testTriggerCouponModeSuccess&#13;
+PDOException: SQLSTATE[HY000] [1045] Access denied for user 'root'@'localhost' (using password: NO)
+&#13;
+D:\xiaomotui\api\vendor\topthink\think-orm\src\db\PDOConnection.php:621
+D:\xiaomotui\api\vendor\topthink\think-orm\src\db\PDOConnection.php:578
+D:\xiaomotui\api\vendor\topthink\think-orm\src\db\PDOConnection.php:1824
+D:\xiaomotui\api\vendor\topthink\think-orm\src\db\PDOConnection.php:1552
+D:\xiaomotui\api\vendor\topthink\think-orm\src\DbManager.php:399
+D:\xiaomotui\api\vendor\topthink\think-container\src\Facade.php:97
+D:\xiaomotui\api\tests\TestCase.php:45
+D:\xiaomotui\api\tests\api\NfcTest.php:51
+D:\xiaomotui\api\vendor\bin\phpunit:122</error>
+    </testcase>
+    <testcase name="testTriggerWifiModeSuccess" file="D:\xiaomotui\api\tests\api\NfcTest.php" line="310" class="tests\api\NfcTest" classname="tests.api.NfcTest" assertions="0" time="0.000000">
+      <error type="PDOException">tests\api\NfcTest::testTriggerWifiModeSuccess&#13;
+PDOException: SQLSTATE[HY000] [1045] Access denied for user 'root'@'localhost' (using password: NO)
+&#13;
+D:\xiaomotui\api\vendor\topthink\think-orm\src\db\PDOConnection.php:621
+D:\xiaomotui\api\vendor\topthink\think-orm\src\db\PDOConnection.php:578
+D:\xiaomotui\api\vendor\topthink\think-orm\src\db\PDOConnection.php:1824
+D:\xiaomotui\api\vendor\topthink\think-orm\src\db\PDOConnection.php:1552
+D:\xiaomotui\api\vendor\topthink\think-orm\src\DbManager.php:399
+D:\xiaomotui\api\vendor\topthink\think-container\src\Facade.php:97
+D:\xiaomotui\api\tests\TestCase.php:45
+D:\xiaomotui\api\tests\api\NfcTest.php:51
+D:\xiaomotui\api\vendor\bin\phpunit:122</error>
+    </testcase>
+    <testcase name="testTriggerContactModeSuccess" file="D:\xiaomotui\api\tests\api\NfcTest.php" line="337" class="tests\api\NfcTest" classname="tests.api.NfcTest" assertions="0" time="0.000000">
+      <error type="PDOException">tests\api\NfcTest::testTriggerContactModeSuccess&#13;
+PDOException: SQLSTATE[HY000] [1045] Access denied for user 'root'@'localhost' (using password: NO)
+&#13;
+D:\xiaomotui\api\vendor\topthink\think-orm\src\db\PDOConnection.php:621
+D:\xiaomotui\api\vendor\topthink\think-orm\src\db\PDOConnection.php:578
+D:\xiaomotui\api\vendor\topthink\think-orm\src\db\PDOConnection.php:1824
+D:\xiaomotui\api\vendor\topthink\think-orm\src\db\PDOConnection.php:1552
+D:\xiaomotui\api\vendor\topthink\think-orm\src\DbManager.php:399
+D:\xiaomotui\api\vendor\topthink\think-container\src\Facade.php:97
+D:\xiaomotui\api\tests\TestCase.php:45
+D:\xiaomotui\api\tests\api\NfcTest.php:51
+D:\xiaomotui\api\vendor\bin\phpunit:122</error>
+    </testcase>
+    <testcase name="testTriggerMenuModeSuccess" file="D:\xiaomotui\api\tests\api\NfcTest.php" line="365" class="tests\api\NfcTest" classname="tests.api.NfcTest" assertions="0" time="0.000000">
+      <error type="PDOException">tests\api\NfcTest::testTriggerMenuModeSuccess&#13;
+PDOException: SQLSTATE[HY000] [1045] Access denied for user 'root'@'localhost' (using password: NO)
+&#13;
+D:\xiaomotui\api\vendor\topthink\think-orm\src\db\PDOConnection.php:621
+D:\xiaomotui\api\vendor\topthink\think-orm\src\db\PDOConnection.php:578
+D:\xiaomotui\api\vendor\topthink\think-orm\src\db\PDOConnection.php:1824
+D:\xiaomotui\api\vendor\topthink\think-orm\src\db\PDOConnection.php:1552
+D:\xiaomotui\api\vendor\topthink\think-orm\src\DbManager.php:399
+D:\xiaomotui\api\vendor\topthink\think-container\src\Facade.php:97
+D:\xiaomotui\api\tests\TestCase.php:45
+D:\xiaomotui\api\tests\api\NfcTest.php:51
+D:\xiaomotui\api\vendor\bin\phpunit:122</error>
+    </testcase>
+    <testcase name="testTriggerGroupBuyModeSuccess" file="D:\xiaomotui\api\tests\api\NfcTest.php" line="389" class="tests\api\NfcTest" classname="tests.api.NfcTest" assertions="0" time="0.000000">
+      <error type="PDOException">tests\api\NfcTest::testTriggerGroupBuyModeSuccess&#13;
+PDOException: SQLSTATE[HY000] [1045] Access denied for user 'root'@'localhost' (using password: NO)
+&#13;
+D:\xiaomotui\api\vendor\topthink\think-orm\src\db\PDOConnection.php:621
+D:\xiaomotui\api\vendor\topthink\think-orm\src\db\PDOConnection.php:578
+D:\xiaomotui\api\vendor\topthink\think-orm\src\db\PDOConnection.php:1824
+D:\xiaomotui\api\vendor\topthink\think-orm\src\db\PDOConnection.php:1552
+D:\xiaomotui\api\vendor\topthink\think-orm\src\DbManager.php:399
+D:\xiaomotui\api\vendor\topthink\think-container\src\Facade.php:97
+D:\xiaomotui\api\tests\TestCase.php:45
+D:\xiaomotui\api\tests\api\NfcTest.php:51
+D:\xiaomotui\api\vendor\bin\phpunit:122</error>
+    </testcase>
+    <testcase name="testDeviceStatusReportSuccess" file="D:\xiaomotui\api\tests\api\NfcTest.php" line="417" class="tests\api\NfcTest" classname="tests.api.NfcTest" assertions="0" time="0.000000">
+      <error type="PDOException">tests\api\NfcTest::testDeviceStatusReportSuccess&#13;
+PDOException: SQLSTATE[HY000] [1045] Access denied for user 'root'@'localhost' (using password: NO)
+&#13;
+D:\xiaomotui\api\vendor\topthink\think-orm\src\db\PDOConnection.php:621
+D:\xiaomotui\api\vendor\topthink\think-orm\src\db\PDOConnection.php:578
+D:\xiaomotui\api\vendor\topthink\think-orm\src\db\PDOConnection.php:1824
+D:\xiaomotui\api\vendor\topthink\think-orm\src\db\PDOConnection.php:1552
+D:\xiaomotui\api\vendor\topthink\think-orm\src\DbManager.php:399
+D:\xiaomotui\api\vendor\topthink\think-container\src\Facade.php:97
+D:\xiaomotui\api\tests\TestCase.php:45
+D:\xiaomotui\api\tests\api\NfcTest.php:51
+D:\xiaomotui\api\vendor\bin\phpunit:122</error>
+    </testcase>
+    <testcase name="testDeviceStatusReportWithInvalidCode" file="D:\xiaomotui\api\tests\api\NfcTest.php" line="444" class="tests\api\NfcTest" classname="tests.api.NfcTest" assertions="0" time="0.000000">
+      <error type="PDOException">tests\api\NfcTest::testDeviceStatusReportWithInvalidCode&#13;
+PDOException: SQLSTATE[HY000] [1045] Access denied for user 'root'@'localhost' (using password: NO)
+&#13;
+D:\xiaomotui\api\vendor\topthink\think-orm\src\db\PDOConnection.php:621
+D:\xiaomotui\api\vendor\topthink\think-orm\src\db\PDOConnection.php:578
+D:\xiaomotui\api\vendor\topthink\think-orm\src\db\PDOConnection.php:1824
+D:\xiaomotui\api\vendor\topthink\think-orm\src\db\PDOConnection.php:1552
+D:\xiaomotui\api\vendor\topthink\think-orm\src\DbManager.php:399
+D:\xiaomotui\api\vendor\topthink\think-container\src\Facade.php:97
+D:\xiaomotui\api\tests\TestCase.php:45
+D:\xiaomotui\api\tests\api\NfcTest.php:51
+D:\xiaomotui\api\vendor\bin\phpunit:122</error>
+    </testcase>
+    <testcase name="testGetDeviceConfigSuccess" file="D:\xiaomotui\api\tests\api\NfcTest.php" line="458" class="tests\api\NfcTest" classname="tests.api.NfcTest" assertions="0" time="0.000000">
+      <error type="PDOException">tests\api\NfcTest::testGetDeviceConfigSuccess&#13;
+PDOException: SQLSTATE[HY000] [1045] Access denied for user 'root'@'localhost' (using password: NO)
+&#13;
+D:\xiaomotui\api\vendor\topthink\think-orm\src\db\PDOConnection.php:621
+D:\xiaomotui\api\vendor\topthink\think-orm\src\db\PDOConnection.php:578
+D:\xiaomotui\api\vendor\topthink\think-orm\src\db\PDOConnection.php:1824
+D:\xiaomotui\api\vendor\topthink\think-orm\src\db\PDOConnection.php:1552
+D:\xiaomotui\api\vendor\topthink\think-orm\src\DbManager.php:399
+D:\xiaomotui\api\vendor\topthink\think-container\src\Facade.php:97
+D:\xiaomotui\api\tests\TestCase.php:45
+D:\xiaomotui\api\tests\api\NfcTest.php:51
+D:\xiaomotui\api\vendor\bin\phpunit:122</error>
+    </testcase>
+    <testcase name="testGetDeviceConfigWithNonExistentDevice" file="D:\xiaomotui\api\tests\api\NfcTest.php" line="481" class="tests\api\NfcTest" classname="tests.api.NfcTest" assertions="0" time="0.000000">
+      <error type="PDOException">tests\api\NfcTest::testGetDeviceConfigWithNonExistentDevice&#13;
+PDOException: SQLSTATE[HY000] [1045] Access denied for user 'root'@'localhost' (using password: NO)
+&#13;
+D:\xiaomotui\api\vendor\topthink\think-orm\src\db\PDOConnection.php:621
+D:\xiaomotui\api\vendor\topthink\think-orm\src\db\PDOConnection.php:578
+D:\xiaomotui\api\vendor\topthink\think-orm\src\db\PDOConnection.php:1824
+D:\xiaomotui\api\vendor\topthink\think-orm\src\db\PDOConnection.php:1552
+D:\xiaomotui\api\vendor\topthink\think-orm\src\DbManager.php:399
+D:\xiaomotui\api\vendor\topthink\think-container\src\Facade.php:97
+D:\xiaomotui\api\tests\TestCase.php:45
+D:\xiaomotui\api\tests\api\NfcTest.php:51
+D:\xiaomotui\api\vendor\bin\phpunit:122</error>
+    </testcase>
+    <testcase name="testTriggerResponseTimeUnder1Second" file="D:\xiaomotui\api\tests\api\NfcTest.php" line="494" class="tests\api\NfcTest" classname="tests.api.NfcTest" assertions="0" time="0.000000">
+      <error type="PDOException">tests\api\NfcTest::testTriggerResponseTimeUnder1Second&#13;
+PDOException: SQLSTATE[HY000] [1045] Access denied for user 'root'@'localhost' (using password: NO)
+&#13;
+D:\xiaomotui\api\vendor\topthink\think-orm\src\db\PDOConnection.php:621
+D:\xiaomotui\api\vendor\topthink\think-orm\src\db\PDOConnection.php:578
+D:\xiaomotui\api\vendor\topthink\think-orm\src\db\PDOConnection.php:1824
+D:\xiaomotui\api\vendor\topthink\think-orm\src\db\PDOConnection.php:1552
+D:\xiaomotui\api\vendor\topthink\think-orm\src\DbManager.php:399
+D:\xiaomotui\api\vendor\topthink\think-container\src\Facade.php:97
+D:\xiaomotui\api\tests\TestCase.php:45
+D:\xiaomotui\api\tests\api\NfcTest.php:51
+D:\xiaomotui\api\vendor\bin\phpunit:122</error>
+    </testcase>
+    <testcase name="testTriggerRecordCreation" file="D:\xiaomotui\api\tests\api\NfcTest.php" line="520" class="tests\api\NfcTest" classname="tests.api.NfcTest" assertions="0" time="0.000000">
+      <error type="PDOException">tests\api\NfcTest::testTriggerRecordCreation&#13;
+PDOException: SQLSTATE[HY000] [1045] Access denied for user 'root'@'localhost' (using password: NO)
+&#13;
+D:\xiaomotui\api\vendor\topthink\think-orm\src\db\PDOConnection.php:621
+D:\xiaomotui\api\vendor\topthink\think-orm\src\db\PDOConnection.php:578
+D:\xiaomotui\api\vendor\topthink\think-orm\src\db\PDOConnection.php:1824
+D:\xiaomotui\api\vendor\topthink\think-orm\src\db\PDOConnection.php:1552
+D:\xiaomotui\api\vendor\topthink\think-orm\src\DbManager.php:399
+D:\xiaomotui\api\vendor\topthink\think-container\src\Facade.php:97
+D:\xiaomotui\api\tests\TestCase.php:45
+D:\xiaomotui\api\tests\api\NfcTest.php:51
+D:\xiaomotui\api\vendor\bin\phpunit:122</error>
+    </testcase>
+    <testcase name="testTriggerUpdatesDeviceHeartbeat" file="D:\xiaomotui\api\tests\api\NfcTest.php" line="558" class="tests\api\NfcTest" classname="tests.api.NfcTest" assertions="0" time="0.000000">
+      <error type="PDOException">tests\api\NfcTest::testTriggerUpdatesDeviceHeartbeat&#13;
+PDOException: SQLSTATE[HY000] [1045] Access denied for user 'root'@'localhost' (using password: NO)
+&#13;
+D:\xiaomotui\api\vendor\topthink\think-orm\src\db\PDOConnection.php:621
+D:\xiaomotui\api\vendor\topthink\think-orm\src\db\PDOConnection.php:578
+D:\xiaomotui\api\vendor\topthink\think-orm\src\db\PDOConnection.php:1824
+D:\xiaomotui\api\vendor\topthink\think-orm\src\db\PDOConnection.php:1552
+D:\xiaomotui\api\vendor\topthink\think-orm\src\DbManager.php:399
+D:\xiaomotui\api\vendor\topthink\think-container\src\Facade.php:97
+D:\xiaomotui\api\tests\TestCase.php:45
+D:\xiaomotui\api\tests\api\NfcTest.php:51
+D:\xiaomotui\api\vendor\bin\phpunit:122</error>
+    </testcase>
+    <testcase name="testTriggerWithoutDeviceCode" file="D:\xiaomotui\api\tests\api\NfcTest.php" line="585" class="tests\api\NfcTest" classname="tests.api.NfcTest" assertions="0" time="0.000000">
+      <error type="PDOException">tests\api\NfcTest::testTriggerWithoutDeviceCode&#13;
+PDOException: SQLSTATE[HY000] [1045] Access denied for user 'root'@'localhost' (using password: NO)
+&#13;
+D:\xiaomotui\api\vendor\topthink\think-orm\src\db\PDOConnection.php:621
+D:\xiaomotui\api\vendor\topthink\think-orm\src\db\PDOConnection.php:578
+D:\xiaomotui\api\vendor\topthink\think-orm\src\db\PDOConnection.php:1824
+D:\xiaomotui\api\vendor\topthink\think-orm\src\db\PDOConnection.php:1552
+D:\xiaomotui\api\vendor\topthink\think-orm\src\DbManager.php:399
+D:\xiaomotui\api\vendor\topthink\think-container\src\Facade.php:97
+D:\xiaomotui\api\tests\TestCase.php:45
+D:\xiaomotui\api\tests\api\NfcTest.php:51
+D:\xiaomotui\api\vendor\bin\phpunit:122</error>
+    </testcase>
+    <testcase name="testTriggerWithInvalidLocationFormat" file="D:\xiaomotui\api\tests\api\NfcTest.php" line="601" class="tests\api\NfcTest" classname="tests.api.NfcTest" assertions="0" time="0.000000">
+      <error type="PDOException">tests\api\NfcTest::testTriggerWithInvalidLocationFormat&#13;
+PDOException: SQLSTATE[HY000] [1045] Access denied for user 'root'@'localhost' (using password: NO)
+&#13;
+D:\xiaomotui\api\vendor\topthink\think-orm\src\db\PDOConnection.php:621
+D:\xiaomotui\api\vendor\topthink\think-orm\src\db\PDOConnection.php:578
+D:\xiaomotui\api\vendor\topthink\think-orm\src\db\PDOConnection.php:1824
+D:\xiaomotui\api\vendor\topthink\think-orm\src\db\PDOConnection.php:1552
+D:\xiaomotui\api\vendor\topthink\think-orm\src\DbManager.php:399
+D:\xiaomotui\api\vendor\topthink\think-container\src\Facade.php:97
+D:\xiaomotui\api\tests\TestCase.php:45
+D:\xiaomotui\api\tests\api\NfcTest.php:51
+D:\xiaomotui\api\vendor\bin\phpunit:122</error>
+    </testcase>
+    <testcase name="testBatchTriggerPerformance" file="D:\xiaomotui\api\tests\api\NfcTest.php" line="619" class="tests\api\NfcTest" classname="tests.api.NfcTest" assertions="0" time="0.000000">
+      <error type="PDOException">tests\api\NfcTest::testBatchTriggerPerformance&#13;
+PDOException: SQLSTATE[HY000] [1045] Access denied for user 'root'@'localhost' (using password: NO)
+&#13;
+D:\xiaomotui\api\vendor\topthink\think-orm\src\db\PDOConnection.php:621
+D:\xiaomotui\api\vendor\topthink\think-orm\src\db\PDOConnection.php:578
+D:\xiaomotui\api\vendor\topthink\think-orm\src\db\PDOConnection.php:1824
+D:\xiaomotui\api\vendor\topthink\think-orm\src\db\PDOConnection.php:1552
+D:\xiaomotui\api\vendor\topthink\think-orm\src\DbManager.php:399
+D:\xiaomotui\api\vendor\topthink\think-container\src\Facade.php:97
+D:\xiaomotui\api\tests\TestCase.php:45
+D:\xiaomotui\api\tests\api\NfcTest.php:51
+D:\xiaomotui\api\vendor\bin\phpunit:122</error>
+    </testcase>
+    <testcase name="testDeviceOnlineStatusCheck" file="D:\xiaomotui\api\tests\api\NfcTest.php" line="651" class="tests\api\NfcTest" classname="tests.api.NfcTest" assertions="0" time="0.000000">
+      <error type="PDOException">tests\api\NfcTest::testDeviceOnlineStatusCheck&#13;
+PDOException: SQLSTATE[HY000] [1045] Access denied for user 'root'@'localhost' (using password: NO)
+&#13;
+D:\xiaomotui\api\vendor\topthink\think-orm\src\db\PDOConnection.php:621
+D:\xiaomotui\api\vendor\topthink\think-orm\src\db\PDOConnection.php:578
+D:\xiaomotui\api\vendor\topthink\think-orm\src\db\PDOConnection.php:1824
+D:\xiaomotui\api\vendor\topthink\think-orm\src\db\PDOConnection.php:1552
+D:\xiaomotui\api\vendor\topthink\think-orm\src\DbManager.php:399
+D:\xiaomotui\api\vendor\topthink\think-container\src\Facade.php:97
+D:\xiaomotui\api\tests\TestCase.php:45
+D:\xiaomotui\api\tests\api\NfcTest.php:51
+D:\xiaomotui\api\vendor\bin\phpunit:122</error>
+    </testcase>
+    <testcase name="testAllTriggerModesWork" file="D:\xiaomotui\api\tests\api\NfcTest.php" line="665" class="tests\api\NfcTest" classname="tests.api.NfcTest" assertions="0" time="0.000000">
+      <error type="PDOException">tests\api\NfcTest::testAllTriggerModesWork&#13;
+PDOException: SQLSTATE[HY000] [1045] Access denied for user 'root'@'localhost' (using password: NO)
+&#13;
+D:\xiaomotui\api\vendor\topthink\think-orm\src\db\PDOConnection.php:621
+D:\xiaomotui\api\vendor\topthink\think-orm\src\db\PDOConnection.php:578
+D:\xiaomotui\api\vendor\topthink\think-orm\src\db\PDOConnection.php:1824
+D:\xiaomotui\api\vendor\topthink\think-orm\src\db\PDOConnection.php:1552
+D:\xiaomotui\api\vendor\topthink\think-orm\src\DbManager.php:399
+D:\xiaomotui\api\vendor\topthink\think-container\src\Facade.php:97
+D:\xiaomotui\api\tests\TestCase.php:45
+D:\xiaomotui\api\tests\api\NfcTest.php:51
+D:\xiaomotui\api\vendor\bin\phpunit:122</error>
+    </testcase>
+  </testsuite>
+</testsuites>

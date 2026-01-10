@@ -17,5 +17,6 @@ namespace think;
 require __DIR__ . '/vendor/autoload.php';
 
 // 执行控制台应用
-$console = new Console();
+$app = new App();
+$console = new Console($app);
 $console->run();

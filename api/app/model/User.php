@@ -4,82 +4,99 @@ declare (strict_types = 1);
 namespace app\model;
 
 use think\Model;
-use think\model\concern\SoftDelete;
 
 /**
  * 用户模型
- * @property int $id
- * @property string $username
- * @property string $password
- * @property string $email
- * @property string $phone
- * @property string $nickname
- * @property string $avatar
- * @property int $gender
- * @property string $birthday
- * @property string $bio
- * @property int $status
- * @property string $last_login_time
- * @property string $create_time
- * @property string $update_time
- * @property string $delete_time
+ * @property int $id 用户ID
+ * @property string $openid 微信openid
+ * @property string $unionid 微信unionid
+ * @property string $phone 手机号
+ * @property string $nickname 昵称
+ * @property string $avatar 头像
+ * @property int $gender 性别 0未知 1男 2女
+ * @property string $member_level 会员等级 BASIC/VIP/PREMIUM
+ * @property int $points 积分
+ * @property int $status 状态 0禁用 1正常
+ * @property string $last_login_time 最后登录时间
+ * @property string $create_time 创建时间
+ * @property string $update_time 更新时间
  */
 class User extends Model
 {
-    use SoftDelete;
-
     protected $name = 'user';
 
     // 设置字段信息
     protected $schema = [
         'id'              => 'int',
-        'username'        => 'string',
-        'password'        => 'string',
-        'email'           => 'string',
+        'openid'          => 'string',
+        'unionid'         => 'string',
         'phone'           => 'string',
         'nickname'        => 'string',
         'avatar'          => 'string',
         'gender'          => 'int',
-        'birthday'        => 'string',
-        'bio'             => 'string',
+        'member_level'    => 'string',
+        'points'          => 'int',
         'status'          => 'int',
         'last_login_time' => 'datetime',
         'create_time'     => 'datetime',
         'update_time'     => 'datetime',
-        'delete_time'     => 'datetime',
     ];
 
     // 自动时间戳
     protected $autoWriteTimestamp = true;
-    protected $deleteTime = 'delete_time';
 
     // 隐藏字段
-    protected $hidden = ['password', 'delete_time'];
+    protected $hidden = [];
 
     // 字段类型转换
     protected $type = [
         'id'              => 'integer',
         'gender'          => 'integer',
+        'points'          => 'integer',
         'status'          => 'integer',
-        'last_login_time' => 'timestamp',
-        'create_time'     => 'timestamp',
-        'update_time'     => 'timestamp',
+        'last_login_time' => 'datetime',
+        'create_time'     => 'datetime',
+        'update_time'     => 'datetime',
+    ];
+
+    // 只读字段
+    protected $readonly = ['openid'];
+
+    // 允许批量赋值的字段
+    protected $field = [
+        'openid', 'unionid', 'phone', 'nickname', 'avatar',
+        'gender', 'member_level', 'points', 'status', 'last_login_time'
     ];
 
     /**
-     * 密码修改器
+     * 会员等级常量
      */
-    public function setPasswordAttr($value): string
-    {
-        return password_hash($value, PASSWORD_DEFAULT);
-    }
+    const MEMBER_LEVEL_BASIC = 'BASIC';
+    const MEMBER_LEVEL_VIP = 'VIP';
+    const MEMBER_LEVEL_PREMIUM = 'PREMIUM';
+
+    /**
+     * 状态常量
+     */
+    const STATUS_DISABLED = 0;
+    const STATUS_NORMAL = 1;
+
+    /**
+     * 性别常量
+     */
+    const GENDER_UNKNOWN = 0;
+    const GENDER_MALE = 1;
+    const GENDER_FEMALE = 2;
 
     /**
      * 状态获取器
      */
     public function getStatusTextAttr($value, $data): string
     {
-        $status = [0 => '禁用', 1 => '正常', 2 => '待审核'];
+        $status = [
+            self::STATUS_DISABLED => '禁用',
+            self::STATUS_NORMAL => '正常'
+        ];
         return $status[$data['status']] ?? '未知';
     }
 
@@ -88,24 +105,43 @@ class User extends Model
      */
     public function getGenderTextAttr($value, $data): string
     {
-        $gender = [0 => '未知', 1 => '男', 2 => '女'];
+        $gender = [
+            self::GENDER_UNKNOWN => '未知',
+            self::GENDER_MALE => '男',
+            self::GENDER_FEMALE => '女'
+        ];
         return $gender[$data['gender']] ?? '未知';
     }
 
     /**
-     * 头像获取器
+     * 会员等级获取器
      */
-    public function getAvatarAttr($value): string
+    public function getMemberLevelTextAttr($value, $data): string
     {
-        return $value ? (strpos($value, 'http') === 0 ? $value : request()->domain() . $value) : '';
+        $levels = [
+            self::MEMBER_LEVEL_BASIC => '基础会员',
+            self::MEMBER_LEVEL_VIP => 'VIP会员',
+            self::MEMBER_LEVEL_PREMIUM => '高级会员'
+        ];
+        return $levels[$data['member_level']] ?? '未知';
     }
 
     /**
-     * 验证密码
+     * 头像获取器 - 处理相对路径转换为完整URL
      */
-    public function checkPassword(string $password): bool
+    public function getAvatarAttr($value): string
     {
-        return password_verify($password, $this->password);
+        if (empty($value)) {
+            return '';
+        }
+
+        // 如果已经是完整URL，直接返回
+        if (strpos($value, 'http') === 0) {
+            return $value;
+        }
+
+        // 如果是相对路径，转换为完整URL
+        return request()->domain() . $value;
     }
 
     /**
@@ -113,31 +149,143 @@ class User extends Model
      */
     public function updateLastLoginTime(): bool
     {
-        $this->last_login_time = time();
+        $this->last_login_time = date('Y-m-d H:i:s');
         return $this->save();
     }
 
     /**
-     * 用户帖子关联
+     * 增加积分
      */
-    public function posts()
+    public function addPoints(int $points, string $reason = ''): bool
     {
-        return $this->hasMany(Post::class);
+        if ($points <= 0) {
+            return false;
+        }
+
+        $this->points = $this->points + $points;
+        return $this->save();
     }
 
     /**
-     * 用户关注关联
+     * 扣减积分
      */
-    public function followers()
+    public function deductPoints(int $points, string $reason = ''): bool
     {
-        return $this->belongsToMany(User::class, 'user_follow', 'followed_id', 'follower_id');
+        if ($points <= 0 || $this->points < $points) {
+            return false;
+        }
+
+        $this->points = $this->points - $points;
+        return $this->save();
     }
 
     /**
-     * 用户粉丝关联
+     * 检查是否为VIP会员
      */
-    public function following()
+    public function isVip(): bool
     {
-        return $this->belongsToMany(User::class, 'user_follow', 'follower_id', 'followed_id');
+        return in_array($this->member_level, [self::MEMBER_LEVEL_VIP, self::MEMBER_LEVEL_PREMIUM]);
+    }
+
+    /**
+     * 检查是否为高级会员
+     */
+    public function isPremium(): bool
+    {
+        return $this->member_level === self::MEMBER_LEVEL_PREMIUM;
+    }
+
+    /**
+     * 根据openid查找用户
+     */
+    public static function findByOpenid(string $openid)
+    {
+        return static::where('openid', $openid)->find();
+    }
+
+    /**
+     * 根据unionid查找用户
+     */
+    public static function findByUnionid(string $unionid)
+    {
+        return static::where('unionid', $unionid)->find();
+    }
+
+    /**
+     * 根据手机号查找用户
+     */
+    public static function findByPhone(string $phone)
+    {
+        return static::where('phone', $phone)->find();
+    }
+
+    /**
+     * 用户商家关联 - 一个用户可以拥有多个商家
+     */
+    public function merchants()
+    {
+        return $this->hasMany(\app\model\Merchant::class);
+    }
+
+    /**
+     * 用户内容任务关联
+     */
+    public function contentTasks()
+    {
+        return $this->hasMany(\app\model\ContentTask::class);
+    }
+
+    /**
+     * 用户优惠券关联
+     */
+    public function userCoupons()
+    {
+        return $this->hasMany(\app\model\UserCoupon::class);
+    }
+
+    /**
+     * 用户平台账号关联
+     */
+    public function platformAccounts()
+    {
+        return $this->hasMany(\app\model\PlatformAccount::class);
+    }
+
+    /**
+     * 验证数据
+     */
+    public static function getValidateRules(): array
+    {
+        return [
+            'openid' => 'require|max:64',
+            'unionid' => 'max:64',
+            'phone' => 'mobile',
+            'nickname' => 'max:50',
+            'avatar' => 'max:255',
+            'gender' => 'in:0,1,2',
+            'member_level' => 'in:BASIC,VIP,PREMIUM',
+            'points' => 'integer|>=:0',
+            'status' => 'in:0,1',
+        ];
+    }
+
+    /**
+     * 验证消息
+     */
+    public static function getValidateMessages(): array
+    {
+        return [
+            'openid.require' => 'openid不能为空',
+            'openid.max' => 'openid长度不能超过64个字符',
+            'unionid.max' => 'unionid长度不能超过64个字符',
+            'phone.mobile' => '手机号格式不正确',
+            'nickname.max' => '昵称长度不能超过50个字符',
+            'avatar.max' => '头像URL长度不能超过255个字符',
+            'gender.in' => '性别值无效',
+            'member_level.in' => '会员等级值无效',
+            'points.integer' => '积分必须是整数',
+            'points.>=' => '积分不能为负数',
+            'status.in' => '状态值无效',
+        ];
     }
 }

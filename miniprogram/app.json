@@ -1,0 +1,59 @@
+{
+  "pages": [
+    "pages/index/index",
+    "pages/nfc/trigger",
+    "pages/content/generate",
+    "pages/content/detail",
+    "pages/publish/index",
+    "pages/my/index",
+    "pages/auth/login"
+  ],
+  "window": {
+    "backgroundTextStyle": "light",
+    "navigationBarBackgroundColor": "#fff",
+    "navigationBarTitleText": "小魔推碰一碰",
+    "navigationBarTextStyle": "black",
+    "backgroundColor": "#f5f5f5",
+    "enablePullDownRefresh": true
+  },
+  "tabBar": {
+    "color": "#7A7E83",
+    "selectedColor": "#3cc51f",
+    "borderStyle": "black",
+    "backgroundColor": "#ffffff",
+    "list": [
+      {
+        "pagePath": "pages/index/index",
+        "iconPath": "images/tab/home.png",
+        "selectedIconPath": "images/tab/home-active.png",
+        "text": "首页"
+      },
+      {
+        "pagePath": "pages/content/generate",
+        "iconPath": "images/tab/content.png",
+        "selectedIconPath": "images/tab/content-active.png",
+        "text": "内容"
+      },
+      {
+        "pagePath": "pages/publish/index",
+        "iconPath": "images/tab/publish.png",
+        "selectedIconPath": "images/tab/publish-active.png",
+        "text": "发布"
+      },
+      {
+        "pagePath": "pages/my/index",
+        "iconPath": "images/tab/my.png",
+        "selectedIconPath": "images/tab/my-active.png",
+        "text": "我的"
+      }
+    ]
+  },
+  "permission": {
+    "scope.userLocation": {
+      "desc": "你的位置信息将用于获取附近的商家"
+    }
+  },
+  "requiredBackgroundModes": ["location"],
+  "usingComponents": {},
+  "sitemapLocation": "sitemap.json"
+}

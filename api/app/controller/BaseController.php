@@ -6,6 +6,7 @@ namespace app\controller;
 use think\App;
 use think\Request;
 use think\Validate;
+use app\common\utils\ResponseFormatter;
 
 /**
  * 控制器基础类
@@ -39,6 +40,9 @@ abstract class BaseController
     {
         $this->app     = $app;
         $this->request = $this->app->request;
+
+        // 初始化ResponseFormatter
+        ResponseFormatter::init();
 
         // 控制器初始化
         $this->initialize();
@@ -83,40 +87,72 @@ abstract class BaseController
     /**
      * 成功响应
      */
-    protected function success(mixed $data = null, string $msg = 'success', int $code = 200): \think\Response
+    protected function success(mixed $data = null, string $message = 'success', int $code = 200, array $headers = []): \think\Response
     {
-        return json([
-            'code' => $code,
-            'msg' => $msg,
-            'data' => $data,
-            'timestamp' => time()
-        ]);
+        return ResponseFormatter::success($data, $message, $code, $headers);
     }
 
     /**
      * 错误响应
      */
-    protected function error(string $msg = 'error', int $code = 400, mixed $data = null): \think\Response
+    protected function error(string $message = 'error', int $code = 400, string $error = null, mixed $errors = null, mixed $data = null, array $headers = []): \think\Response
     {
-        return json([
-            'code' => $code,
-            'msg' => $msg,
-            'data' => $data,
-            'timestamp' => time()
-        ]);
+        return ResponseFormatter::error($message, $code, $error, $errors, $data, $headers);
     }
 
     /**
      * 分页响应
      */
-    protected function paginate(array $data, int $total, int $page = 1, int $limit = 20): \think\Response
+    protected function paginate(array $list, int $total, int $currentPage = 1, int $perPage = 20, string $message = 'success'): \think\Response
     {
-        return $this->success([
-            'list' => $data,
-            'total' => $total,
-            'page' => $page,
-            'limit' => $limit,
-            'pages' => ceil($total / $limit)
-        ]);
+        return ResponseFormatter::paginate($list, $total, $currentPage, $perPage, $message);
+    }
+
+    /**
+     * 验证错误响应
+     */
+    protected function validationError(array $errors, string $message = '数据验证失败'): \think\Response
+    {
+        return ResponseFormatter::validationError($errors, $message);
+    }
+
+    /**
+     * 平台专用错误响应
+     */
+    protected function platformError(string $errorCode, mixed $data = null, int $httpCode = 400): \think\Response
+    {
+        return ResponseFormatter::platformError($errorCode, $data, $httpCode);
+    }
+
+    /**
+     * NFC设备状态响应
+     */
+    protected function nfcDeviceStatus(array $deviceData, string $status): \think\Response
+    {
+        return ResponseFormatter::nfcDeviceStatus($deviceData, $status);
+    }
+
+    /**
+     * 内容生成状态响应
+     */
+    protected function contentGenerationStatus(string $status, mixed $data = null): \think\Response
+    {
+        return ResponseFormatter::contentGenerationStatus($status, $data);
+    }
+
+    /**
+     * 批量操作响应
+     */
+    protected function batchResponse(array $results, string $message = '批量操作完成'): \think\Response
+    {
+        return ResponseFormatter::batch($results, $message);
+    }
+
+    /**
+     * 缓存响应（用于重计算场景）
+     */
+    protected function cachedResponse(string $cacheKey, callable $callback, int $ttl = 300, string $message = 'success'): \think\Response
+    {
+        return ResponseFormatter::cached($cacheKey, $callback, $ttl, $message);
     }
 }

@@ -1,0 +1,55 @@
+/**
+ * 全局通用样式
+ * 包含变量定义、混入、通用类等
+ */
+
+// ==================== 颜色变量 ====================
+$primary-color: #6366f1;
+$success-color: #10b981;
+$warning-color: #f59e0b;
+$danger-color: #ef4444;
+
+// 中性色
+$text-primary: #1e293b;
+$text-secondary: #64748b;
+$text-muted: #94a3b8;
+
+$bg-primary: #ffffff;
+$bg-secondary: #f8f9fa;
+
+$border-color: #e2e8f0;
+
+// ==================== 间距变量 ====================
+$spacing-xs: 4rpx;
+$spacing-sm: 8rpx;
+$spacing-md: 16rpx;
+$spacing-lg: 24rpx;
+$spacing-xl: 32rpx;
+
+// ==================== 圆角变量 ====================
+$radius-sm: 4rpx;
+$radius-md: 8rpx;
+$radius-lg: 12rpx;
+
+// ==================== 阴影 ====================
+$shadow-sm: 0 2rpx 4rpx rgba(0, 0, 0, 0.05);
+$shadow-md: 0 4rpx 8rpx rgba(0, 0, 0, 0.08);
+
+// ==================== 混入 ====================
+@mixin ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@mixin flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@mixin flex-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}

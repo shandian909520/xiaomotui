@@ -29,7 +29,7 @@ class AllowCrossDomain
         }
 
         if ($request->method(true) == 'OPTIONS') {
-            return Response::create()->code(200)->header($this->header);
+            return Response::create()->code(204)->header($this->header);
         }
 
         return $next($request)->header($this->header);

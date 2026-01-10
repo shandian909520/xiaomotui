@@ -1,0 +1,32 @@
+{
+  "name": "xiaomotui-uniapp",
+  "version": "1.0.0",
+  "description": "小魔推碰一碰 - NFC智能营销助手",
+  "scripts": {
+    "dev:h5": "npx uni",
+    "dev:mp-weixin": "npx uni -p mp-weixin",
+    "dev:mp-alipay": "npx uni -p mp-alipay",
+    "build:h5": "npx uni build",
+    "build:mp-weixin": "npx uni build -p mp-weixin",
+    "build:mp-alipay": "npx uni build -p mp-alipay"
+  },
+  "dependencies": {
+    "@dcloudio/uni-app": "3.0.0-alpha-4080220250929001",
+    "@dcloudio/uni-components": "3.0.0-alpha-4080220250929001",
+    "@dcloudio/uni-h5": "3.0.0-alpha-4080220250929001",
+    "@dcloudio/uni-mp-weixin": "3.0.0-alpha-4080220250929001",
+    "@dcloudio/uni-ui": "^1.5.5",
+    "pinia": "^2.2.0",
+    "pinia-plugin-persistedstate": "^3.2.3",
+    "vue": "^3.4.21"
+  },
+  "devDependencies": {
+    "@dcloudio/types": "^3.0.0",
+    "@dcloudio/uni-cli-shared": "3.0.0-alpha-4080220250929001",
+    "@dcloudio/vite-plugin-uni": "3.0.0-alpha-4080220250929001",
+    "@vitejs/plugin-vue": "^4.0.0",
+    "sass": "^1.77.0",
+    "sass-loader": "^8.0.2",
+    "vite": "^5.2.8"
+  }
+}

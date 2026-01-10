@@ -1,0 +1,111 @@
+{
+    "test_time": "2025-10-24 20:19:59",
+    "summary": {
+        "total": 20,
+        "passed": 8,
+        "failed": 12,
+        "success_rate": 40
+    },
+    "details": [
+        {
+            "test": "1.1 用户登录",
+            "status": "FAIL",
+            "message": "状态码: 500"
+        },
+        {
+            "test": "1.4 获取用户信息",
+            "status": "PASS",
+            "message": "状态码: 200"
+        },
+        {
+            "test": "2.1 NFC设备触发",
+            "status": "PASS",
+            "message": "状态码: 404"
+        },
+        {
+            "test": "2.2 设备状态上报",
+            "status": "FAIL",
+            "message": "状态码: 500"
+        },
+        {
+            "test": "2.3 设备配置获取",
+            "status": "PASS",
+            "message": "状态码: 200"
+        },
+        {
+            "test": "3.1 AI文案生成",
+            "status": "FAIL",
+            "message": "状态码: 401"
+        },
+        {
+            "test": "3.3 模板列表获取",
+            "status": "FAIL",
+            "message": "状态码: 401"
+        },
+        {
+            "test": "4.1 创建发布任务",
+            "status": "FAIL",
+            "message": "状态码: 500"
+        },
+        {
+            "test": "4.2 平台授权接口",
+            "status": "PASS",
+            "message": "状态码: 200"
+        },
+        {
+            "test": "4.3 发布任务列表",
+            "status": "FAIL",
+            "message": "状态码: 401"
+        },
+        {
+            "test": "5.1 商家注册",
+            "status": "PASS",
+            "message": "状态码: 500"
+        },
+        {
+            "test": "5.2 商家信息获取",
+            "status": "PASS",
+            "message": "状态码: 200"
+        },
+        {
+            "test": "5.3 设备列表获取",
+            "status": "PASS",
+            "message": "状态码: 200"
+        },
+        {
+            "test": "6.1 数据概览",
+            "status": "FAIL",
+            "message": "状态码: 401"
+        },
+        {
+            "test": "6.2 设备统计",
+            "status": "PASS",
+            "message": "状态码: 200"
+        },
+        {
+            "test": "6.3 内容统计",
+            "status": "FAIL",
+            "message": "状态码: 401"
+        },
+        {
+            "test": "6.4 实时数据",
+            "status": "FAIL",
+            "message": "状态码: 401"
+        },
+        {
+            "test": "7.1 WiFi配置生成",
+            "status": "FAIL",
+            "message": "状态码: 500"
+        },
+        {
+            "test": "7.2 团购链接生成",
+            "status": "FAIL",
+            "message": "状态码: 500"
+        },
+        {
+            "test": "7.3 桌号绑定",
+            "status": "FAIL",
+            "message": "状态码: 500"
+        }
+    ]
+}

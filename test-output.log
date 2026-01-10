@@ -1,0 +1,145 @@
+
+====== 开始访问页面 ======
+
+→ REQUEST: GET http://localhost:6151/
+← SUCCESS: 200 http://localhost:6151/
+→ REQUEST: GET http://localhost:6151/@vite/client
+→ REQUEST: GET http://localhost:6151/main.js
+← SUCCESS: 200 http://localhost:6151/main.js
+→ REQUEST: GET http://localhost:6151/pages-json-js
+→ REQUEST: GET http://localhost:6151/@fs/D:/Program%20Files/HBuilderX/plugins/uniapp-cli-vite/node_modules/@dcloudio/uni-h5/dist/uni-h5.es.js
+→ REQUEST: GET http://localhost:6151/App.vue
+→ REQUEST: GET http://localhost:6151/@fs/D:/Program%20Files/HBuilderX/plugins/uniapp-cli-vite/node_modules/@dcloudio/uni-h5-vue/dist/vue.runtime.esm.js
+→ REQUEST: GET http://localhost:6151/stores/index.js
+← SUCCESS: 200 http://localhost:6151/@vite/client
+→ REQUEST: GET http://localhost:6151/@fs/D:/Program%20Files/HBuilderX/plugins/uniapp-cli-vite/node_modules/vite/dist/client/env.mjs
+← SUCCESS: 200 http://localhost:6151/pages-json-js
+→ REQUEST: GET http://localhost:6151/manifest-json-js
+→ REQUEST: GET http://localhost:6151/@fs/D:/Program%20Files/HBuilderX/plugins/uniapp-cli-vite/node_modules/@dcloudio/uni-h5/style/framework/base.css
+→ REQUEST: GET http://localhost:6151/@fs/D:/Program%20Files/HBuilderX/plugins/uniapp-cli-vite/node_modules/@dcloudio/uni-h5/style/framework/async.css
+→ REQUEST: GET http://localhost:6151/@fs/D:/Program%20Files/HBuilderX/plugins/uniapp-cli-vite/node_modules/@dcloudio/uni-h5/style/framework/pageHead.css
+→ REQUEST: GET http://localhost:6151/@fs/D:/Program%20Files/HBuilderX/plugins/uniapp-cli-vite/node_modules/@dcloudio/uni-h5/style/framework/tabBar.css
+→ REQUEST: GET http://localhost:6151/@fs/D:/Program%20Files/HBuilderX/plugins/uniapp-cli-vite/node_modules/@dcloudio/uni-h5/style/framework/nvue.css
+→ REQUEST: GET http://localhost:6151/@fs/D:/Program%20Files/HBuilderX/plugins/uniapp-cli-vite/node_modules/@dcloudio/uni-h5/style/framework/pageRefresh.css
+→ REQUEST: GET http://localhost:6151/@fs/D:/Program%20Files/HBuilderX/plugins/uniapp-cli-vite/node_modules/@dcloudio/uni-components/style/input.css
+→ REQUEST: GET http://localhost:6151/@fs/D:/Program%20Files/HBuilderX/plugins/uniapp-cli-vite/node_modules/@dcloudio/uni-h5/style/api/modal.css
+→ REQUEST: GET http://localhost:6151/@fs/D:/Program%20Files/HBuilderX/plugins/uniapp-cli-vite/node_modules/@dcloudio/uni-h5/style/api/toast.css
+→ REQUEST: GET http://localhost:6151/@fs/D:/Program%20Files/HBuilderX/plugins/uniapp-cli-vite/node_modules/@dcloudio/uni-h5/style/api/action-sheet.css
+→ REQUEST: GET http://localhost:6151/@fs/D:/Program%20Files/HBuilderX/plugins/uniapp-cli-vite/node_modules/@dcloudio/uni-components/style/resize-sensor.css
+→ REQUEST: GET http://localhost:6151/@fs/D:/Program%20Files/HBuilderX/plugins/uniapp-cli-vite/node_modules/@dcloudio/uni-components/style/swiper.css
+→ REQUEST: GET http://localhost:6151/@fs/D:/Program%20Files/HBuilderX/plugins/uniapp-cli-vite/node_modules/@dcloudio/uni-components/style/swiper-item.css
+→ REQUEST: GET http://localhost:6151/@fs/D:/Program%20Files/HBuilderX/plugins/uniapp-cli-vite/node_modules/@dcloudio/uni-components/style/movable-area.css
+→ REQUEST: GET http://localhost:6151/@fs/D:/Program%20Files/HBuilderX/plugins/uniapp-cli-vite/node_modules/@dcloudio/uni-components/style/movable-view.css
+→ REQUEST: GET http://localhost:6151/@fs/D:/Program%20Files/HBuilderX/plugins/uniapp-cli-vite/node_modules/@dcloudio/uni-h5/style/api/location-view.css
+→ REQUEST: GET http://localhost:6151/@fs/D:/Program%20Files/HBuilderX/plugins/uniapp-cli-vite/node_modules/@dcloudio/uni-h5/style/api/location-picker.css
+→ REQUEST: GET http://localhost:6151/@fs/D:/Program%20Files/HBuilderX/plugins/uniapp-cli-vite/node_modules/@dcloudio/uni-h5/style/map.css
+→ REQUEST: GET http://localhost:6151/@fs/D:/Program%20Files/HBuilderX/plugins/uniapp-cli-vite/node_modules/@dcloudio/uni-components/style/scroll-view.css
+← SUCCESS: 200 http://localhost:6151/App.vue
+→ REQUEST: GET http://localhost:6151/stores/user.js
+→ REQUEST: GET http://localhost:6151/App.vue?vue&type=style&index=0&lang.scss
+→ REQUEST: GET http://localhost:6151/@id/__x00__plugin-vue:export-helper
+← SUCCESS: 200 http://localhost:6151/manifest-json-js
+← SUCCESS: 200 http://localhost:6151/stores/index.js
+→ REQUEST: GET http://localhost:6151/@fs/D:/Program%20Files/HBuilderX/plugins/uniapp-cli-vite/node_modules/pinia/dist/pinia.mjs
+→ REQUEST: GET http://localhost:6151/unpackage/dist/cache/.vite/deps/pinia-plugin-persistedstate.js?v=024e4dc0
+← SUCCESS: 200 http://localhost:6151/@fs/D:/Program%20Files/HBuilderX/plugins/uniapp-cli-vite/node_modules/vite/dist/client/env.mjs
+← SUCCESS: 200 http://localhost:6151/@fs/D:/Program%20Files/HBuilderX/plugins/uniapp-cli-vite/node_modules/@dcloudio/uni-h5/style/framework/base.css
+← SUCCESS: 200 http://localhost:6151/@fs/D:/Program%20Files/HBuilderX/plugins/uniapp-cli-vite/node_modules/@dcloudio/uni-h5/style/framework/async.css
+[CONSOLE DEBUG] [vite] connecting...
+← SUCCESS: 200 http://localhost:6151/@fs/D:/Program%20Files/HBuilderX/plugins/uniapp-cli-vite/node_modules/@dcloudio/uni-h5/style/framework/pageHead.css
+← SUCCESS: 200 http://localhost:6151/@fs/D:/Program%20Files/HBuilderX/plugins/uniapp-cli-vite/node_modules/@dcloudio/uni-components/style/input.css
+← SUCCESS: 200 http://localhost:6151/@fs/D:/Program%20Files/HBuilderX/plugins/uniapp-cli-vite/node_modules/@dcloudio/uni-h5/style/api/modal.css
+← SUCCESS: 200 http://localhost:6151/@fs/D:/Program%20Files/HBuilderX/plugins/uniapp-cli-vite/node_modules/@dcloudio/uni-h5/style/framework/pageRefresh.css
+← SUCCESS: 200 http://localhost:6151/@fs/D:/Program%20Files/HBuilderX/plugins/uniapp-cli-vite/node_modules/@dcloudio/uni-h5/style/framework/nvue.css
+← SUCCESS: 200 http://localhost:6151/@fs/D:/Program%20Files/HBuilderX/plugins/uniapp-cli-vite/node_modules/@dcloudio/uni-h5/style/framework/tabBar.css
+← SUCCESS: 200 http://localhost:6151/@fs/D:/Program%20Files/HBuilderX/plugins/uniapp-cli-vite/node_modules/@dcloudio/uni-h5/style/api/action-sheet.css
+← SUCCESS: 200 http://localhost:6151/@fs/D:/Program%20Files/HBuilderX/plugins/uniapp-cli-vite/node_modules/@dcloudio/uni-h5/style/api/toast.css
+← SUCCESS: 200 http://localhost:6151/@fs/D:/Program%20Files/HBuilderX/plugins/uniapp-cli-vite/node_modules/@dcloudio/uni-components/style/resize-sensor.css
+← SUCCESS: 200 http://localhost:6151/@fs/D:/Program%20Files/HBuilderX/plugins/uniapp-cli-vite/node_modules/@dcloudio/uni-h5/dist/uni-h5.es.js
+← SUCCESS: 200 http://localhost:6151/@fs/D:/Program%20Files/HBuilderX/plugins/uniapp-cli-vite/node_modules/@dcloudio/uni-h5-vue/dist/vue.runtime.esm.js
+→ REQUEST: GET http://localhost:6151/@fs/D:/Program%20Files/HBuilderX/plugins/uniapp-cli-vite/node_modules/@vue/shared/dist/shared.esm-bundler.js
+→ REQUEST: GET http://localhost:6151/@fs/D:/Program%20Files/HBuilderX/plugins/uniapp-cli-vite/node_modules/@dcloudio/uni-shared/dist/uni-shared.es.js
+→ REQUEST: GET http://localhost:6151/@fs/D:/Program%20Files/HBuilderX/plugins/uniapp-cli-vite/node_modules/vue-router/dist/vue-router.esm-bundler.js
+→ REQUEST: GET http://localhost:6151/@fs/D:/Program%20Files/HBuilderX/plugins/uniapp-cli-vite/node_modules/@dcloudio/uni-i18n/dist/uni-i18n.es.js
+← SUCCESS: 200 http://localhost:6151/@fs/D:/Program%20Files/HBuilderX/plugins/uniapp-cli-vite/node_modules/@dcloudio/uni-components/style/swiper.css
+← SUCCESS: 200 http://localhost:6151/@fs/D:/Program%20Files/HBuilderX/plugins/uniapp-cli-vite/node_modules/@dcloudio/uni-components/style/swiper-item.css
+← SUCCESS: 200 http://localhost:6151/@fs/D:/Program%20Files/HBuilderX/plugins/uniapp-cli-vite/node_modules/@dcloudio/uni-components/style/movable-area.css
+← SUCCESS: 200 http://localhost:6151/@fs/D:/Program%20Files/HBuilderX/plugins/uniapp-cli-vite/node_modules/@dcloudio/uni-components/style/movable-view.css
+← SUCCESS: 200 http://localhost:6151/@fs/D:/Program%20Files/HBuilderX/plugins/uniapp-cli-vite/node_modules/@dcloudio/uni-h5/style/api/location-view.css
+← SUCCESS: 200 http://localhost:6151/@fs/D:/Program%20Files/HBuilderX/plugins/uniapp-cli-vite/node_modules/@dcloudio/uni-h5/style/api/location-picker.css
+← SUCCESS: 200 http://localhost:6151/@fs/D:/Program%20Files/HBuilderX/plugins/uniapp-cli-vite/node_modules/@dcloudio/uni-h5/style/map.css
+[CONSOLE DEBUG] [vite] connected.
+← SUCCESS: 200 http://localhost:6151/App.vue?vue&type=style&index=0&lang.scss
+← SUCCESS: 200 http://localhost:6151/@fs/D:/Program%20Files/HBuilderX/plugins/uniapp-cli-vite/node_modules/@dcloudio/uni-components/style/scroll-view.css
+← SUCCESS: 200 http://localhost:6151/stores/user.js
+← SUCCESS: 200 http://localhost:6151/@id/__x00__plugin-vue:export-helper
+→ REQUEST: GET http://localhost:6151/api/request.js
+→ REQUEST: GET http://localhost:6151/api/modules/auth.js
+← SUCCESS: 200 http://localhost:6151/unpackage/dist/cache/.vite/deps/pinia-plugin-persistedstate.js?v=024e4dc0
+← SUCCESS: 200 http://localhost:6151/@fs/D:/Program%20Files/HBuilderX/plugins/uniapp-cli-vite/node_modules/vue-router/dist/vue-router.esm-bundler.js
+→ REQUEST: GET http://localhost:6151/@fs/D:/Program%20Files/HBuilderX/plugins/uniapp-cli-vite/node_modules/vue-router/dist/vue-router.mjs?v=024e4dc0
+← SUCCESS: 200 http://localhost:6151/@fs/D:/Program%20Files/HBuilderX/plugins/uniapp-cli-vite/node_modules/@vue/shared/dist/shared.esm-bundler.js
+← SUCCESS: 200 http://localhost:6151/@fs/D:/Program%20Files/HBuilderX/plugins/uniapp-cli-vite/node_modules/pinia/dist/pinia.mjs
+← SUCCESS: 200 http://localhost:6151/@fs/D:/Program%20Files/HBuilderX/plugins/uniapp-cli-vite/node_modules/@dcloudio/uni-i18n/dist/uni-i18n.es.js
+→ REQUEST: GET http://localhost:6151/@fs/D:/Program%20Files/HBuilderX/plugins/uniapp-cli-vite/node_modules/vue-demi/lib/index.mjs?v=024e4dc0
+→ REQUEST: GET http://localhost:6151/@fs/D:/Program%20Files/HBuilderX/plugins/uniapp-cli-vite/node_modules/pinia/node_modules/@vue/devtools-api/lib/esm/index.js?v=024e4dc0
+← SUCCESS: 200 http://localhost:6151/@fs/D:/Program%20Files/HBuilderX/plugins/uniapp-cli-vite/node_modules/@dcloudio/uni-shared/dist/uni-shared.es.js
+← SUCCESS: 200 http://localhost:6151/@fs/D:/Program%20Files/HBuilderX/plugins/uniapp-cli-vite/node_modules/vue-demi/lib/index.mjs?v=024e4dc0
+← SUCCESS: 200 http://localhost:6151/@fs/D:/Program%20Files/HBuilderX/plugins/uniapp-cli-vite/node_modules/pinia/node_modules/@vue/devtools-api/lib/esm/index.js?v=024e4dc0
+→ REQUEST: GET http://localhost:6151/@fs/D:/Program%20Files/HBuilderX/plugins/uniapp-cli-vite/node_modules/pinia/node_modules/@vue/devtools-api/lib/esm/env.js?v=024e4dc0
+→ REQUEST: GET http://localhost:6151/@fs/D:/Program%20Files/HBuilderX/plugins/uniapp-cli-vite/node_modules/pinia/node_modules/@vue/devtools-api/lib/esm/const.js?v=024e4dc0
+→ REQUEST: GET http://localhost:6151/@fs/D:/Program%20Files/HBuilderX/plugins/uniapp-cli-vite/node_modules/pinia/node_modules/@vue/devtools-api/lib/esm/proxy.js?v=024e4dc0
+→ REQUEST: GET http://localhost:6151/@fs/D:/Program%20Files/HBuilderX/plugins/uniapp-cli-vite/node_modules/pinia/node_modules/@vue/devtools-api/lib/esm/api/index.js?v=024e4dc0
+→ REQUEST: GET http://localhost:6151/@fs/D:/Program%20Files/HBuilderX/plugins/uniapp-cli-vite/node_modules/pinia/node_modules/@vue/devtools-api/lib/esm/plugin.js?v=024e4dc0
+→ REQUEST: GET http://localhost:6151/@fs/D:/Program%20Files/HBuilderX/plugins/uniapp-cli-vite/node_modules/pinia/node_modules/@vue/devtools-api/lib/esm/time.js?v=024e4dc0
+← SUCCESS: 200 http://localhost:6151/@fs/D:/Program%20Files/HBuilderX/plugins/uniapp-cli-vite/node_modules/vue-router/dist/vue-router.mjs?v=024e4dc0
+→ REQUEST: GET http://localhost:6151/@fs/D:/Program%20Files/HBuilderX/plugins/uniapp-cli-vite/node_modules/vue-router/node_modules/@vue/devtools-api/lib/esm/index.js?v=024e4dc0
+← FAILED: 404 http://localhost:6151/api/request.js
+[CONSOLE ERROR] Failed to load resource: the server responded with a status of 404 (File not found)
+← FAILED: 404 http://localhost:6151/api/modules/auth.js
+[CONSOLE ERROR] Failed to load resource: the server responded with a status of 404 (File not found)
+← SUCCESS: 200 http://localhost:6151/@fs/D:/Program%20Files/HBuilderX/plugins/uniapp-cli-vite/node_modules/pinia/node_modules/@vue/devtools-api/lib/esm/const.js?v=024e4dc0
+← SUCCESS: 200 http://localhost:6151/@fs/D:/Program%20Files/HBuilderX/plugins/uniapp-cli-vite/node_modules/pinia/node_modules/@vue/devtools-api/lib/esm/env.js?v=024e4dc0
+← SUCCESS: 200 http://localhost:6151/@fs/D:/Program%20Files/HBuilderX/plugins/uniapp-cli-vite/node_modules/pinia/node_modules/@vue/devtools-api/lib/esm/proxy.js?v=024e4dc0
+← SUCCESS: 200 http://localhost:6151/@fs/D:/Program%20Files/HBuilderX/plugins/uniapp-cli-vite/node_modules/pinia/node_modules/@vue/devtools-api/lib/esm/api/index.js?v=024e4dc0
+← SUCCESS: 200 http://localhost:6151/@fs/D:/Program%20Files/HBuilderX/plugins/uniapp-cli-vite/node_modules/pinia/node_modules/@vue/devtools-api/lib/esm/plugin.js?v=024e4dc0
+← SUCCESS: 200 http://localhost:6151/@fs/D:/Program%20Files/HBuilderX/plugins/uniapp-cli-vite/node_modules/vue-router/node_modules/@vue/devtools-api/lib/esm/index.js?v=024e4dc0
+← SUCCESS: 200 http://localhost:6151/@fs/D:/Program%20Files/HBuilderX/plugins/uniapp-cli-vite/node_modules/pinia/node_modules/@vue/devtools-api/lib/esm/time.js?v=024e4dc0
+[CONSOLE ERROR] Failed to load resource: the server responded with a status of 404 (Not Found)
+
+====== 页面加载完成，等待5秒 ======
+
+
+====== 页面状态 ======
+{
+  "url": "http://localhost:6151/",
+  "title": "小魔推碰一碰",
+  "hasApp": true,
+  "appContent": "<!--app-html-->",
+  "bodyHTML": 94,
+  "scripts": [
+    {
+      "src": "",
+      "type": ""
+    },
+    {
+      "src": "http://localhost:6151/@vite/client",
+      "type": "module"
+    },
+    {
+      "src": "http://localhost:6151/main.js",
+      "type": "module"
+    }
+  ],
+  "errors": []
+}
+
+====== 所有404请求 ======
+404: http://localhost:6151/api/request.js
+404: http://localhost:6151/api/modules/auth.js
+
+====== 截图保存 ======
+截图已保存
+
+====== 测试完成，浏览器保持5秒 ======
+

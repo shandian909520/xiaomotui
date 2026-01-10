@@ -1,0 +1,13 @@
+{
+  "version": "1.0",
+  "configurations": [{
+    "type": "uniapp",
+    "default": {
+      "launchtype": "local"
+    },
+    "h5": {
+      "launchtype": "local",
+      "port": 8082
+    }
+  }]
+}

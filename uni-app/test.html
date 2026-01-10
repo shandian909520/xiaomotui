@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>小魔推碰一碰 - 测试页面</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            background-color: #f8f9fa;
+        }
+        .page-container {
+            max-width: 400px;
+            margin: 0 auto;
+        }
+        .welcome-card {
+            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+            color: #ffffff;
+            padding: 40px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        .welcome-title {
+            font-size: 22px;
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+        .welcome-desc {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        .quick-actions {
+            margin-bottom: 30px;
+        }
+        .section-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #1e293b;
+            margin-bottom: 20px;
+        }
+        .action-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+        }
+        .action-item {
+            background-color: #ffffff;
+            border-radius: 12px;
+            padding: 30px 20px;
+            text-align: center;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .action-item:hover {
+            background-color: #f8f9fa;
+        }
+        .action-icon {
+            font-size: 32px;
+            margin-bottom: 12px;
+        }
+        .action-text {
+            font-size: 12px;
+            color: #475569;
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <div class="page-container">
+            <!-- 顶部欢迎卡片 -->
+            <div class="welcome-card">
+                <div class="welcome-title">欢迎使用小魔推碰一碰</div>
+                <div class="welcome-desc">NFC智能营销助手，让营销更简单</div>
+            </div>
+
+            <!-- 快捷功能 -->
+            <div class="quick-actions">
+                <div class="section-title">快捷功能</div>
+                <div class="action-grid">
+                    <div class="action-item" @click="showMessage('NFC触发')">
+                        <div class="action-icon">📱</div>
+                        <div class="action-text">NFC触发</div>
+                    </div>
+                    <div class="action-item" @click="showMessage('AI生成')">
+                        <div class="action-icon">✨</div>
+                        <div class="action-text">AI生成</div>
+                    </div>
+                    <div class="action-item" @click="showMessage('发布内容')">
+                        <div class="action-icon">🚀</div>
+                        <div class="action-text">发布内容</div>
+                    </div>
+                    <div class="action-item" @click="showMessage('设备管理')">
+                        <div class="action-icon">⚙️</div>
+                        <div class="action-text">设备管理</div>
+                    </div>
+                </div>
+            </div>
+
+            <div style="text-align: center; color: #666; font-size: 14px;">
+                <p>测试页面 - Vue应用正常运行</p>
+                <p>点击功能按钮测试交互</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { createApp } = Vue;
+
+        createApp({
+            data() {
+                return {
+                    message: '小魔推碰一碰测试页面'
+                }
+            },
+            methods: {
+                showMessage(feature) {
+                    alert('点击了功能: ' + feature);
+                }
+            },
+            mounted() {
+                console.log('Vue应用已成功挂载!');
+                console.log('页面标题:', document.title);
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>

@@ -27,7 +27,7 @@ return [
     // 应用Trace
     'app_trace'        => env('app.trace', false),
     // 是否支持多应用
-    'auto_multi_app'   => true,
+    'auto_multi_app'   => false,
 
     // +----------------------------------------------------------------------
     // | 日志设置

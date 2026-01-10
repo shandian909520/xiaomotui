@@ -3,7 +3,7 @@
 Execute task 84 for the xiaomotui specification.
 
 ## Task Description
-发布微信小程序
+发布uni-app到各平台
 
 ## Usage
 ```
@@ -12,10 +12,10 @@ Execute task 84 for the xiaomotui specification.
 
 ## Instructions
 
-Execute with @spec-task-executor agent the following task: "发布微信小程序"
+Execute with @spec-task-executor agent the following task: "发布uni-app到各平台"
 
 ```
-Use the @spec-task-executor agent to implement task 84: "发布微信小程序" for the xiaomotui specification and include all the below context.
+Use the @spec-task-executor agent to implement task 84: "发布uni-app到各平台" for the xiaomotui specification and include all the below context.
 
 # Steering Context
 ## Steering Documents Context
@@ -170,15 +170,29 @@ No steering documents found or all are empty.
 ## 技术标准对齐
 
 ### 技术栈选择
-- **前端**: 微信小程序 + Vue.js管理后台
+- **前端**: uni-app (Vue 3版本) + Vue.js管理后台
+- **UI框架**: uView Plus 3.0
+- **状态管理**: Pinia
 - **后端框架**: ThinkPHP 8.0
-- **数据库**: MySQL 8.0
+- **数据库**: MySQL 5.7
 - **缓存**: Redis
 - **文件存储**: 阿里云OSS
 - **AI服务**:
   - 文案生成：百度文心一言 / 讯飞星火
   - 视频生成：剪映API / 腾讯智影
 - **第三方集成**: 微信支付、抖音开放平台、小红书API
+
+### MySQL 5.7配置说明
+```sql
+-- MySQL 5.7 特殊配置
+-- 1. 需要设置 sql_mode
+SET sql_mode = 'STRICT_TRANS_TABLES,NO_ZERO_DATE,NO_ZERO_IN_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION';
+
+-- 2. 字符集使用 utf8mb4_general_ci (5.7兼容)
+-- 3. JSON字段使用TEXT类型存储JSON字符串
+-- 4. 时间戳默认值需要明确指定
+-- 5. 建议开启 innodb_file_per_table = 1
+```
 
 ### 项目结构规范
 ```
@@ -192,10 +206,26 @@ xiaomotui/
 │   ├── config/             # 配置文件
 │   ├── route/              # 路由配置
 │   └── database/           # 数据库迁移文件
-├── miniprogram/            # 微信小程序
-│   ├── pages/              # 页面
+├── uni-app/                # uni-app前端
+│   ├── pages/              # 页面文件
+│   │   ├── index/          # 首页
+│   │   ├── nfc/            # NFC功能
+│   │   ├── content/        # 内容生成
+│   │   ├── publish/        # 发布管理
+│   │   ├── user/           # 用户中心
+│   │   └── merchant/       # 商家管理
 │   ├── components/         # 组件
-│   └── utils/              # 工具函数
+│   │   ├── common/         # 通用组件
+│   │   └── business/       # 业务组件
+│   ├── api/                # API接口
+│   ├── store/              # Pinia状态管理
+│   ├── utils/              # 工具函数
+│   ├── static/             # 静态资源
+│   ├── uni_modules/        # uni插件
+│   ├── App.vue             # 应用入口
+│   ├── main.js             # 主入口
+│   ├── manifest.json       # 配置文件
+│   └── pages.json          # 页面路由
 ├── admin/                  # Vue.js管理后台
 │   ├── src/
 │   │   ├── views/          # 页面组件
@@ -245,7 +275,7 @@ CREATE TABLE `merchants` (
   `phone` varchar(20) DEFAULT NULL COMMENT '联系电话',
   `description` text COMMENT '商家描述',
   `logo` varchar(255) DEFAULT NULL COMMENT '商家logo',
-  `business_hours` json DEFAULT NULL COMMENT '营业时间',
+  `business_hours` text COMMENT '营业时间JSON',
   `status` tinyint(1) DEFAULT '1' COMMENT '状态 0禁用 1正常 2审核中',
   `create_time` datetime NOT NULL COMMENT '创建时间',
   `update_time` datetime NOT NULL COMMENT '更新时间',
@@ -293,7 +323,7 @@ CREATE TABLE `content_templates` (
   `type` enum('VIDEO','TEXT','IMAGE') NOT NULL COMMENT '模板类型',
   `category` varchar(50) NOT NULL COMMENT '模板分类',
   `style` varchar(50) DEFAULT NULL COMMENT '风格标签',
-  `content` json NOT NULL COMMENT '模板内容配置',
+  `content` text NOT NULL COMMENT '模板内容配置JSON',
   `preview_url` varchar(255) DEFAULT NULL COMMENT '预览图',
   `usage_count` int(11) DEFAULT '0' COMMENT '使用次数',
   `is_public` tinyint(1) DEFAULT '0' COMMENT '是否公开 0私有 1公开',
@@ -316,8 +346,8 @@ CREATE TABLE `content_tasks` (
   `template_id` int(11) unsigned DEFAULT NULL COMMENT '模板ID',
   `type` enum('VIDEO','TEXT','IMAGE') NOT NULL COMMENT '内容类型',
   `status` enum('PENDING','PROCESSING','COMPLETED','FAILED') DEFAULT 'PENDING' COMMENT '任务状态',
-  `input_data` json DEFAULT NULL COMMENT '输入数据',
-  `output_data` json DEFAULT NULL COMMENT '输出数据',
+  `input_data` text COMMENT '输入数据JSON',
+  `output_data` text COMMENT '输出数据JSON',
   `ai_provider` varchar(20) DEFAULT NULL COMMENT 'AI服务商',
   `generation_time` int(11) DEFAULT NULL COMMENT '生成耗时(秒)',
   `error_message` text COMMENT '错误信息',
@@ -340,9 +370,9 @@ CREATE TABLE `publish_tasks` (
   `id` int(11) unsigned NOT NULL AUTO_INCREMENT COMMENT '发布任务ID',
   `content_task_id` int(11) unsigned NOT NULL COMMENT '内容任务ID',
   `user_id` int(11) unsigned NOT NULL COMMENT '用户ID',
-  `platforms` json NOT NULL COMMENT '发布平台配置',
+  `platforms` text NOT NULL COMMENT '发布平台配置JSON',
   `status` enum('PENDING','PUBLISHING','COMPLETED','PARTIAL','FAILED') DEFAULT 'PENDING' COMMENT '发布状态',
-  `results` json DEFAULT NULL COMMENT '发布结果',
+  `results` text COMMENT '发布结果JSON',
   `scheduled_time` datetime DEFAULT NULL COMMENT '定时发布时间',
   `publish_time` datetime DEFAULT NULL COMMENT '实际发布时间',
   `create_time` datetime NOT NULL COMMENT '创建时间',
@@ -449,7 +479,7 @@ CREATE TABLE `statistics` (
   `date` date NOT NULL COMMENT '统计日期',
   `metric_type` varchar(50) NOT NULL COMMENT '指标类型',
   `metric_value` decimal(15,2) NOT NULL COMMENT '指标数值',
-  `extra_data` json DEFAULT NULL COMMENT '额外数据',
+  `extra_data` text COMMENT '额外数据JSON',
   `create_time` datetime NOT NULL COMMENT '创建时间',
   PRIMARY KEY (`id`),
   KEY `merchant_id` (`merchant_id`),
@@ -460,47 +490,51 @@ CREATE TABLE `statistics` (
 
 ## 架构设计
 
-采用经典的MVC三层架构，简单实用：
+采用经典的MVC三层架构，uni-app实现多端适配：
 
 ```mermaid
 graph TB
-    subgraph "前端层"
-        A[微信小程序]
-        B[管理后台]
-        C[NFC设备]
+    subgraph "多端前端层"
+        A[uni-app H5]
+        B[uni-app 小程序]
+        C[uni-app APP]
+        D[管理后台]
+        E[NFC设备]
     end
 
     subgraph "应用层"
-        D[ThinkPHP API]
-        E[业务逻辑层]
-        F[数据访问层]
+        F[ThinkPHP API]
+        G[业务逻辑层]
+        H[数据访问层]
     end
 
     subgraph "数据层"
-        G[MySQL数据库]
-        H[Redis缓存]
-        I[阿里云OSS]
+        I[MySQL数据库]
+        J[Redis缓存]
+        K[阿里云OSS]
     end
 
     subgraph "外部服务"
-        J[百度文心一言]
-        K[剪映API]
-        L[抖音API]
-        M[小红书API]
+        L[百度文心一言]
+        M[剪映API]
+        N[抖音API]
+        O[小红书API]
     end
 
-    A --> D
-    B --> D
-    C --> D
-    D --> E
+    A --> F
+    B --> F
+    C --> F
+    D --> F
     E --> F
     F --> G
-    E --> H
-    E --> I
-    E --> J
-    E --> K
-    E --> L
-    E --> M
+    G --> H
+    H --> I
+    G --> J
+    G --> K
+    G --> L
+    G --> M
+    G --> N
+    G --> O
 ```
 
 ## 认证系统设计
@@ -989,10 +1023,10 @@ class PublishService
 
 ## Task Details
 - Task ID: 84
-- Description: 发布微信小程序
+- Description: 发布uni-app到各平台
 
 ## Instructions
-- Implement ONLY task 84: "发布微信小程序"
+- Implement ONLY task 84: "发布uni-app到各平台"
 - Follow all project conventions and leverage existing code
 - Mark the task as complete using: claude-code-spec-workflow get-tasks xiaomotui 84 --mode complete
 - Provide a completion summary

@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>小魔推碰一碰 - 简化版本</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://unpkg.com/@vue/compiler-sfc@3/dist/compiler-sfc.global.js"></script>
+</head>
+<body>
+    <div id="app">
+        <div class="page-container">
+            <!-- 顶部欢迎卡片 -->
+            <div class="welcome-card">
+                <div class="welcome-title">欢迎使用小魔推碰一碰</div>
+                <div class="welcome-desc">NFC智能营销助手，让营销更简单</div>
+            </div>
+
+            <!-- 快捷功能 -->
+            <div class="quick-actions">
+                <div class="section-title">快捷功能</div>
+                <div class="action-grid">
+                    <div class="action-item" @click="showMessage('NFC触发')">
+                        <div class="action-icon">📱</div>
+                        <div class="action-text">NFC触发</div>
+                    </div>
+                    <div class="action-item" @click="showMessage('AI生成')">
+                        <div class="action-icon">✨</div>
+                        <div class="action-text">AI生成</div>
+                    </div>
+                    <div class="action-item" @click="showMessage('发布内容')">
+                        <div class="action-icon">🚀</div>
+                        <div class="action-text">发布内容</div>
+                    </div>
+                    <div class="action-item" @click="showMessage('设备管理')">
+                        <div class="action-icon">⚙️</div>
+                        <div class="action-text">设备管理</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 数据概览 -->
+            <div class="stats-overview">
+                <div class="section-title">今日数据</div>
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <div class="stat-value">{{ todayStats.triggers }}</div>
+                        <div class="stat-label">触发次数</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value">{{ todayStats.contents }}</div>
+                        <div class="stat-label">内容生成</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value">{{ todayStats.publishes }}</div>
+                        <div class="stat-label">发布数量</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value">{{ todayStats.visitors }}</div>
+                        <div class="stat-label">访客数</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 状态信息 -->
+            <div class="status-info">
+                <div class="section-title">系统状态</div>
+                <div class="status-item">
+                    <span class="status-label">应用状态:</span>
+                    <span class="status-value success">✅ 正常运行</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">Vue版本:</span>
+                    <span class="status-value">3.4.21</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">最后更新:</span>
+                    <span class="status-value">{{ currentTime }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #f8f9fa;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+        }
+        .page-container {
+            padding: 20px;
+            max-width: 400px;
+            margin: 0 auto;
+            background-color: #f8f9fa;
+            min-height: 100vh;
+        }
+        .welcome-card {
+            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+            color: #ffffff;
+            margin-bottom: 30px;
+            padding: 40px;
+            border-radius: 12px;
+            text-align: center;
+        }
+        .welcome-title {
+            font-size: 22px;
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+        .welcome-desc {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        .section-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #1e293b;
+            margin-bottom: 20px;
+        }
+        .quick-actions {
+            margin-bottom: 30px;
+        }
+        .action-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+        }
+        .action-item {
+            background-color: #ffffff;
+            border-radius: 12px;
+            padding: 30px 20px;
+            text-align: center;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .action-item:hover {
+            background-color: #f8f9fa;
+        }
+        .action-icon {
+            font-size: 32px;
+            margin-bottom: 12px;
+        }
+        .action-text {
+            font-size: 12px;
+            color: #475569;
+        }
+        .stats-overview {
+            margin-bottom: 30px;
+        }
+        .stats-grid {
+            background-color: #ffffff;
+            border-radius: 12px;
+            padding: 30px;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        }
+        .stat-item {
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 24px;
+            font-weight: 600;
+            color: #6366f1;
+            margin-bottom: 8px;
+        }
+        .stat-label {
+            font-size: 12px;
+            color: #64748b;
+        }
+        .status-info {
+            background-color: #ffffff;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        }
+        .status-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .status-item:last-child {
+            border-bottom: none;
+        }
+        .status-label {
+            font-size: 14px;
+            color: #666;
+        }
+        .status-value {
+            font-size: 14px;
+            color: #333;
+            font-weight: 500;
+        }
+        .status-value.success {
+            color: #10b981;
+        }
+    </style>
+
+    <script>
+        const { createApp } = Vue;
+
+        createApp({
+            data() {
+                return {
+                    todayStats: {
+                        triggers: 128,
+                        contents: 45,
+                        publishes: 23,
+                        visitors: 567
+                    },
+                    currentTime: new Date().toLocaleString('zh-CN')
+                }
+            },
+            mounted() {
+                console.log('✅ 小魔推碰一碰应用已成功启动!')
+                console.log('🎯 Vue应用正常挂载')
+                console.log('📱 支持NFC触发功能')
+                console.log('✨ AI内容生成功能就绪')
+                console.log('🚀 发布功能可用')
+                console.log('⚙️ 设备管理功能可用')
+
+                // 更新时间
+                setInterval(() => {
+                    this.currentTime = new Date().toLocaleString('zh-CN')
+                }, 1000)
+            },
+            methods: {
+                showMessage(feature) {
+                    alert(`🎯 ${feature}功能被点击!\n\n小魔推碰一碰 - 让营销更简单\n\n该功能将在后续版本中完整实现。`)
+                }
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>

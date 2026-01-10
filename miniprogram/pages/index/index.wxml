@@ -1,0 +1,31 @@
+<view class="container">
+  <view class="header">
+    <image class="logo" src="/images/logo.png" mode="aspectFit"></image>
+    <text class="title">小魔推碰一碰</text>
+    <text class="subtitle">NFC智能营销内容生成平台</text>
+  </view>
+
+  <view class="features">
+    <view class="feature-item" bindtap="goToNFC">
+      <image class="feature-icon" src="/images/nfc-icon.png" mode="aspectFit"></image>
+      <text class="feature-title">碰一碰触发</text>
+      <text class="feature-desc">NFC一碰即可生成内容</text>
+    </view>
+
+    <view class="feature-item">
+      <image class="feature-icon" src="/images/content-icon.png" mode="aspectFit"></image>
+      <text class="feature-title">AI内容生成</text>
+      <text class="feature-desc">智能生成视频和文案</text>
+    </view>
+
+    <view class="feature-item">
+      <image class="feature-icon" src="/images/publish-icon.png" mode="aspectFit"></image>
+      <text class="feature-title">多平台发布</text>
+      <text class="feature-desc">一键发布到多个平台</text>
+    </view>
+  </view>
+
+  <view class="quick-actions">
+    <button class="btn btn-primary" bindtap="goToNFC">开始使用</button>
+  </view>
+</view>

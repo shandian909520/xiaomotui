@@ -1,0 +1,25 @@
+-- 创建内容审核记录表
+CREATE TABLE IF NOT EXISTS `content_audits` (
+  `id` int(11) unsigned NOT NULL AUTO_INCREMENT COMMENT '审核ID',
+  `content_id` int(11) unsigned NOT NULL COMMENT '内容ID',
+  `content_type` enum('MATERIAL','CONTENT_TASK','COMMENT','USER_CONTENT') NOT NULL COMMENT '内容类型',
+  `audit_type` enum('TEXT','IMAGE','VIDEO','AUDIO') NOT NULL COMMENT '审核类型',
+  `audit_method` enum('AUTO','MANUAL','MIXED') DEFAULT 'AUTO' COMMENT '审核方式',
+  `status` tinyint(1) DEFAULT 0 COMMENT '审核状态 0待审核 1通过 2拒绝 3审核中',
+  `auto_result` json DEFAULT NULL COMMENT '自动审核结果',
+  `manual_result` json DEFAULT NULL COMMENT '人工审核结果',
+  `risk_level` enum('LOW','MEDIUM','HIGH','CRITICAL') DEFAULT 'LOW' COMMENT '风险等级',
+  `violation_types` json DEFAULT NULL COMMENT '违规类型',
+  `audit_message` text COMMENT '审核信息',
+  `auditor_id` int(11) DEFAULT NULL COMMENT '审核员ID',
+  `submit_time` datetime NOT NULL COMMENT '提交时间',
+  `audit_time` datetime DEFAULT NULL COMMENT '审核完成时间',
+  `create_time` datetime NOT NULL COMMENT '创建时间',
+  `update_time` datetime NOT NULL COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_content` (`content_id`, `content_type`),
+  KEY `idx_status` (`status`),
+  KEY `idx_risk_level` (`risk_level`),
+  KEY `idx_submit_time` (`submit_time`),
+  KEY `idx_auditor_id` (`auditor_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='内容审核记录表';
