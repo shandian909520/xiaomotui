@@ -1,0 +1,30 @@
+{
+  "mcpServers": {
+         "playwright": {
+          "type": "stdio",
+          "command": "C:\\Program Files\\Git\\bin\\bash.exe",
+          "args": [
+            "-c",
+            "npx -y @playwright/mcp@latest"
+          ],
+          "env": {}
+        },
+	 "chrome-devtools": {
+      "command": "npx",
+      "args": [
+        "chrome-devtools-mcp@latest"
+      ]
+    },  "zai-mcp-server": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@z_ai/mcp-server"
+      ],
+      "env": {
+        "Z_AI_API_KEY": "97e789386b8f4a56916cba8bd179d3cf.CChVLN05Ilx0bNL2",
+        "Z_AI_MODE": "ZHIPU"
+      }
+    }
+  }
+}

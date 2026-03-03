@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IP黑名单管理 - 小磨推API</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: #f5f7fa;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+
+        .header h1 {
+            color: #303133;
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .stat-card h3 {
+            color: #909399;
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
+
+        .stat-card .value {
+            color: #303133;
+            font-size: 28px;
+            font-weight: bold;
+        }
+
+        .content {
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .toolbar {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            background: #409eff;
+            color: #fff;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+
+        button:hover {
+            background: #66b1ff;
+        }
+
+        button.danger {
+            background: #f56c6c;
+        }
+
+        button.danger:hover {
+            background: #f78989;
+        }
+
+        input[type="text"] {
+            padding: 10px;
+            border: 1px solid #dcdfe6;
+            border-radius: 4px;
+            outline: none;
+            font-size: 14px;
+        }
+
+        input[type="text"]:focus {
+            border-color: #409eff;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        table th,
+        table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ebeef5;
+        }
+
+        table th {
+            background: #f5f7fa;
+            color: #909399;
+            font-weight: 500;
+        }
+
+        table tr:hover {
+            background: #f5f7fa;
+        }
+
+        .tag {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+
+        .tag.active {
+            background: #fef0f0;
+            color: #f56c6c;
+        }
+
+        .tag.inactive {
+            background: #f0f9ff;
+            color: #409eff;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #909399;
+        }
+
+        .empty {
+            text-align: center;
+            padding: 40px;
+            color: #909399;
+        }
+
+        .actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .actions button {
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.show {
+            display: flex;
+        }
+
+        .modal-content {
+            background: #fff;
+            padding: 30px;
+            border-radius: 8px;
+            min-width: 400px;
+        }
+
+        .modal-header {
+            margin-bottom: 20px;
+        }
+
+        .modal-header h3 {
+            color: #303133;
+            font-size: 18px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #606266;
+            font-size: 14px;
+        }
+
+        .form-group input,
+        .form-group textarea,
+        .form-group select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #dcdfe6;
+            border-radius: 4px;
+            outline: none;
+            font-size: 14px;
+        }
+
+        .form-group textarea {
+            min-height: 80px;
+            resize: vertical;
+        }
+
+        .modal-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        button.secondary {
+            background: #909399;
+        }
+
+        button.secondary:hover {
+            background: #a6a9ad;
+        }
+
+        .alert {
+            padding: 10px 20px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .alert.show {
+            display: block;
+        }
+
+        .alert.success {
+            background: #f0f9ff;
+            color: #409eff;
+            border: 1px solid #b3d8ff;
+        }
+
+        .alert.error {
+            background: #fef0f0;
+            color: #f56c6c;
+            border: 1px solid #fbc4c4;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>IP黑名单管理</h1>
+            <p>管理和监控被封禁的IP地址</p>
+        </div>
+
+        <div class="alert" id="alert"></div>
+
+        <div class="stats">
+            <div class="stat-card">
+                <h3>总数</h3>
+                <div class="value" id="totalCount">-</div>
+            </div>
+            <div class="stat-card">
+                <h3>活跃封禁</h3>
+                <div class="value" id="activeCount">-</div>
+            </div>
+            <div class="stat-card">
+                <h3>已解封</h3>
+                <div class="value" id="inactiveCount">-</div>
+            </div>
+        </div>
+
+        <div class="content">
+            <div class="toolbar">
+                <input type="text" id="searchIp" placeholder="输入IP地址搜索..." style="width: 300px;">
+                <button onclick="searchByIp()">搜索</button>
+                <button onclick="showAddModal()">添加黑名单</button>
+                <button onclick="exportData()">导出数据</button>
+                <button class="danger" onclick="clearBlacklist()">清空黑名单</button>
+            </div>
+
+            <div id="loading" class="loading">加载中...</div>
+
+            <table id="table" style="display: none;">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>IP地址</th>
+                        <th>状态</th>
+                        <th>封禁原因</th>
+                        <th>封禁时间</th>
+                        <th>解封时间</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody">
+                </tbody>
+            </table>
+
+            <div id="empty" class="empty" style="display: none;">
+                暂无数据
+            </div>
+        </div>
+    </div>
+
+    <!-- 添加黑名单模态框 -->
+    <div class="modal" id="addModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>添加IP到黑名单</h3>
+            </div>
+            <div class="form-group">
+                <label>IP地址 *</label>
+                <input type="text" id="addIp" placeholder="例如: 192.168.1.100">
+            </div>
+            <div class="form-group">
+                <label>封禁原因</label>
+                <textarea id="addReason" placeholder="例如: 恶意攻击"></textarea>
+            </div>
+            <div class="form-group">
+                <label>封禁时长（分钟）</label>
+                <input type="number" id="addDuration" value="1440" min="1">
+            </div>
+            <div class="form-group">
+                <label>是否永久封禁</label>
+                <select id="addPermanent">
+                    <option value="false">临时封禁</option>
+                    <option value="true">永久封禁</option>
+                </select>
+            </div>
+            <div class="modal-footer">
+                <button class="secondary" onclick="hideAddModal()">取消</button>
+                <button onclick="addIp()">确定</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:37080/api/admin/blacklist';
+
+        // 页面加载时获取数据
+        window.onload = function() {
+            loadOverview();
+            loadList();
+        };
+
+        // 加载概览数据
+        function loadOverview() {
+            fetch(`${API_BASE}/overview`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.code === 200) {
+                        document.getElementById('totalCount').textContent = data.data.total;
+                        document.getElementById('activeCount').textContent = data.data.active;
+                        document.getElementById('inactiveCount').textContent = data.data.inactive;
+                    }
+                })
+                .catch(err => console.error(err));
+        }
+
+        // 加载黑名单列表
+        function loadList(page = 1, pageSize = 20) {
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('table').style.display = 'none';
+            document.getElementById('empty').style.display = 'none';
+
+            fetch(`${API_BASE}/list?page=${page}&page_size=${pageSize}`)
+                .then(res => res.json())
+                .then(data => {
+                    document.getElementById('loading').style.display = 'none';
+
+                    if (data.code === 200) {
+                        if (data.data.list.length === 0) {
+                            document.getElementById('empty').style.display = 'block';
+                            return;
+                        }
+
+                        document.getElementById('table').style.display = 'table';
+                        renderTable(data.data.list);
+                    }
+                })
+                .catch(err => {
+                    document.getElementById('loading').style.display = 'none';
+                    console.error(err);
+                });
+        }
+
+        // 渲染表格
+        function renderTable(list) {
+            const tbody = document.getElementById('tableBody');
+            tbody.innerHTML = '';
+
+            list.forEach(item => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${item.id}</td>
+                    <td>${item.ip}</td>
+                    <td><span class="tag ${item.status}">${item.status === 'active' ? '已封禁' : '已解封'}</span></td>
+                    <td>${item.reason || '-'}</td>
+                    <td>${item.blocked_at_formatted || '-'}</td>
+                    <td>${item.blocked_until_formatted}</td>
+                    <td class="actions">
+                        ${item.status === 'active' ? `<button class="danger" onclick="removeIp('${item.ip}')">解封</button>` : ''}
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // 显示添加模态框
+        function showAddModal() {
+            document.getElementById('addModal').classList.add('show');
+        }
+
+        // 隐藏添加模态框
+        function hideAddModal() {
+            document.getElementById('addModal').classList.remove('show');
+            document.getElementById('addIp').value = '';
+            document.getElementById('addReason').value = '';
+            document.getElementById('addDuration').value = '1440';
+            document.getElementById('addPermanent').value = 'false';
+        }
+
+        // 添加IP到黑名单
+        function addIp() {
+            const ip = document.getElementById('addIp').value.trim();
+            const reason = document.getElementById('addReason').value.trim();
+            const duration = parseInt(document.getElementById('addDuration').value);
+            const permanent = document.getElementById('addPermanent').value === 'true';
+
+            if (!ip) {
+                showAlert('请输入IP地址', 'error');
+                return;
+            }
+
+            fetch(`${API_BASE}/add`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ip, reason, duration, permanent })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.code === 200) {
+                    showAlert('添加成功', 'success');
+                    hideAddModal();
+                    loadOverview();
+                    loadList();
+                } else {
+                    showAlert(data.message, 'error');
+                }
+            })
+            .catch(err => {
+                showAlert('添加失败', 'error');
+                console.error(err);
+            });
+        }
+
+        // 解除IP封禁
+        function removeIp(ip) {
+            if (!confirm(`确定要解除IP ${ip} 的封禁吗？`)) {
+                return;
+            }
+
+            fetch(`${API_BASE}/remove`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ip })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.code === 200) {
+                    showAlert('解封成功', 'success');
+                    loadOverview();
+                    loadList();
+                } else {
+                    showAlert(data.message, 'error');
+                }
+            })
+            .catch(err => {
+                showAlert('解封失败', 'error');
+                console.error(err);
+            });
+        }
+
+        // 搜索IP
+        function searchByIp() {
+            const ip = document.getElementById('searchIp').value.trim();
+            if (!ip) {
+                loadList();
+                return;
+            }
+
+            fetch(`${API_BASE}/check?ip=${ip}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.code === 200) {
+                        const stats = data.data.stats;
+                        alert(`IP统计信息:\nIP: ${stats.ip}\n是否被封禁: ${stats.is_blocked ? '是' : '否'}\n违规次数: ${stats.violation_count}\n今日请求次数: ${stats.request_count_today}`);
+                    }
+                })
+                .catch(err => console.error(err));
+        }
+
+        // 导出数据
+        function exportData() {
+            fetch(`${API_BASE}/export`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.code === 200) {
+                        const blob = new Blob([JSON.stringify(data.data.list, null, 2)], { type: 'application/json' });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `blacklist_${new Date().toISOString()}.json`;
+                        a.click();
+                        URL.revokeObjectURL(url);
+                    }
+                })
+                .catch(err => console.error(err));
+        }
+
+        // 清空黑名单
+        function clearBlacklist() {
+            if (!confirm('确定要清空黑名单吗？此操作不可恢复！')) {
+                return;
+            }
+
+            fetch(`${API_BASE}/clear`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ clear_all: false })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.code === 200) {
+                    showAlert(`清空成功，共移除 ${data.data.cleared_count} 条记录`, 'success');
+                    loadOverview();
+                    loadList();
+                } else {
+                    showAlert(data.message, 'error');
+                }
+            })
+            .catch(err => {
+                showAlert('清空失败', 'error');
+                console.error(err);
+            });
+        }
+
+        // 显示提示消息
+        function showAlert(message, type = 'success') {
+            const alert = document.getElementById('alert');
+            alert.textContent = message;
+            alert.className = `alert ${type} show`;
+
+            setTimeout(() => {
+                alert.classList.remove('show');
+            }, 3000);
+        }
+    </script>
+</body>
+</html>

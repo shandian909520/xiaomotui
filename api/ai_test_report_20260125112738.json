@@ -1,0 +1,285 @@
+{
+    "generate_text": [
+        {
+            "case": "正常生成-抖音平台-温馨风格",
+            "status": "success",
+            "response": {
+                "code": 200,
+                "message": "文案生成成功",
+                "timestamp": 1769311657,
+                "data": {
+                    "text": "欢迎光临我们的店铺，为您提供优质的产品和服务！",
+                    "tokens": 156,
+                    "time": 0,
+                    "model": "mock-ernie-bot-turbo",
+                    "params": {
+                        "scene": "咖啡店营销",
+                        "style": "温馨",
+                        "platform": "DOUYIN",
+                        "category": "餐饮",
+                        "requirements": "突出产品特色"
+                    }
+                }
+            }
+        },
+        {
+            "case": "正常生成-小红书平台-时尚风格",
+            "status": "success",
+            "response": {
+                "code": 200,
+                "message": "文案生成成功",
+                "timestamp": 1769311657,
+                "data": {
+                    "text": "欢迎光临我们的店铺，为您提供优质的产品和服务！",
+                    "tokens": 125,
+                    "time": 0,
+                    "model": "mock-ernie-bot-turbo",
+                    "params": {
+                        "scene": "服装店新品",
+                        "style": "时尚",
+                        "platform": "XIAOHONGSHU",
+                        "category": "服装",
+                        "requirements": ""
+                    }
+                }
+            }
+        },
+        {
+            "case": "正常生成-微信平台-文艺风格",
+            "status": "success",
+            "response": {
+                "code": 200,
+                "message": "文案生成成功",
+                "timestamp": 1769311657,
+                "data": {
+                    "text": "欢迎光临我们的店铺，为您提供优质的产品和服务！",
+                    "tokens": 394,
+                    "time": 0,
+                    "model": "mock-ernie-bot-turbo",
+                    "params": {
+                        "scene": "书店推广",
+                        "style": "文艺",
+                        "platform": "WECHAT",
+                        "category": "文化",
+                        "requirements": "强调阅读氛围"
+                    }
+                }
+            }
+        }
+    ],
+    "batch_generate": {
+        "status": "success",
+        "response": {
+            "code": 200,
+            "message": "批量生成完成，成功3条，失败0条",
+            "timestamp": 1769311657,
+            "data": {
+                "results": [
+                    {
+                        "success": true,
+                        "index": 0,
+                        "data": {
+                            "text": "欢迎光临我们的店铺，为您提供优质的产品和服务！",
+                            "tokens": 231,
+                            "time": 0,
+                            "model": "mock-ernie-bot-turbo",
+                            "params": {
+                                "scene": "咖啡店推广",
+                                "style": "温馨",
+                                "platform": "DOUYIN",
+                                "category": "餐饮"
+                            }
+                        }
+                    },
+                    {
+                        "success": true,
+                        "index": 1,
+                        "data": {
+                            "text": "欢迎光临我们的店铺，为您提供优质的产品和服务！",
+                            "tokens": 167,
+                            "time": 0,
+                            "model": "mock-ernie-bot-turbo",
+                            "params": {
+                                "scene": "服装店促销",
+                                "style": "时尚",
+                                "platform": "XIAOHONGSHU",
+                                "category": "服装"
+                            }
+                        }
+                    },
+                    {
+                        "success": true,
+                        "index": 2,
+                        "data": {
+                            "text": "欢迎光临我们的店铺，为您提供优质的产品和服务！",
+                            "tokens": 162,
+                            "time": 0,
+                            "model": "mock-ernie-bot-turbo",
+                            "params": {
+                                "scene": "书店活动",
+                                "style": "文艺",
+                                "platform": "WECHAT",
+                                "category": "文化"
+                            }
+                        }
+                    }
+                ],
+                "total": 3,
+                "success_count": 3,
+                "fail_count": 0
+            }
+        }
+    },
+    "status": {
+        "status": "success",
+        "response": {
+            "code": 200,
+            "message": "获取状态成功",
+            "timestamp": 1769311657,
+            "data": {
+                "service": "wenxin",
+                "model": "ernie-bot-turbo",
+                "available_models": [
+                    "ernie-bot",
+                    "ernie-bot-turbo",
+                    "ernie-bot-4",
+                    "ernie-speed"
+                ],
+                "token_cached": false,
+                "timeout": 30,
+                "max_retries": 3,
+                "config_valid": true
+            }
+        }
+    },
+    "config": {
+        "status": "success",
+        "response": {
+            "code": 200,
+            "message": "获取配置成功",
+            "timestamp": 1769311657,
+            "data": {
+                "model": "ernie-bot-turbo",
+                "timeout": 30,
+                "max_retries": 3,
+                "api_key": "test_api...",
+                "secret_key": "test_sec..."
+            }
+        }
+    },
+    "test_connection": {
+        "status": "failed",
+        "error": null
+    },
+    "clear_cache": {
+        "status": "failed",
+        "error": "Token缓存清除失败"
+    },
+    "styles": {
+        "status": "success",
+        "response": {
+            "code": 200,
+            "message": "获取风格列表成功",
+            "timestamp": 1769311657,
+            "data": [
+                {
+                    "value": "温馨",
+                    "label": "温馨",
+                    "description": "温暖、亲切、有人情味，营造舒适放松的氛围"
+                },
+                {
+                    "value": "时尚",
+                    "label": "时尚",
+                    "description": "前卫、新潮、个性化，突出流行趋势"
+                },
+                {
+                    "value": "文艺",
+                    "label": "文艺",
+                    "description": "有情怀、有格调、富有诗意和文化气息"
+                },
+                {
+                    "value": "潮流",
+                    "label": "潮流",
+                    "description": "年轻活力、时尚动感、紧跟潮流"
+                },
+                {
+                    "value": "高端",
+                    "label": "高端",
+                    "description": "精致优雅、品质感强、体现尊贵体验"
+                },
+                {
+                    "value": "亲民",
+                    "label": "亲民",
+                    "description": "接地气、实惠、贴近生活"
+                }
+            ]
+        }
+    },
+    "platforms": {
+        "status": "success",
+        "response": {
+            "code": 200,
+            "message": "获取平台列表成功",
+            "timestamp": 1769311658,
+            "data": [
+                {
+                    "value": "DOUYIN",
+                    "label": "抖音",
+                    "description": "简短有力，20-50字，节奏感强，适合短视频"
+                },
+                {
+                    "value": "XIAOHONGSHU",
+                    "label": "小红书",
+                    "description": "真实生活化，100-200字，分享式语气"
+                },
+                {
+                    "value": "WECHAT",
+                    "label": "微信",
+                    "description": "亲切自然，内容详实，适合朋友圈分享"
+                }
+            ]
+        }
+    },
+    "validation": [
+        {
+            "case": "缺少场景参数",
+            "status": "success",
+            "expected_error": true,
+            "response": {
+                "code": 400,
+                "message": "场景描述不能为空",
+                "timestamp": 1769311658
+            }
+        },
+        {
+            "case": "无效的风格",
+            "status": "success",
+            "expected_error": true,
+            "response": {
+                "code": 400,
+                "message": "不支持的风格: 无效风格",
+                "timestamp": 1769311658
+            }
+        },
+        {
+            "case": "无效的平台",
+            "status": "success",
+            "expected_error": true,
+            "response": {
+                "code": 400,
+                "message": "不支持的平台: INVALID_PLATFORM",
+                "timestamp": 1769311658
+            }
+        },
+        {
+            "case": "场景描述超长",
+            "status": "success",
+            "expected_error": true,
+            "response": {
+                "code": 400,
+                "message": "场景描述不能超过50个字符",
+                "timestamp": 1769311658
+            }
+        }
+    ]
+}
