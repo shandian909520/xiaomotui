@@ -19,7 +19,7 @@ return [
             // 日志记录方式
             'type'           => 'File',
             // 日志保存目录
-            'path'           => '',
+            'path'           => '../runtime/logs/api/',
             // 单文件日志写入
             'single'         => false,
             // 独立日志级别

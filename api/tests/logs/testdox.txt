@@ -1,22 +1,14 @@
-Nfc (tests\api\Nfc)
- [ ] Trigger video mode success
- [ ] Trigger with invalid device code
- [ ] Trigger offline device failed
- [ ] Trigger coupon mode success
- [ ] Trigger wifi mode success
- [ ] Trigger contact mode success
- [ ] Trigger menu mode success
- [ ] Trigger group buy mode success
- [ ] Device status report success
- [ ] Device status report with invalid code
- [ ] Get device config success
- [ ] Get device config with non existent device
- [ ] Trigger response time under 1 second
- [ ] Trigger record creation
- [ ] Trigger updates device heartbeat
- [ ] Trigger without device code
- [ ] Trigger with invalid location format
- [ ] Batch trigger performance
- [ ] Device online status check
- [ ] All trigger modes work
+Auth (tests\api\Auth)
+ [ ] Login success with new user
+ [x] Login success with existing user
+ [x] Login failure with invalid code
+ [x] Login failure with missing code
+ [ ] Login with encrypted user info
+ [ ] Refresh token success
+ [x] Refresh token failure with invalid token
+ [x] Refresh token failure with expired token
+ [ ] Logout success
+ [x] Logout failure without token
+ [x] Get user info success
+ [x] Token payload structure
 

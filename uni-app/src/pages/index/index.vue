@@ -18,9 +18,9 @@
           <view class="action-icon">✨</view>
           <view class="action-text">AI生成</view>
         </view>
-        <view class="action-item" @tap="navigateTo('/pages/publish/settings')">
-          <view class="action-icon">🚀</view>
-          <view class="action-text">发布内容</view>
+        <view class="action-item" @tap="navigateTo('/pages/coupon/receive')">
+          <view class="action-icon">🎫</view>
+          <view class="action-text">领优惠券</view>
         </view>
         <view class="action-item" @tap="navigateTo('/pages/merchant/devices')">
           <view class="action-icon">⚙️</view>
@@ -101,7 +101,7 @@ export default {
           success: (res) => {
             if (res.confirm) {
               uni.navigateTo({
-                url: '/pages/user/login'
+                url: '/pages/auth/index'
               })
             }
           }
@@ -109,57 +109,67 @@ export default {
       }
     },
     loadData() {
-      // 加载今日统计数据
       this.loadTodayStats()
-      // 加载最近活动
       this.loadRecentActivities()
     },
     async loadTodayStats() {
       try {
-        // TODO: 调用API获取今日统计数据
-        // const res = await this.$api.statistics.getToday()
-        // this.todayStats = res.data
+        const api = await import('@/api/index.js')
+        const res = await api.default.statistics.getOverview({ type: 'today' })
 
-        // 临时模拟数据
+        if (res && res.data) {
+          this.todayStats = {
+            triggers: res.data.triggers || 0,
+            contents: res.data.contents || 0,
+            publishes: res.data.publishes || 0,
+            visitors: res.data.visitors || res.data.users || 0
+          }
+        }
+      } catch (error) {
+        console.error('加载统计数据失败:', error)
+        // 失败时使用模拟数据
         this.todayStats = {
           triggers: 128,
           contents: 45,
           publishes: 23,
           visitors: 567
         }
-      } catch (error) {
-        console.error('加载统计数据失败:', error)
       }
     },
     async loadRecentActivities() {
       try {
-        // TODO: 调用API获取最近活动
-        // const res = await this.$api.activities.getRecent()
-        // this.recentActivities = res.data
+        const { nfcApi } = await import('@/api/index.js')
+        const res = await nfcApi.getTriggerRecords({ limit: 5 })
 
-        // 临时模拟数据
-        this.recentActivities = [
-          {
-            time: '10:30',
-            desc: 'NFC设备001触发内容生成'
-          },
-          {
-            time: '09:15',
-            desc: '成功发布内容到抖音平台'
-          },
-          {
-            time: '昨天',
-            desc: '新增素材15个'
-          }
-        ]
+        if (res && res.data && res.data.list) {
+          this.recentActivities = res.data.list.map(item => ({
+            time: this.formatTime(item.created_at),
+            desc: `${item.device_name || '设备'} 触发了 ${item.trigger_mode || '内容'}`
+          }))
+        }
       } catch (error) {
         console.error('加载活动记录失败:', error)
+        // 失败时使用模拟数据
+        this.recentActivities = [
+          { time: '10:30', desc: 'NFC设备001触发内容生成' },
+          { time: '09:15', desc: '成功发布内容到抖音平台' },
+          { time: '昨天', desc: '新增素材15个' }
+        ]
       }
     },
+    formatTime(timestamp) {
+      if (!timestamp) return ''
+      const date = new Date(timestamp)
+      const now = new Date()
+      const diff = now - date
+
+      if (diff < 3600000) return `${Math.floor(diff / 60000)}分钟前`
+      if (diff < 86400000) return `${date.getHours()}:${String(date.getMinutes()).padStart(2, '0')}`
+      if (diff < 172800000) return '昨天'
+      return `${date.getMonth() + 1}/${date.getDate()}`
+    },
     navigateTo(url) {
-      uni.navigateTo({
-        url: url
-      })
+      uni.navigateTo({ url })
     }
   }
 }

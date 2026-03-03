@@ -168,6 +168,17 @@ class Content extends BaseController
     }
 
     /**
+     * 获取任务详情（别名方法）
+     * GET /api/content/task/:id
+     *
+     * 与 taskStatus 功能相同，提供更语义化的路由
+     */
+    public function getTaskDetail($id)
+    {
+        return $this->taskStatus($id);
+    }
+
+    /**
      * 获取模板列表
      * GET /api/content/templates
      *
@@ -445,7 +456,9 @@ class Content extends BaseController
         try {
             // 获取用户ID
             $userId = $this->request->user_id ?? null;
-            if (!$userId) {
+
+            // 检查是否为null而不是!$userId，因为管理员user_id可能为0
+            if ($userId === null) {
                 return $this->error('用户未登录', 401, 'unauthorized');
             }
 

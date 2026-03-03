@@ -19,6 +19,10 @@ class RequestService
     {
         $request->userInfo = $userInfo;
         $request->user_id = $userInfo['sub'] ?? null;
+        $request->userId = $userInfo['sub'] ?? null; // 同时支持驼峰式访问
         $request->user_info = $userInfo;
+        $request->merchantId = $userInfo['merchant_id'] ?? null; // 商家ID
+        $request->role = $userInfo['role'] ?? 'user'; // 用户角色
+        $request->isAdmin = ($userInfo['role'] ?? 'user') === 'admin'; // 是否为管理员
     }
 }

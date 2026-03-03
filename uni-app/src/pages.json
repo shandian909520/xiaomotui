@@ -7,15 +7,6 @@
   },
   "pages": [
     {
-      "path": "pages/index/index",
-      "style": {
-        "navigationBarTitleText": "小魔推",
-        "navigationBarBackgroundColor": "#6366f1",
-        "navigationBarTextStyle": "white",
-        "enablePullDownRefresh": true
-      }
-    },
-    {
       "path": "pages/auth/index",
       "style": {
         "navigationBarTitleText": "登录",
@@ -25,11 +16,29 @@
       }
     },
     {
+      "path": "pages/index/index",
+      "style": {
+        "navigationBarTitleText": "小魔推",
+        "navigationBarBackgroundColor": "#6366f1",
+        "navigationBarTextStyle": "white",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
       "path": "pages/nfc/trigger",
       "style": {
         "navigationBarTitleText": "碰一碰触发",
         "navigationBarBackgroundColor": "#6366f1",
         "navigationBarTextStyle": "white"
+      }
+    },
+    {
+      "path": "pages/promo/index",
+      "style": {
+        "navigationBarTitleText": "帮TA推广",
+        "navigationBarBackgroundColor": "#6366f1",
+        "navigationBarTextStyle": "white",
+        "navigationStyle": "custom"
       }
     },
     {
@@ -99,6 +108,93 @@
       }
     },
     {
+      "path": "pages/merchant/home",
+      "style": {
+        "navigationBarTitleText": "商家助手",
+        "navigationBarBackgroundColor": "#6366f1",
+        "navigationBarTextStyle": "white",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/merchant/material",
+      "style": {
+        "navigationBarTitleText": "素材库",
+        "navigationBarBackgroundColor": "#6366f1",
+        "navigationBarTextStyle": "white",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
+      "path": "pages/merchant/capture",
+      "style": {
+        "navigationBarTitleText": "拍摄素材",
+        "navigationBarBackgroundColor": "#000000",
+        "navigationBarTextStyle": "white",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/merchant/compose",
+      "style": {
+        "navigationBarTitleText": "视频合成",
+        "navigationBarBackgroundColor": "#6366f1",
+        "navigationBarTextStyle": "white",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/merchant/compose-result",
+      "style": {
+        "navigationBarTitleText": "合成结果",
+        "navigationBarBackgroundColor": "#6366f1",
+        "navigationBarTextStyle": "white",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/merchant/campaign",
+      "style": {
+        "navigationBarTitleText": "推广活动",
+        "navigationBarBackgroundColor": "#6366f1",
+        "navigationBarTextStyle": "white",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
+      "path": "pages/merchant/campaign-detail",
+      "style": {
+        "navigationBarTitleText": "活动详情",
+        "navigationBarBackgroundColor": "#6366f1",
+        "navigationBarTextStyle": "white"
+      }
+    },
+    {
+      "path": "pages/merchant/campaign-edit",
+      "style": {
+        "navigationBarTitleText": "编辑活动",
+        "navigationBarBackgroundColor": "#6366f1",
+        "navigationBarTextStyle": "white"
+      }
+    },
+    {
+      "path": "pages/merchant/campaign-bind",
+      "style": {
+        "navigationBarTitleText": "绑定设备",
+        "navigationBarBackgroundColor": "#6366f1",
+        "navigationBarTextStyle": "white"
+      }
+    },
+    {
+      "path": "pages/merchant/stats",
+      "style": {
+        "navigationBarTitleText": "推广统计",
+        "navigationBarBackgroundColor": "#6366f1",
+        "navigationBarTextStyle": "white",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
       "path": "pages/statistics/overview",
       "style": {
         "navigationBarTitleText": "数据统计",
@@ -129,6 +225,44 @@
         "navigationBarTitleText": "系统设置",
         "navigationBarBackgroundColor": "#6366f1",
         "navigationBarTextStyle": "white"
+      }
+    },
+    {
+      "path": "pages/user/notifications",
+      "style": {
+        "navigationBarTitleText": "消息通知",
+        "navigationBarBackgroundColor": "#6366f1",
+        "navigationBarTextStyle": "white",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
+      "path": "pages/coupon/my",
+      "style": {
+        "navigationBarTitleText": "我的优惠券",
+        "navigationBarBackgroundColor": "#6366f1",
+        "navigationBarTextStyle": "white",
+        "navigationStyle": "custom",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
+      "path": "pages/coupon/receive",
+      "style": {
+        "navigationBarTitleText": "领取优惠券",
+        "navigationBarBackgroundColor": "#6366f1",
+        "navigationBarTextStyle": "white",
+        "navigationStyle": "custom",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
+      "path": "pages/coupon/use",
+      "style": {
+        "navigationBarTitleText": "使用优惠券",
+        "navigationBarBackgroundColor": "#6366f1",
+        "navigationBarTextStyle": "white",
+        "navigationStyle": "custom"
       }
     },
     {
@@ -172,51 +306,6 @@
           "path": "coupon/create",
           "style": {
             "navigationBarTitleText": "创建优惠券",
-            "navigationBarBackgroundColor": "#6366f1",
-            "navigationBarTextStyle": "white"
-          }
-        },
-        {
-          "path": "groupbuy/list",
-          "style": {
-            "navigationBarTitleText": "团购活动",
-            "navigationBarBackgroundColor": "#6366f1",
-            "navigationBarTextStyle": "white"
-          }
-        },
-        {
-          "path": "groupbuy/create",
-          "style": {
-            "navigationBarTitleText": "创建团购",
-            "navigationBarBackgroundColor": "#6366f1",
-            "navigationBarTextStyle": "white"
-          }
-        }
-      ]
-    },
-    {
-      "root": "pages-sub/dining",
-      "pages": [
-        {
-          "path": "table/list",
-          "style": {
-            "navigationBarTitleText": "餐桌管理",
-            "navigationBarBackgroundColor": "#6366f1",
-            "navigationBarTextStyle": "white"
-          }
-        },
-        {
-          "path": "session/list",
-          "style": {
-            "navigationBarTitleText": "就餐记录",
-            "navigationBarBackgroundColor": "#6366f1",
-            "navigationBarTextStyle": "white"
-          }
-        },
-        {
-          "path": "session/detail",
-          "style": {
-            "navigationBarTitleText": "就餐详情",
             "navigationBarBackgroundColor": "#6366f1",
             "navigationBarTextStyle": "white"
           }

@@ -55,6 +55,7 @@ class NfcService
                 DeviceTrigger::recordError(
                     null,
                     $deviceCode,
+                    0,
                     null,
                     $openid,
                     $triggerMode,
@@ -67,14 +68,15 @@ class NfcService
                 throw new ValidateException('NFC设备未找到');
             }
 
-            // 检查设备状态
-            if (!$device->isOnline()) {
+            // 检查设备状态（PROMO模式跳过在线检查）
+            if ($triggerMode !== 'PROMO' && !$device->isOnline()) {
                 $responseTime = (int)((microtime(true) - $startTime) * 1000);
 
                 // 记录失败
                 DeviceTrigger::recordError(
                     $device->id,
                     $deviceCode,
+                    $device->merchant_id,
                     null,
                     $openid,
                     $triggerMode,
@@ -87,15 +89,16 @@ class NfcService
                 throw new ValidateException('NFC设备离线');
             }
 
-            // 验证用户（先从缓存获取）
+            // 验证用户（PROMO模式允许匿名用户）
             $user = $this->getUserFromCache($openid);
-            if (!$user) {
+            if (!$user && $triggerMode !== 'PROMO') {
                 $responseTime = (int)((microtime(true) - $startTime) * 1000);
 
                 // 记录失败
                 DeviceTrigger::recordError(
                     $device->id,
                     $deviceCode,
+                    $device->merchant_id,
                     null,
                     $openid,
                     $triggerMode,
@@ -120,7 +123,8 @@ class NfcService
             DeviceTrigger::recordSuccess(
                 $device->id,
                 $deviceCode,
-                $user->id,
+                $device->merchant_id,
+                $user ? $user->id : null,
                 $openid,
                 $triggerMode,
                 $result['type'],
@@ -134,7 +138,7 @@ class NfcService
             Log::info('NFC设备触发成功', [
                 'device_code' => $deviceCode,
                 'trigger_mode' => $triggerMode,
-                'user_id' => $user->id,
+                'user_id' => $user ? $user->id : null,
                 'response_time' => $responseTime,
                 'result_type' => $result['type']
             ]);
@@ -151,6 +155,7 @@ class NfcService
             DeviceTrigger::recordError(
                 $device->id ?? null,
                 $deviceCode,
+                $device->merchant_id ?? 0,
                 $user->id ?? null,
                 $openid,
                 $triggerMode,
@@ -256,7 +261,7 @@ class NfcService
      * @param User $user
      * @return array
      */
-    protected function processTriggerMode(NfcDevice $device, string $triggerMode, User $user): array
+    protected function processTriggerMode(NfcDevice $device, string $triggerMode, ?User $user): array
     {
         switch ($triggerMode) {
             case 'VIDEO':
@@ -271,9 +276,104 @@ class NfcService
                 return $this->handleMenuTrigger($device, $user);
             case 'GROUP_BUY':
                 return $this->handleGroupBuyTrigger($device, $user);
+            case 'PROMO':
+                return $this->handlePromoTrigger($device, $user);
             default:
                 throw new ValidateException('不支持的触发模式');
         }
+    }
+
+    /**
+     * 处理推广触发 - 消费者碰NFC获取推广素材
+     *
+     * @param NfcDevice $device
+     * @param User $user
+     * @return array
+     */
+    protected function handlePromoTrigger(NfcDevice $device, ?User $user): array
+    {
+        // 获取商家信息
+        $merchant = $device->merchant;
+        if (!$merchant) {
+            throw new ValidateException('商家信息不存在');
+        }
+
+        // 获取推广视频（优先从素材库获取）
+        $videoUrl = '';
+        $videoThumbnail = '';
+        $videoDuration = 0;
+        $videoTitle = '';
+
+        if ($device->promo_video_id) {
+            // 优先从素材库获取
+            $material = \app\model\Material::find($device->promo_video_id);
+            if ($material) {
+                $videoUrl = $material->file_url ?? '';
+                $videoThumbnail = $material->thumbnail_url ?? '';
+                $videoDuration = $material->duration ?? 0;
+                $videoTitle = $material->title ?? $material->name ?? '';
+            }
+
+            // 兼容：如果素材库没找到，尝试从模板表获取
+            if (empty($videoUrl)) {
+                $template = \app\model\ContentTemplate::find($device->promo_video_id);
+                if ($template) {
+                    $videoUrl = $template->content_url ?? '';
+                    $videoThumbnail = $template->thumbnail_url ?? '';
+                    $videoDuration = $template->extra_data['duration'] ?? 0;
+                    $videoTitle = $template->name ?? '';
+                }
+            }
+        }
+
+        if (empty($videoUrl)) {
+            throw new ValidateException('推广视频未配置，请联系商家');
+        }
+
+        // 获取推广文案
+        $copywriting = $device->promo_copywriting ?: '推荐一家超赞的店！';
+
+        // 获取话题标签
+        $tags = $device->promo_tags ?: [];
+
+        // 获取奖励优惠券预览
+        $reward = null;
+        if ($device->promo_reward_coupon_id) {
+            $coupon = Coupon::where('id', $device->promo_reward_coupon_id)
+                ->where('status', 1)
+                ->find();
+            if ($coupon) {
+                $reward = [
+                    'type' => 'coupon',
+                    'id' => $coupon->id,
+                    'title' => $coupon->title,
+                    'description' => $coupon->description,
+                    'discount_type' => $coupon->discount_type,
+                    'discount_value' => $coupon->discount_value,
+                    'min_amount' => $coupon->min_amount,
+                    'remaining' => $coupon->total_count,
+                ];
+            }
+        }
+
+        return [
+            'type' => 'promo',
+            'merchant' => [
+                'name' => $merchant->name,
+                'logo' => $merchant->logo_url ?: '',
+                'description' => $merchant->description ?: '',
+            ],
+            'video' => [
+                'url' => $videoUrl,
+                'thumbnail' => $videoThumbnail,
+                'duration' => $videoDuration,
+                'title' => $videoTitle,
+            ],
+            'copywriting' => $copywriting,
+            'tags' => $tags,
+            'reward' => $reward,
+            'platforms' => ['douyin', 'kuaishou'],
+        ];
     }
 
     /**
@@ -1112,6 +1212,9 @@ class NfcService
 
         // 解析团购配置
         $config = $groupBuyService->parseGroupBuyConfig($device->group_buy_config);
+
+        // 应用动态规则（时间感知）
+        $config = $groupBuyService->resolveDynamicConfig($config);
 
         // 验证配置完整性
         $validation = $groupBuyService->validateGroupBuyConfig($config);

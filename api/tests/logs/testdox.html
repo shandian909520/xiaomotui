@@ -51,28 +51,20 @@
         </style>
     </head>
     <body>
-        <h2>Nfc (tests\api\Nfc)</h2>
+        <h2>Auth (tests\api\Auth)</h2>
         <ul>
-            <li class="defect">Trigger video mode success</li>
-            <li class="defect">Trigger with invalid device code</li>
-            <li class="defect">Trigger offline device failed</li>
-            <li class="defect">Trigger coupon mode success</li>
-            <li class="defect">Trigger wifi mode success</li>
-            <li class="defect">Trigger contact mode success</li>
-            <li class="defect">Trigger menu mode success</li>
-            <li class="defect">Trigger group buy mode success</li>
-            <li class="defect">Device status report success</li>
-            <li class="defect">Device status report with invalid code</li>
-            <li class="defect">Get device config success</li>
-            <li class="defect">Get device config with non existent device</li>
-            <li class="defect">Trigger response time under 1 second</li>
-            <li class="defect">Trigger record creation</li>
-            <li class="defect">Trigger updates device heartbeat</li>
-            <li class="defect">Trigger without device code</li>
-            <li class="defect">Trigger with invalid location format</li>
-            <li class="defect">Batch trigger performance</li>
-            <li class="defect">Device online status check</li>
-            <li class="defect">All trigger modes work</li>
+            <li class="defect">Login success with new user</li>
+            <li class="success">Login success with existing user</li>
+            <li class="success">Login failure with invalid code</li>
+            <li class="success">Login failure with missing code</li>
+            <li class="defect">Login with encrypted user info</li>
+            <li class="defect">Refresh token success</li>
+            <li class="success">Refresh token failure with invalid token</li>
+            <li class="success">Refresh token failure with expired token</li>
+            <li class="defect">Logout success</li>
+            <li class="success">Logout failure without token</li>
+            <li class="success">Get user info success</li>
+            <li class="success">Token payload structure</li>
         </ul>
     </body>
 </html>

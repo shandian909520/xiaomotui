@@ -44,19 +44,19 @@ Route::post('api/test/ai-generate', function () {
 
 // API首页路由 (精确匹配，移到最后避免拦截其他路由)
 
-// API路由组 - 无需认证的路由
+// API路由组 - 无需认证的路由（应用频率限制）
 Route::group('api', function () {
-    // 认证相关路由（无需认证）
+    // 认证相关路由（无需认证，严格限流）
     Route::group('auth', function () {
         Route::post('login', '\app\controller\Auth@login');
         Route::post('register', '\app\controller\Auth@register');
         Route::post('refresh', '\app\controller\Auth@refresh');
         Route::post('send-code', '\app\controller\Auth@sendCode');
         Route::post('phone-login', '\app\controller\Auth@phoneLogin');
-        Route::post('wechat_login', '\app\controller\Auth@phoneLogin');  // 微信登录复用手机号登录
+        Route::post('wechat_login', '\app\controller\Auth@login');  // 微信登录
     });
 
-    // NFC设备触发（无需认证）
+    // NFC设备触发（无需认证，标准限流）
     Route::group('nfc', function () {
         Route::post('trigger', '\app\controller\Nfc@trigger');
         Route::get('device/config', '\app\controller\Nfc@getConfig');
@@ -64,6 +64,12 @@ Route::group('api', function () {
         Route::post('device/batch-status', '\app\controller\Nfc@batchDeviceStatus');
         Route::get('device/health', '\app\controller\Nfc@healthCheck');
         Route::post('device/clear-cache', '\app\controller\Nfc@clearConfigCache');
+    });
+
+    // 推广发布确认（无需认证，消费者直接调用）
+    Route::group('promo', function () {
+        Route::post('confirm-publish', '\app\controller\Promo@confirmPublish');
+        Route::get('reward-status', '\app\controller\Promo@rewardStatus');
     });
 
     // 公共路由（无需认证）
@@ -79,9 +85,9 @@ Route::group('api', function () {
         Route::get('public', 'Content/public');
     });
 
-})->middleware([\app\middleware\AllowCrossDomain::class]);
+})->middleware([\app\middleware\AllowCrossDomain::class, \app\middleware\ApiThrottle::class]);
 
-// API路由组 - 需要认证的路由
+// API路由组 - 需要认证的路由（应用频率限制）
 Route::group('api', function () {
     // 用户认证后的路由
     Route::group('auth', function () {
@@ -106,6 +112,7 @@ Route::group('api', function () {
     Route::group('content', function () {
         Route::post('generate', '\app\controller\Content@generate');
         Route::get('task/:task_id/status', '\app\controller\Content@taskStatus');
+        Route::get('task/:id', '\app\controller\Content@getTaskDetail');  // 获取任务详情
         Route::post('task/:task_id/regenerate', '\app\controller\Content@regenerate');
         Route::post('task/:task_id/cancel', '\app\controller\Content@cancelTask');
         Route::post('feedback', '\app\controller\Content@submitFeedback');
@@ -133,10 +140,23 @@ Route::group('api', function () {
         Route::post('batch-delete', 'TemplateManage/batchDelete');
     });
 
+    // 视频库路由
+    Route::group('video-library', function () {
+        Route::get('list', 'VideoLibrary/list');
+        Route::get('detail/:id', 'VideoLibrary/detail');
+        Route::post('create', 'VideoLibrary/create');
+        Route::post('use/:id', 'VideoLibrary/useTemplate');
+        Route::get('categories', 'VideoLibrary/categories');
+        Route::get('filters', 'VideoLibrary/filters');
+        Route::get('hot', 'VideoLibrary/hot');
+        Route::get('statistics', 'VideoLibrary/statistics');
+    });
+
     // 平台发布相关路由
     Route::group('publish', function () {
         // 发布任务管理
         Route::post('', 'Publish/publish');
+        Route::post('create', 'Publish/publish');  // 别名路由，兼容前端调用
         Route::get('tasks', 'Publish/tasks');
         Route::get('task/:id', 'Publish/taskStatus');
         Route::post('task/:id/retry', 'Publish/retryTask');
@@ -164,9 +184,13 @@ Route::group('api', function () {
 
     // 商家功能路由（商家角色专用）
     Route::group('merchant', function () {
+        Route::get('list', '\app\controller\Merchant@list');
         Route::get('info', '\app\controller\Merchant@info');
         Route::post('update', '\app\controller\Merchant@update');
         Route::get('statistics', '\app\controller\Merchant@statistics');
+        Route::get(':id', '\app\controller\Merchant@read')->pattern(['id' => '\d+']);
+        Route::post(':id/approve', '\app\controller\Merchant@approve');
+        Route::post(':id/reject', '\app\controller\Merchant@reject');
 
         // 设备管理 - 使用DeviceManage控制器
         Route::group('device', function () {
@@ -230,6 +254,67 @@ Route::group('api', function () {
             Route::delete(':id', 'Merchant/deleteCoupon');
             Route::get(':id/usage', 'Merchant/couponUsage');
         });
+
+        // 推广素材管理
+        Route::group('promo', function () {
+            Route::post('materials', 'PromoMaterial/upload');
+            Route::post('materials/batch', 'PromoMaterial/batchUpload');
+            Route::get('materials', 'PromoMaterial/list');
+            Route::get('materials/stats', 'PromoMaterial/stats');
+            Route::put('materials/sort', 'PromoMaterial/sort');
+            Route::get('materials/:id', 'PromoMaterial/detail');
+            Route::put('materials/:id/status', 'PromoMaterial/updateStatus');
+            Route::delete('materials/:id', 'PromoMaterial/delete');
+        });
+
+        // 视频模板管理
+        Route::group('promo-template', function () {
+            Route::post('create', 'PromoTemplate/create');
+            Route::get('list', 'PromoTemplate/list');
+            Route::get('options', 'PromoTemplate/options');
+            Route::get(':id', 'PromoTemplate/detail');
+            Route::put(':id', 'PromoTemplate/update');
+            Route::put(':id/status', 'PromoTemplate/updateStatus');
+            Route::delete(':id', 'PromoTemplate/delete');
+            Route::post(':id/generate', 'PromoTemplate/generate');
+        });
+
+        // 视频变体管理
+        Route::group('promo-variant', function () {
+            Route::get('list', 'PromoVariant/list');
+            Route::get('stats', 'PromoVariant/stats');
+            Route::get('strategies', 'PromoVariant/strategies');
+            Route::get('next', 'PromoVariant/getNext');
+            Route::post('batch-delete', 'PromoVariant/batchDelete');
+            Route::get(':id', 'PromoVariant/detail');
+            Route::post(':id/record-use', 'PromoVariant/recordUse');
+            Route::put(':id/status', 'PromoVariant/updateStatus');
+            Route::delete(':id', 'PromoVariant/delete');
+        });
+
+        // 推广活动管理
+        Route::group('promo-campaign', function () {
+            Route::post('create', 'PromoCampaign/create');
+            Route::get('list', 'PromoCampaign/list');
+            Route::get('available-devices', 'PromoCampaign/availableDevices');
+            Route::get(':id', 'PromoCampaign/detail');
+            Route::put(':id', 'PromoCampaign/update');
+            Route::delete(':id', 'PromoCampaign/delete');
+            Route::post(':id/devices', 'PromoCampaign/bindDevices');
+            Route::delete(':id/devices/:device_id', 'PromoCampaign/unbindDevice');
+            Route::get(':id/stats', 'PromoCampaign/getStats');
+        });
+
+        // 推广数据统计
+        Route::group('promo-stats', function () {
+            Route::get('overview', '\app\controller\PromoStats@overview');
+            Route::get('trend', '\app\controller\PromoStats@trend');
+            Route::get('platform', '\app\controller\PromoStats@platform');
+            Route::get('device-ranking', '\app\controller\PromoStats@deviceRanking');
+            Route::get('campaign-comparison', '\app\controller\PromoStats@campaignComparison');
+            Route::get('today', '\app\controller\PromoStats@today');
+            Route::get('campaign/:id', '\app\controller\PromoStats@campaignDetail');
+        });
     });
 
     // 优惠券用户功能
@@ -239,19 +324,20 @@ Route::group('api', function () {
         Route::post('use', 'Coupon/use');
     });
 
-    // 文件上传路由
+    // 文件上传路由（上传限流）
     Route::group('upload', function () {
-        Route::post('image', 'Upload/image');
-        Route::post('video', 'Upload/video');
-        Route::post('file', 'Upload/file');
-        Route::post('avatar', 'Upload/avatar');
+        Route::post('image', 'Upload/image')->middleware([\app\middleware\ApiThrottle::class, 'upload']);
+        Route::post('video', 'Upload/video')->middleware([\app\middleware\ApiThrottle::class, 'upload']);
+        Route::post('file', 'Upload/file')->middleware([\app\middleware\ApiThrottle::class, 'upload']);
+        Route::post('avatar', 'Upload/avatar')->middleware([\app\middleware\ApiThrottle::class, 'upload']);
     });
 
-    // AI内容生成路由（需要认证）
-    Route::group('ai', function () {
+    // AI内容生成路由（需要认证，AI限流）
+    Route::group('ai-content', function () {
         // 文案生成
         Route::post('generate-text', '\app\controller\AiContent@generateText');
         Route::post('batch-generate', '\app\controller\AiContent@batchGenerateText');
+        Route::get('history', '\app\controller\AiContent@history');
 
         // 服务管理
         Route::get('status', '\app\controller\AiContent@getStatus');
@@ -264,15 +350,17 @@ Route::group('api', function () {
         Route::get('platforms', '\app\controller\AiContent@getPlatforms');
     });
 
-    // 统计分析路由（商家专用）
+    // 统计分析路由（商家专用，统计限流）
     Route::group('statistics', function () {
         Route::get('dashboard', '\app\controller\Statistics@dashboard');
         Route::get('overview', '\app\controller\Statistics@overview');
-        Route::get('devices', '\app\controller\Statistics@deviceStats');
+        Route::get('device', '\app\controller\Statistics@deviceStats'); // Changed from devices to device
         Route::get('content', '\app\controller\Statistics@contentStats');
         Route::get('publish', '\app\controller\Statistics@publishStats');
         Route::get('users', '\app\controller\Statistics@userStats');
         Route::get('trend', '\app\controller\Statistics@trendAnalysis');
+        Route::get('conversion', '\app\controller\Statistics@conversionStats'); // Added
+        Route::get('user-behavior', '\app\controller\Statistics@userBehavior'); // Added
         Route::get('realtime', '\app\controller\Statistics@realtimeMetrics');
         Route::get('export', '\app\controller\Statistics@exportReport');
     });
@@ -280,34 +368,34 @@ Route::group('api', function () {
     // 设备告警路由（需要认证）
     Route::group('alert', function () {
         // 告警列表和管理
-        Route::get('list', 'Alert/index');
-        Route::get(':id', 'Alert/read');
-        Route::post(':id/acknowledge', 'Alert/acknowledge');
-        Route::post(':id/resolve', 'Alert/resolve');
-        Route::post(':id/ignore', 'Alert/ignore');
-        Route::post('batch-action', 'Alert/batchAction');
+        Route::get('list', 'AlertController/index');
+        Route::get(':id', 'AlertController/read');
+        Route::post(':id/acknowledge', 'AlertController/acknowledge');
+        Route::post(':id/resolve', 'AlertController/resolve');
+        Route::post(':id/ignore', 'AlertController/ignore');
+        Route::post('batch-action', 'AlertController/batchAction');
 
         // 告警统计
-        Route::get('stats', 'Alert/stats');
+        Route::get('stats', 'AlertController/stats');
 
         // 手动检测告警
-        Route::post('check', 'Alert/check');
+        Route::post('check', 'AlertController/check');
 
         // 告警规则管理
         Route::group('rules', function () {
-            Route::get('', 'Alert/rules');
-            Route::post('update', 'Alert/updateRule');
-            Route::post('batch-update', 'Alert/updateBatchRules');
-            Route::post('reset', 'Alert/resetRule');
-            Route::get('templates', 'Alert/ruleTemplates');
-            Route::post('apply-template', 'Alert/applyTemplate');
+            Route::get('', 'AlertController/rules');
+            Route::post('update', 'AlertController/updateRule');
+            Route::post('batch-update', 'AlertController/updateBatchRules');
+            Route::post('reset', 'AlertController/resetRule');
+            Route::get('templates', 'AlertController/ruleTemplates');
+            Route::post('apply-template', 'AlertController/applyTemplate');
         });
 
         // 系统通知
         Route::group('notifications', function () {
-            Route::get('', 'Alert/notifications');
-            Route::post('mark-read', 'Alert/markAsRead');
-            Route::post('clear-read', 'Alert/clearReadNotifications');
+            Route::get('', 'AlertController/notifications');
+            Route::post('mark-read', 'AlertController/markAsRead');
+            Route::post('clear-read', 'AlertController/clearReadNotifications');
         });
     });
 
@@ -338,9 +426,38 @@ Route::group('api', function () {
         Route::post('track', '\\app\\controller\\Recommendation@track');
     });
 
-})->middleware([\app\middleware\AllowCrossDomain::class, \app\middleware\Auth::class]);
+    // IP黑名单管理路由（管理员专用）
+    Route::group('admin/blacklist', function () {
+        Route::get('list', '\app\controller\IpBlacklist@index');
+        Route::get('overview', '\app\controller\IpBlacklist@overview');
+        Route::get('check', '\app\controller\IpBlacklist@check');
+        Route::get('stats', '\app\controller\IpBlacklist@stats');
+        Route::get('export', '\app\controller\IpBlacklist@export');
+        Route::post('add', '\app\controller\IpBlacklist@add');
+        Route::post('batch-add', '\app\controller\IpBlacklist@batchAdd');
+        Route::post('remove', '\app\controller\IpBlacklist@remove');
+        Route::post('batch-remove', '\app\controller\IpBlacklist@batchRemove');
+        Route::post('clear', '\app\controller\IpBlacklist@clear');
+    });
 
-// 管理员路由组（需要管理员权限）
+})->middleware([\app\middleware\AllowCrossDomain::class, \app\middleware\Auth::class, \app\middleware\OperationLog::class, \app\middleware\ApiThrottle::class]);
+
+// 管理员路由组（需要管理员权限，应用管理员限流）
+Route::group('api/admin', function () {
+    // 用户管理
+    Route::get('users', '\app\controller\AdminUser@list');
+    Route::put('users/:id/status', '\app\controller\AdminUser@updateStatus');
+
+    // 系统设置
+    Route::get('settings', '\app\controller\AdminUser@getSettings');
+    Route::put('settings', '\app\controller\AdminUser@updateSettings');
+
+    // 操作日志
+    Route::get('operation-logs', '\app\controller\AdminUser@operationLogs');
+    Route::get('operation-logs/export', '\app\controller\AdminUser@exportOperationLogs');
+})->middleware([\app\middleware\AllowCrossDomain::class, \app\middleware\Auth::class, \app\middleware\OperationLog::class, \app\middleware\ApiThrottle::class]);
+
+// 管理员路由组 - 告警监控（旧路由保持兼容）
 Route::group('admin', function () {
     // 告警监控管理
     Route::group('alert-monitor', function () {

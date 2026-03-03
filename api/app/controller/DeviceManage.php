@@ -61,7 +61,11 @@ class DeviceManage extends BaseController
             $triggerMode = $request->param('trigger_mode');
 
             // 构建查询
-            $query = NfcDevice::where('merchant_id', $merchantId);
+            $query = NfcDevice::query();
+            
+            if ($merchantId > 0) {
+                $query->where('merchant_id', $merchantId);
+            }
 
             // 状态筛选
             if ($status !== null && $status !== '') {
@@ -177,7 +181,7 @@ class DeviceManage extends BaseController
                 'device_code|设备编码' => 'require|max:32',
                 'device_name|设备名称' => 'require|max:100',
                 'type|设备类型' => 'require|in:TABLE,WALL,COUNTER,ENTRANCE',
-                'trigger_mode|触发模式' => 'require|in:VIDEO,COUPON,WIFI,CONTACT,MENU,GROUP_BUY',
+                'trigger_mode|触发模式' => 'require|in:VIDEO,COUPON,WIFI,CONTACT,MENU,GROUP_BUY,PROMO',
                 'location|设备位置' => 'max:100',
                 'template_id|模板ID' => 'integer',
                 'redirect_url|跳转链接' => 'url|max:255',
@@ -252,7 +256,7 @@ class DeviceManage extends BaseController
                 $this->validate($data, ['type|设备类型' => 'in:TABLE,WALL,COUNTER,ENTRANCE']);
             }
             if (isset($data['trigger_mode'])) {
-                $this->validate($data, ['trigger_mode|触发模式' => 'in:VIDEO,COUPON,WIFI,CONTACT,MENU,GROUP_BUY']);
+                $this->validate($data, ['trigger_mode|触发模式' => 'in:VIDEO,COUPON,WIFI,CONTACT,MENU,GROUP_BUY,PROMO']);
             }
 
             // 不允许修改的字段
@@ -503,7 +507,8 @@ class DeviceManage extends BaseController
             // 允许更新的配置字段
             $allowedFields = [
                 'template_id', 'redirect_url', 'wifi_ssid',
-                'wifi_password', 'trigger_mode', 'group_buy_config'
+                'wifi_password', 'trigger_mode', 'group_buy_config',
+                'promo_video_id', 'promo_copywriting', 'promo_tags', 'promo_reward_coupon_id'
             ];
 
             $updateData = [];
@@ -1064,6 +1069,16 @@ class DeviceManage extends BaseController
      */
     protected function getUserMerchantId(): int
     {
+        // 如果是管理员，允许返回0 (表示系统级访问)
+        if (($this->request->user_role ?? '') === 'admin') {
+             // 如果参数指定了 merchant_id，则返回指定的（用于管理员查看特定商家的设备）
+             $paramMerchantId = $this->request->param('merchant_id');
+             if ($paramMerchantId) {
+                 return (int)$paramMerchantId;
+             }
+             return 0; 
+        }
+
         $userId = $this->request->getUserId();
 
         // 优先从JWT中获取merchant_id

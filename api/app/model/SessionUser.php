@@ -18,7 +18,7 @@ use think\Model;
  */
 class SessionUser extends Model
 {
-    protected $name = 'session_users';
+    protected $table = 'xmt_session_users';
 
     // 设置字段信息
     protected $schema = [

@@ -25,7 +25,8 @@
         "overtrue/wechat": "^6.0",
         "phpmailer/phpmailer": "^6.0",
         "monolog/monolog": "^3.0",
-        "vlucas/phpdotenv": "^5.0"
+        "vlucas/phpdotenv": "^5.0",
+        "topthink/think-migration": "^3.1"
     },
     "require-dev": {
         "symfony/var-dumper": "^6.0",

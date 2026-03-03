@@ -3,9 +3,9 @@ import request from '@/utils/request'
 
 // 认证相关接口
 export const authApi = {
-  // 登录 (手机号登录)
+  // 登录 (支持账号/手机号)
   login(data) {
-    return request.post('/auth/phone-login', data)
+    return request.post('/auth/login', data)
   },
 
   // 发送验证码
@@ -119,11 +119,50 @@ export const statsApi = {
   }
 }
 
+// 推广统计接口
+export const promoStatsApi = {
+  // 获取统计概览
+  getOverview(params) {
+    return request.get('/merchant/promo-stats/overview', { params })
+  },
+
+  // 获取趋势数据
+  getTrendData(params) {
+    return request.get('/merchant/promo-stats/trend', { params })
+  },
+
+  // 获取平台分布
+  getPlatformDistribution(params) {
+    return request.get('/merchant/promo-stats/platform', { params })
+  },
+
+  // 获取设备排行
+  getDeviceRanking(params) {
+    return request.get('/merchant/promo-stats/device-ranking', { params })
+  },
+
+  // 获取活动对比
+  getCampaignComparison(params) {
+    return request.get('/merchant/promo-stats/campaign-comparison', { params })
+  },
+
+  // 获取今日统计
+  getTodayStats() {
+    return request.get('/merchant/promo-stats/today')
+  },
+
+  // 获取活动列表（用于下拉选择）
+  getCampaignList(params) {
+    return request.get('/merchant/promo-stats/campaign-list', { params })
+  }
+}
+
 export default {
   authApi,
   nfcApi,
   contentApi,
   couponApi,
   merchantApi,
-  statsApi
+  statsApi,
+  promoStatsApi
 }

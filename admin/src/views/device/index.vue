@@ -166,6 +166,7 @@
             <el-option label="WiFi连接" value="WIFI" />
             <el-option label="好友添加" value="CONTACT" />
             <el-option label="菜单展示" value="MENU" />
+            <el-option label="消费者推广" value="PROMO" />
           </el-select>
         </el-form-item>
 
@@ -197,6 +198,86 @@
           <el-input v-model="configForm.contact_qr" placeholder="请输入企业微信二维码地址" />
         </el-form-item>
 
+        <!-- 推广配置 -->
+        <template v-if="configForm.trigger_mode === 'PROMO'">
+          <el-divider content-position="left">推广配置</el-divider>
+
+          <el-form-item label="推广视频">
+            <el-select v-model="configForm.promo_video_id" placeholder="请选择推广视频" style="width: 100%">
+              <el-option label="未选择" :value="0" />
+              <el-option-group label="视频库素材" v-if="videoLibraryList.length">
+                <el-option
+                  v-for="video in videoLibraryList"
+                  :key="'v_' + video.id"
+                  :label="video.name || video.title"
+                  :value="video.id"
+                />
+              </el-option-group>
+              <el-option-group label="内容模板" v-if="templateList.length">
+                <el-option
+                  v-for="tpl in templateList"
+                  :key="'t_' + tpl.id"
+                  :label="tpl.name"
+                  :value="tpl.id"
+                />
+              </el-option-group>
+            </el-select>
+            <div class="form-tip">选择商家上传的推广视频，消费者将下载该视频发布到短视频平台</div>
+          </el-form-item>
+
+          <el-form-item label="推广文案">
+            <el-input
+              v-model="configForm.promo_copywriting"
+              type="textarea"
+              :rows="3"
+              placeholder="请输入推广文案，消费者发布视频时将复制此文案"
+              maxlength="500"
+              show-word-limit
+            />
+          </el-form-item>
+
+          <el-form-item label="话题标签">
+            <div class="tags-input-area">
+              <el-tag
+                v-for="(tag, index) in promoTags"
+                :key="index"
+                closable
+                @close="removePromoTag(index)"
+                style="margin-right: 8px; margin-bottom: 4px;"
+              >
+                {{ tag }}
+              </el-tag>
+              <el-input
+                v-if="showTagInput"
+                ref="tagInputRef"
+                v-model="newTagValue"
+                size="small"
+                style="width: 160px"
+                placeholder="输入标签按回车"
+                @keyup.enter="addPromoTag"
+                @blur="addPromoTag"
+              />
+              <el-button v-else size="small" @click="showTagInput = true">
+                + 添加标签
+              </el-button>
+            </div>
+            <div class="form-tip">推荐添加带 # 的话题标签，如 #美食推荐 #打卡</div>
+          </el-form-item>
+
+          <el-form-item label="奖励优惠券">
+            <el-select v-model="configForm.promo_reward_coupon_id" placeholder="请选择奖励优惠券" style="width: 100%">
+              <el-option label="无奖励" :value="0" />
+              <el-option
+                v-for="coupon in couponList"
+                :key="coupon.id"
+                :label="`${coupon.name} (剩余${coupon.remaining ?? '∞'}张)`"
+                :value="coupon.id"
+              />
+            </el-select>
+            <div class="form-tip">消费者发布视频后将自动获得此优惠券作为奖励</div>
+          </el-form-item>
+        </template>
+
         <el-form-item label="设备状态">
           <el-radio-group v-model="configForm.status">
             <el-radio :label="1">在线</el-radio>
@@ -218,7 +299,20 @@
 import { ref, reactive, onMounted, onBeforeUnmount } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Refresh } from '@element-plus/icons-vue'
-import { nfcApi, contentApi } from '@/api'
+import { 
+  getDeviceList, 
+  getDeviceDetail,
+  createDevice, 
+  updateDevice, 
+  deleteDevice, 
+  updateDeviceConfig,
+  updateDeviceStatus,
+  batchEnableDevice, 
+  batchDisableDevice 
+} from '@/api/device'
+import { getTemplateList } from '@/api/content'
+import { getCouponList } from '@/api/coupon'
+import { getVideoLibraryList } from '@/api/video-library'
 
 // 搜索表单
 const searchForm = reactive({
@@ -267,11 +361,26 @@ const configForm = reactive({
   wifi_ssid: '',
   wifi_password: '',
   contact_qr: '',
-  status: 1
+  status: 1,
+  promo_video_id: 0,
+  promo_copywriting: '',
+  promo_reward_coupon_id: 0
 })
 
 // 模板列表
 const templateList = ref([])
+
+// 优惠券列表
+const couponList = ref([])
+
+// 视频库列表
+const videoLibraryList = ref([])
+
+// 推广标签
+const promoTags = ref([])
+const showTagInput = ref(false)
+const newTagValue = ref('')
+const tagInputRef = ref(null)
 
 // 表单验证规则
 const rules = {
@@ -311,15 +420,11 @@ const loadDevices = async () => {
       params.type = searchForm.type
     }
 
-    const res = await nfcApi.getDevices(params)
+    const res = await getDeviceList(params)
 
-    if (res.data && Array.isArray(res.data)) {
-      deviceList.value = res.data
-      pagination.total = res.pagination?.total || res.data.length
-    } else {
-      deviceList.value = []
-      pagination.total = 0
-    }
+    // request.js 拦截器已解包，res 即为 data 字段
+    deviceList.value = res.list || res.data || []
+    pagination.total = res.pagination?.total || res.total || 0
   } catch (error) {
     console.error('加载设备列表失败:', error)
     ElMessage.error(error.message || '加载设备列表失败')
@@ -331,13 +436,46 @@ const loadDevices = async () => {
 // 加载模板列表
 const loadTemplates = async () => {
   try {
-    const res = await contentApi.getTemplates({ page: 1, limit: 100 })
-    if (res.data && Array.isArray(res.data)) {
-      templateList.value = res.data
-    }
+    const res = await getTemplateList({ page: 1, limit: 100 })
+    templateList.value = res.list || res.data || res || []
   } catch (error) {
     console.error('加载模板列表失败:', error)
   }
+}
+
+// 加载优惠券列表
+const loadCoupons = async () => {
+  try {
+    const res = await getCouponList({ page: 1, limit: 100, status: 'active' })
+    couponList.value = res.list || res.data || res || []
+  } catch (error) {
+    console.error('加载优惠券列表失败:', error)
+  }
+}
+
+// 加载视频库列表
+const loadVideoLibrary = async () => {
+  try {
+    const res = await getVideoLibraryList({ page: 1, limit: 100 })
+    videoLibraryList.value = res.list || res.data || res || []
+  } catch (error) {
+    console.error('加载视频库列表失败:', error)
+  }
+}
+
+// 添加推广标签
+const addPromoTag = () => {
+  const val = newTagValue.value.trim()
+  if (val && !promoTags.value.includes(val)) {
+    promoTags.value.push(val)
+  }
+  newTagValue.value = ''
+  showTagInput.value = false
+}
+
+// 移除推广标签
+const removePromoTag = (index) => {
+  promoTags.value.splice(index, 1)
 }
 
 // 搜索
@@ -403,11 +541,16 @@ const handleSubmit = async () => {
     const data = { ...deviceForm }
     delete data.id
 
+    // 新建设备时设置默认触发模式
+    if (!isEdit.value && !data.trigger_mode) {
+      data.trigger_mode = 'VIDEO'
+    }
+
     if (isEdit.value) {
-      await nfcApi.updateDevice(deviceForm.id, data)
+      await updateDevice(deviceForm.id, data)
       ElMessage.success('更新成功')
     } else {
-      await nfcApi.createDevice(data)
+      await createDevice(data)
       ElMessage.success('添加成功')
     }
     dialogVisible.value = false
@@ -424,23 +567,31 @@ const handleSubmit = async () => {
 const handleConfig = async (row) => {
   try {
     // 获取设备详情和配置
-    const res = await nfcApi.getDevice(row.id)
+    const data = await getDeviceDetail(row.id)
 
-    Object.assign(configForm, {
-      deviceId: row.id,
-      trigger_mode: res.data?.trigger_mode || 'VIDEO',
-      template_id: res.data?.template_id || 0,
-      redirect_url: res.data?.redirect_url || '',
-      wifi_ssid: res.data?.wifi_ssid || '',
-      wifi_password: res.data?.wifi_password || '',
-      contact_qr: res.data?.contact_qr || '',
-      status: res.data?.status ?? 1
-    })
+    if (data) {
+      Object.assign(configForm, {
+        deviceId: row.id,
+        trigger_mode: data.trigger_mode || 'VIDEO',
+        template_id: data.template_id || 0,
+        redirect_url: data.redirect_url || '',
+        wifi_ssid: data.wifi_ssid || '',
+        wifi_password: data.wifi_password || '',
+        contact_qr: data.contact_qr || '',
+        status: data.status ?? 1,
+        promo_video_id: data.promo_video_id || 0,
+        promo_copywriting: data.promo_copywriting || '',
+        promo_reward_coupon_id: data.promo_reward_coupon_id || 0
+      })
 
-    // 加载模板列表
-    await loadTemplates()
+      // 加载推广标签
+      promoTags.value = Array.isArray(data.promo_tags) ? data.promo_tags : []
 
-    configDialogVisible.value = true
+      // 加载模板列表、优惠券列表和视频库
+      await Promise.all([loadTemplates(), loadCoupons(), loadVideoLibrary()])
+
+      configDialogVisible.value = true
+    }
   } catch (error) {
     console.error('获取配置失败:', error)
     ElMessage.error(error.message || '获取配置失败')
@@ -451,11 +602,31 @@ const handleConfig = async (row) => {
 const handleSaveConfig = async () => {
   configSubmitting.value = true
   try {
-    const data = { ...configForm }
-    const deviceId = data.deviceId
-    delete data.deviceId
+    const deviceId = configForm.deviceId
+    
+    // 1. 更新配置
+    const configData = {
+      trigger_mode: configForm.trigger_mode,
+      template_id: configForm.template_id,
+      redirect_url: configForm.redirect_url,
+      wifi_ssid: configForm.wifi_ssid,
+      wifi_password: configForm.wifi_password,
+      contact_qr: configForm.contact_qr
+    }
 
-    await nfcApi.updateDevice(deviceId, data)
+    // 推广模式额外字段
+    if (configForm.trigger_mode === 'PROMO') {
+      configData.promo_video_id = configForm.promo_video_id
+      configData.promo_copywriting = configForm.promo_copywriting
+      configData.promo_tags = promoTags.value
+      configData.promo_reward_coupon_id = configForm.promo_reward_coupon_id
+    }
+
+    await updateDeviceConfig(deviceId, configData)
+
+    // 2. 更新状态
+    await updateDeviceStatus(deviceId, configForm.status)
+
     ElMessage.success('配置保存成功')
     configDialogVisible.value = false
     loadDevices()
@@ -480,7 +651,7 @@ const handleDelete = async (row) => {
       }
     )
 
-    await nfcApi.deleteDevice(row.id)
+    await deleteDevice(row.id)
     ElMessage.success('删除成功')
     loadDevices()
   } catch (error) {
@@ -498,78 +669,51 @@ const handleSelectionChange = (selection) => {
 
 // 批量启用
 const handleBatchEnable = async () => {
+  if (!selectedDevices.value.length) return
   try {
-    await ElMessageBox.confirm(
-      `确定批量启用选中的 ${selectedDevices.value.length} 个设备吗？`,
-      '提示',
-      {
-        type: 'info',
-        confirmButtonText: '确定',
-        cancelButtonText: '取消'
-      }
-    )
-
-    const promises = selectedDevices.value.map(device =>
-      nfcApi.updateDevice(device.id, { status: 1 })
-    )
-
-    await Promise.all(promises)
+    const ids = selectedDevices.value.map(item => item.id)
+    await batchEnableDevice(ids)
     ElMessage.success('批量启用成功')
     loadDevices()
   } catch (error) {
-    if (error !== 'cancel') {
-      console.error('批量启用失败:', error)
-      ElMessage.error(error.message || '批量启用失败')
-    }
+    console.error('批量启用失败:', error)
+    ElMessage.error(error.message || '批量启用失败')
   }
 }
 
 // 批量禁用
 const handleBatchDisable = async () => {
+  if (!selectedDevices.value.length) return
   try {
-    await ElMessageBox.confirm(
-      `确定批量禁用选中的 ${selectedDevices.value.length} 个设备吗？`,
-      '提示',
-      {
-        type: 'warning',
-        confirmButtonText: '确定',
-        cancelButtonText: '取消'
-      }
-    )
-
-    const promises = selectedDevices.value.map(device =>
-      nfcApi.updateDevice(device.id, { status: 0 })
-    )
-
-    await Promise.all(promises)
+    const ids = selectedDevices.value.map(item => item.id)
+    await batchDisableDevice(ids)
     ElMessage.success('批量禁用成功')
     loadDevices()
   } catch (error) {
-    if (error !== 'cancel') {
-      console.error('批量禁用失败:', error)
-      ElMessage.error(error.message || '批量禁用失败')
-    }
+    console.error('批量禁用失败:', error)
+    ElMessage.error(error.message || '批量禁用失败')
   }
 }
 
-// 分页变化
-const handleSizeChange = () => {
-  pagination.page = 1
+// 分页大小变化
+const handleSizeChange = (val) => {
+  pagination.limit = val
   loadDevices()
 }
 
-const handleCurrentChange = () => {
+// 页码变化
+const handleCurrentChange = (val) => {
+  pagination.page = val
   loadDevices()
 }
 
-// 对话框关闭
+// 关闭弹窗
 const handleDialogClose = () => {
-  if (formRef.value) {
-    formRef.value.resetFields()
-  }
+  formRef.value?.resetFields()
 }
 
 const handleConfigDialogClose = () => {
+  // 重置配置表单
   Object.assign(configForm, {
     deviceId: null,
     trigger_mode: 'VIDEO',
@@ -578,11 +722,17 @@ const handleConfigDialogClose = () => {
     wifi_ssid: '',
     wifi_password: '',
     contact_qr: '',
-    status: 1
+    status: 1,
+    promo_video_id: 0,
+    promo_copywriting: '',
+    promo_reward_coupon_id: 0
   })
+  promoTags.value = []
+  showTagInput.value = false
+  newTagValue.value = ''
 }
 
-// 工具方法
+// 辅助函数
 const getDeviceType = (type) => {
   const map = {
     TABLE: '桌台',
@@ -593,15 +743,6 @@ const getDeviceType = (type) => {
   return map[type] || type
 }
 
-const getStatusType = (status) => {
-  const map = {
-    0: 'danger',
-    1: 'success',
-    2: 'warning'
-  }
-  return map[status] || 'info'
-}
-
 const getStatusText = (status) => {
   const map = {
     0: '离线',
@@ -609,6 +750,15 @@ const getStatusText = (status) => {
     2: '维护'
   }
   return map[status] || '未知'
+}
+
+const getStatusType = (status) => {
+  const map = {
+    0: 'info',
+    1: 'success',
+    2: 'warning'
+  }
+  return map[status] || 'info'
 }
 
 const getBatteryStatus = (level) => {
@@ -624,7 +774,8 @@ const getTriggerMode = (mode) => {
     COUPON: '优惠券',
     WIFI: 'WiFi连接',
     CONTACT: '好友添加',
-    MENU: '菜单展示'
+    MENU: '菜单展示',
+    PROMO: '消费者推广'
   }
   return map[mode] || mode || '-'
 }
@@ -672,5 +823,19 @@ onBeforeUnmount(() => {
     margin-top: 20px;
     justify-content: flex-end;
   }
+}
+
+.form-tip {
+  font-size: 12px;
+  color: #909399;
+  line-height: 1.4;
+  margin-top: 4px;
+}
+
+.tags-input-area {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
 }
 </style>

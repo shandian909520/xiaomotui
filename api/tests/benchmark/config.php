@@ -20,7 +20,7 @@ if (!function_exists('env')) {
 
 return [
     // 基础URL配置
-    'base_url' => env('APP_URL', 'http://localhost:8000'),
+    'base_url' => env('APP_URL', 'http://localhost:28080'),
 
     // 测试环境
     'environment' => env('APP_ENV', 'development'),

@@ -151,11 +151,12 @@
       "timeout": 20000
     },
     "devServer": {
-      "port": 37075,
+      "port": 28081,
+      "strictPort": true,
       "disableHostCheck": true,
       "proxy": {
         "^/api/(?!.*\\.(js|ts|vue|json))": {
-          "target": "http://localhost:37080",
+          "target": "http://localhost:28080",
           "changeOrigin": true,
           "secure": false
         }

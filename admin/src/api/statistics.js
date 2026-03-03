@@ -14,7 +14,7 @@ import request from '@/utils/request'
  */
 export function getOverview(params) {
   return request({
-    url: '/api/statistics/overview',
+    url: '/statistics/overview',
     method: 'get',
     params
   })
@@ -31,7 +31,7 @@ export function getOverview(params) {
  */
 export function getTrend(params) {
   return request({
-    url: '/api/statistics/trend',
+    url: '/statistics/trend',
     method: 'get',
     params
   })
@@ -48,7 +48,7 @@ export function getTrend(params) {
  */
 export function getDeviceStats(params) {
   return request({
-    url: '/api/statistics/device',
+    url: '/statistics/device',
     method: 'get',
     params
   })
@@ -64,7 +64,7 @@ export function getDeviceStats(params) {
  */
 export function getConversionStats(params) {
   return request({
-    url: '/api/statistics/conversion',
+    url: '/statistics/conversion',
     method: 'get',
     params
   })
@@ -80,7 +80,7 @@ export function getConversionStats(params) {
  */
 export function getUserBehavior(params) {
   return request({
-    url: '/api/statistics/user-behavior',
+    url: '/statistics/user-behavior',
     method: 'get',
     params
   })

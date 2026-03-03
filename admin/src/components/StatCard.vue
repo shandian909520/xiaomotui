@@ -50,7 +50,7 @@ const props = defineProps({
   },
   // 图标名称
   icon: {
-    type: String,
+    type: [String, Object],
     default: 'TrendCharts'
   },
   // 图标背景色

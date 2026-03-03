@@ -17,7 +17,7 @@ use think\facade\Log;
  * php think device:monitor:check
  *
  * Crontab配置:
- * */5 * * * * cd /path/to/api && php think device:monitor:check >> /dev/null 2>&1
+ * 每分钟执行: cd /path/to/api && php think device:monitor:check >> /dev/null 2>&1
  */
 class DeviceMonitorCheck extends Command
 {

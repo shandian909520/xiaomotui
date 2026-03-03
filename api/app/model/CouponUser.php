@@ -21,7 +21,7 @@ use think\Model;
  */
 class CouponUser extends Model
 {
-    protected $name = 'coupon_users';
+    protected $table = 'xmt_coupon_users';
 
     // 设置字段信息
     protected $schema = [
@@ -39,7 +39,7 @@ class CouponUser extends Model
     ];
 
     // 自动时间戳
-    protected $autoWriteTimestamp = true;
+    protected $autoWriteTimestamp = 'datetime';
 
     // 字段类型转换
     protected $type = [
@@ -47,11 +47,11 @@ class CouponUser extends Model
         'coupon_id'  => 'integer',
         'user_id'    => 'integer',
         'use_status' => 'integer',
-        'used_time'  => 'timestamp',
+        'used_time'  => 'datetime',
         'order_id'   => 'integer',
         'device_id'  => 'integer',
-        'create_time'=> 'timestamp',
-        'update_time'=> 'timestamp',
+        'create_time'=> 'datetime',
+        'update_time'=> 'datetime',
     ];
 
     // 允许批量赋值的字段

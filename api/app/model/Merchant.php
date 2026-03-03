@@ -24,7 +24,7 @@ use think\Model;
  */
 class Merchant extends Model
 {
-    protected $name = 'merchants';
+    protected $table = 'xmt_merchants';
 
     // 主键
     protected $pk = 'id';
@@ -43,6 +43,7 @@ class Merchant extends Model
         'logo'           => 'string',
         'business_hours' => 'json',
         'status'         => 'int',
+        'reject_reason'  => 'string',
         'create_time'    => 'datetime',
         'update_time'    => 'datetime',
     ];
@@ -68,7 +69,7 @@ class Merchant extends Model
     protected $field = [
         'user_id', 'name', 'category', 'address',
         'longitude', 'latitude', 'phone', 'description',
-        'logo', 'business_hours', 'status'
+        'logo', 'business_hours', 'status', 'reject_reason'
     ];
 
     /**

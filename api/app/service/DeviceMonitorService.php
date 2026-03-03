@@ -309,12 +309,55 @@ class DeviceMonitorService
      */
     protected static function sendMiniProgramNotification(Merchant $merchant, array $data): void
     {
-        // TODO: 实现小程序模板消息发送
-        // 需要集成微信小程序模板消息API
-        Log::info('发送小程序模板消息', [
-            'merchant_id' => $merchant->id,
-            'device_code' => $data['device_code']
-        ]);
+        try {
+            // 获取商家用户的微信OpenID
+            $openid = self::getMerchantWechatOpenid($merchant->id);
+            if (empty($openid)) {
+                Log::warning('商家未绑定微信，无法发送模板消息', [
+                    'merchant_id' => $merchant->id
+                ]);
+                return;
+            }
+
+            // 使用微信模板消息服务发送
+            $wechatTemplateService = new \app\service\WechatTemplateService('miniprogram');
+
+            $wechatTemplateService->sendDeviceAlertNotification($merchant->id, $openid, $data);
+
+            Log::info('设备告警小程序消息发送成功', [
+                'merchant_id' => $merchant->id,
+                'device_code' => $data['device_code']
+            ]);
+        } catch (\Exception $e) {
+            Log::error('发送设备告警小程序消息失败', [
+                'merchant_id' => $merchant->id,
+                'device_code' => $data['device_code'],
+                'error' => $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * 获取商家用户的微信OpenID
+     *
+     * @param int $merchantId 商家ID
+     * @return string|null
+     */
+    protected static function getMerchantWechatOpenid(int $merchantId): ?string
+    {
+        // 从数据库获取商家的微信OpenID
+        $merchant = Merchant::find($merchantId);
+        if (!$merchant) {
+            return null;
+        }
+
+        // 获取关联用户的微信OpenID
+        $user = $merchant->user;
+        if (!$user || empty($user->wechat_openid)) {
+            return null;
+        }
+
+        return $user->wechat_openid;
     }
 
     /**

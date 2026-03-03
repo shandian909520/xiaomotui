@@ -1,13 +1,10 @@
 <template>
   <view class="profile-page">
     <!-- 加载中 -->
-    <view class="loading-wrapper" v-if="isLoading && !userInfo">
-      <view class="loading-spinner"></view>
-      <text class="loading-text">加载中...</text>
-    </view>
+    <skeleton type="profile" :loading="isLoading && !userInfo.id" />
 
     <!-- 内容区域 -->
-    <view class="content-wrapper" v-else>
+    <view class="content-wrapper" v-if="!isLoading || userInfo.id">
       <!-- 用户信息卡片 -->
       <view class="user-card">
         <view class="user-header">
@@ -60,7 +57,7 @@
           <view class="action-icon">📊</view>
           <text class="action-text">数据统计</text>
         </view>
-        <view class="action-item" @tap="navigateTo('/pages/user/coupon')">
+        <view class="action-item" @tap="navigateTo('/pages/coupon/my')">
           <view class="action-icon">🎟️</view>
           <text class="action-text">我的优惠券</text>
         </view>
@@ -85,7 +82,7 @@
             <text class="menu-arrow">›</text>
           </view>
 
-          <view class="menu-item" @tap="navigateTo('/pages/user/notification')">
+          <view class="menu-item" @tap="navigateTo('/pages/user/notifications')">
             <view class="menu-left">
               <text class="menu-icon">🔔</text>
               <text class="menu-title">消息通知</text>
@@ -332,8 +329,8 @@ export default {
      */
     async loadUnreadCount() {
       try {
-        if (typeof api.notification?.getUnreadCount === 'function') {
-          const res = await api.notification.getUnreadCount()
+        if (typeof api.user?.getUnreadCount === 'function') {
+          const res = await api.user.getUnreadCount()
           this.unreadCount = res.count || 0
         } else {
           this.unreadCount = 3
@@ -524,30 +521,6 @@ export default {
   min-height: 100vh;
   background: #f8f9fa;
   padding-bottom: 40rpx;
-}
-
-// 加载状态
-.loading-wrapper {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-height: 100vh;
-
-  .loading-spinner {
-    width: 60rpx;
-    height: 60rpx;
-    border: 4rpx solid #e5e7eb;
-    border-top-color: #6366f1;
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
-    margin-bottom: 30rpx;
-  }
-
-  .loading-text {
-    font-size: 14px;
-    color: #6b7280;
-  }
 }
 
 // 用户卡片

@@ -88,8 +88,9 @@ class Nfc extends BaseController
                 ], 404);
             }
 
-            // 3. 检查设备状态
-            if (!$device->isOnline()) {
+            // 3. 检查设备状态（PROMO模式跳过在线检查，NFC贴片是被动硬件不发心跳）
+            $triggerMode = $device->trigger_mode;
+            if ($triggerMode !== \app\model\NfcDevice::TRIGGER_PROMO && !$device->isOnline()) {
                 Log::warning('NFC设备离线', [
                     'device_code' => $deviceCode,
                     'device_id' => $device->id,
@@ -107,16 +108,15 @@ class Nfc extends BaseController
             $userId = $this->request->userId ?? null;
             $userOpenid = $this->request->header('X-User-Openid', '');
 
-            // 如果没有用户信息，使用匿名用户
+            // 如果没有用户信息，使用匿名用户（基于IP稳定标识，同一IP同一天生成相同ID）
             if (empty($userOpenid)) {
-                $userOpenid = 'anonymous_' . md5($this->request->ip() . time());
+                $userOpenid = 'anonymous_' . md5($this->request->ip() . date('Y-m-d'));
             }
 
-            // 5. 更新设备心跳
+            // 5. 更新设备心跳（PROMO模式也更新，用于统计活跃度）
             $device->updateHeartbeat();
 
             // 6. 根据触发模式处理请求
-            $triggerMode = $device->trigger_mode;
             $response = $this->handleTriggerMode($device, $triggerMode, $userId, $userOpenid, $userLocation, $extraData);
 
             // 7. 计算响应时间
@@ -126,6 +126,7 @@ class Nfc extends BaseController
             $trigger = \app\model\DeviceTrigger::recordSuccess(
                 $device->id,
                 $deviceCode,
+                $device->merchant_id,
                 $userId,
                 $userOpenid,
                 $triggerMode,
@@ -161,6 +162,7 @@ class Nfc extends BaseController
                 \app\model\DeviceTrigger::recordError(
                     $device->id ?? null,
                     $deviceCode ?? '',
+                    $device->merchant_id ?? 0,
                     $userId ?? null,
                     $userOpenid ?? '',
                     $triggerMode ?? '',
@@ -232,6 +234,10 @@ class Nfc extends BaseController
             case \app\model\NfcDevice::TRIGGER_GROUP_BUY:
                 // 团购跳转模式 - 返回跳转URL
                 return $this->handleGroupBuyMode($device);
+
+            case \app\model\NfcDevice::TRIGGER_PROMO:
+                // 消费者推广模式 - 返回推广素材
+                return $this->handlePromoMode($device);
 
             default:
                 throw new \Exception('不支持的触发模式: ' . $triggerMode);
@@ -408,6 +414,95 @@ class Nfc extends BaseController
             'original_price' => $config['original_price'] ?? 0,
             'group_price' => $config['group_price'] ?? 0,
             'message' => '即将跳转到团购页面'
+        ];
+    }
+
+    /**
+     * 处理推广模式 - 消费者碰NFC获取推广素材
+     */
+    protected function handlePromoMode($device): array
+    {
+        // 获取商家信息
+        $merchant = $device->merchant;
+        if (!$merchant) {
+            throw new \Exception('商家信息不存在');
+        }
+
+        // 获取推广视频（从素材库 materials 表获取）
+        $videoUrl = '';
+        $videoThumbnail = '';
+        $videoDuration = 0;
+        $videoTitle = '';
+
+        if ($device->promo_video_id) {
+            // 优先从素材库获取
+            $material = \app\model\Material::find($device->promo_video_id);
+            if ($material) {
+                $videoUrl = $material->file_url ?? '';
+                $videoThumbnail = $material->thumbnail_url ?? '';
+                $videoDuration = $material->duration ?? 0;
+                $videoTitle = $material->title ?? $material->name ?? '';
+            }
+
+            // 兼容：如果素材库没找到，尝试从模板表获取
+            if (empty($videoUrl)) {
+                $template = \app\model\ContentTemplate::find($device->promo_video_id);
+                if ($template) {
+                    $videoUrl = $template->content_url ?? '';
+                    $videoThumbnail = $template->thumbnail_url ?? '';
+                    $videoDuration = $template->extra_data['duration'] ?? 0;
+                    $videoTitle = $template->name ?? '';
+                }
+            }
+        }
+
+        if (empty($videoUrl)) {
+            throw new \Exception('推广视频未配置，请联系商家');
+        }
+
+        // 获取推广文案和标签
+        $copywriting = $device->promo_copywriting ?: '推荐一家超赞的店！';
+        $tags = $device->promo_tags ?: [];
+
+        // 获取奖励优惠券预览
+        $reward = null;
+        if ($device->promo_reward_coupon_id) {
+            $coupon = \app\model\Coupon::where('id', $device->promo_reward_coupon_id)
+                ->where('status', 1)
+                ->find();
+            if ($coupon) {
+                $reward = [
+                    'type' => 'coupon',
+                    'id' => $coupon->id,
+                    'title' => $coupon->title,
+                    'description' => $coupon->description ?? '',
+                    'discount_type' => $coupon->discount_type,
+                    'discount_value' => $coupon->discount_value,
+                    'min_amount' => $coupon->min_amount ?? 0,
+                    'remaining' => $coupon->total_count,
+                ];
+            }
+        }
+
+        return [
+            'type' => 'promo',
+            'action' => 'show_promo',
+            'merchant' => [
+                'name' => $merchant->name,
+                'logo' => $merchant->logo_url ?? '',
+                'description' => $merchant->description ?? '',
+            ],
+            'video' => [
+                'url' => $videoUrl,
+                'thumbnail' => $videoThumbnail,
+                'duration' => $videoDuration,
+                'title' => $videoTitle,
+            ],
+            'copywriting' => $copywriting,
+            'tags' => $tags,
+            'reward' => $reward,
+            'platforms' => ['douyin', 'kuaishou'],
+            'message' => '推广素材加载成功',
         ];
     }
 

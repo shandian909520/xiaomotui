@@ -80,23 +80,34 @@ class AuthService
         ];
     }
     /**
-     * ??????????
+     * 管理员登录
      */
     public function adminLogin(string $username, string $password): array
     {
-        $configUsername = env('ADMIN_USERNAME', 'admin');
-        $configPassword = env('ADMIN_PASSWORD', 'admin123');
-        $passwordHash = env('ADMIN_PASSWORD_HASH', '');
+        $configUsername = env('ADMIN_USERNAME') ?: 'admin';
+        $passwordHash = env('ADMIN_PASSWORD_HASH');
+        $plainPassword = env('ADMIN_PASSWORD');
 
+        // 验证密码：优先使用哈希，后备明文比对
         $isPasswordValid = false;
+
         if (!empty($passwordHash)) {
+            // 优先使用密码哈希验证
             $isPasswordValid = password_verify($password, $passwordHash);
+        } elseif (!empty($plainPassword)) {
+            // 后备方案：明文比对（开发环境使用）
+            $isPasswordValid = ($password === $plainPassword);
+        } elseif ($username === 'admin' && $password === 'admin123456') {
+            // 最终后备：开发环境默认密码（仅限开发环境，生产环境必须配置密码）
+            $isPasswordValid = true;
+            // 记录警告日志
+            \think\facade\Log::warning('使用默认管理员密码，生产环境必须配置ADMIN_PASSWORD或ADMIN_PASSWORD_HASH');
         } else {
-            $isPasswordValid = hash_equals((string)$configPassword, (string)$password);
+            throw new \RuntimeException('管理员密码未配置，请设置ADMIN_PASSWORD或ADMIN_PASSWORD_HASH环境变量');
         }
 
         if ($username !== $configUsername || !$isPasswordValid) {
-            throw new ValidateException('???????');
+            throw new ValidateException('用户名或密码错误');
         }
 
         $token = $this->generateAdminToken($username);
@@ -107,7 +118,7 @@ class AuthService
             'user' => [
                 'id' => 0,
                 'username' => $username,
-                'nickname' => '?????',
+                'nickname' => '管理员',
                 'role' => 'admin',
             ],
         ];
@@ -242,6 +253,21 @@ class AuthService
      */
     public function getUserInfo(int $userId): array
     {
+        // 处理管理员账号(user_id=0)
+        if ($userId === 0) {
+            // 返回管理员信息
+            return [
+                'id' => 0,
+                'username' => 'admin',
+                'nickname' => '管理员',
+                'avatar' => '',
+                'role' => 'admin',
+                'status' => 1,
+                'member_level' => 'PREMIUM',
+            ];
+        }
+
+        // 普通用户查询
         $user = User::find($userId);
         if (!$user) {
             throw new ValidateException('用户不存在');
@@ -291,12 +317,13 @@ class AuthService
         ];
     }
     /**
-     * ??????JWT??
+     * 生成管理员JWT令牌
      */
     protected function generateAdminToken(string $username): array
     {
         $config = config('jwt');
-        $secretKey = env('ADMIN_JWT_SECRET', $config['secret'] ?? 'xiaomotui_jwt_secret_key_2024');
+        // 使用与普通用户相同的密钥，避免签名验证问题
+        $secretKey = $config['secret'] ?? 'xiaomotui_jwt_secret_key_2024_secure_token';
         $algorithm = $config['algorithm'] ?? 'HS256';
         $expireTime = (int)env('ADMIN_JWT_EXPIRE', $config['expire'] ?? 86400);
         $now = time();

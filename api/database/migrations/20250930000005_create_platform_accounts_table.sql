@@ -1,5 +1,5 @@
 -- 平台账号表
-CREATE TABLE IF NOT EXISTS platform_accounts (
+CREATE TABLE IF NOT EXISTS xmt_platform_accounts (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '账号ID',
     user_id INT UNSIGNED NOT NULL COMMENT '用户ID',
     platform ENUM('DOUYIN','XIAOHONGSHU','WECHAT','WEIBO') NOT NULL COMMENT '平台类型',

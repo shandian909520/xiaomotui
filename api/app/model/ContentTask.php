@@ -26,7 +26,7 @@ use think\Model;
  */
 class ContentTask extends Model
 {
-    protected $name = 'content_tasks';
+    protected $table = 'xmt_content_tasks';
 
     // 设置字段信息
     protected $schema = [

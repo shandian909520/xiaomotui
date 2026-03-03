@@ -32,17 +32,28 @@ class WenxinService
     {
         $this->config = config('ai.wenxin', []);
 
-        // 验证配置 - 允许测试配置和空配置（模拟模式）
-        if (empty($this->config['api_key']) || empty($this->config['secret_key'])) {
-            // 设置测试配置以启用模拟模式
-            $this->config['api_key'] = 'test_api_key_demo';
-            $this->config['secret_key'] = 'test_secret_key_demo';
+        // 验证配置
+        $protocol = $this->config['protocol'] ?? 'native';
+
+        if ($protocol === 'openai') {
+             if (empty($this->config['api_key'])) {
+                 throw new \RuntimeException(
+                     '文心一言API密钥未配置,请在.env文件中设置BAIDU_WENXIN_API_KEY'
+                 );
+             }
+        } else {
+             if (empty($this->config['api_key']) || empty($this->config['secret_key'])) {
+                 throw new \RuntimeException(
+                     '文心一言API密钥未配置,请在.env文件中设置BAIDU_WENXIN_API_KEY和BAIDU_WENXIN_SECRET_KEY'
+                 );
+             }
         }
 
         // 初始化HTTP客户端
+        // 注意: 仅在本地开发环境禁用SSL验证,生产环境必须启用
         $this->httpClient = new Client([
             'timeout' => $this->config['timeout'] ?? 30,
-            'verify' => false,
+            'verify' => env('APP_ENV', 'production') === 'local' ? false : true,
             'http_errors' => false,
         ]);
     }
@@ -159,6 +170,12 @@ class WenxinService
      */
     private function chat(string $prompt, array $options = []): array
     {
+        $protocol = $this->config['protocol'] ?? 'native';
+        
+        if ($protocol === 'openai') {
+            return $this->chatOpenAI($prompt, $options);
+        }
+
         // 获取访问令牌
         $accessToken = $this->getAccessToken();
 
@@ -245,6 +262,90 @@ class WenxinService
             }
         }
 
+        throw new \Exception('API请求失败: ' . ($lastException ? $lastException->getMessage() : '未知错误'));
+    }
+
+    /**
+     * 调用 OpenAI 兼容 API
+     *
+     * @param string $prompt
+     * @param array $options
+     * @return array
+     * @throws \Exception
+     */
+    private function chatOpenAI(string $prompt, array $options = []): array
+    {
+        $baseUrl = $this->config['openai_base_url'] ?? 'https://qianfan.baidubce.com/v2';
+        $url = rtrim($baseUrl, '/') . '/chat/completions';
+        $apiKey = $this->config['api_key'];
+
+        $model = $options['model'] ?? $this->config['model'];
+
+        $requestBody = [
+            'model' => $model,
+            'messages' => [
+                [
+                    'role' => 'user',
+                    'content' => $prompt,
+                ]
+            ],
+            'temperature' => $options['temperature'] ?? $this->config['generation']['temperature'],
+            'top_p' => $options['top_p'] ?? $this->config['generation']['top_p'],
+            'stream' => false,
+        ];
+
+        // 如果有系统提示词，添加到消息列表
+        if (!empty($this->config['content']['system_prompt'])) {
+            array_unshift($requestBody['messages'], [
+                'role' => 'system', // OpenAI 协议支持 system role
+                'content' => $this->config['content']['system_prompt'],
+            ]);
+        }
+
+        // 发送请求（带重试机制）
+        $maxRetries = $this->config['max_retries'] ?? 3;
+        $retryDelay = $this->config['retry_delay'] ?? 1;
+        $lastException = null;
+
+        for ($i = 0; $i < $maxRetries; $i++) {
+            try {
+                $response = $this->httpClient->post($url, [
+                    'json' => $requestBody,
+                    'headers' => [
+                        'Content-Type' => 'application/json',
+                        'Authorization' => 'Bearer ' . $apiKey,
+                    ],
+                ]);
+
+                $statusCode = $response->getStatusCode();
+                $body = json_decode($response->getBody()->getContents(), true);
+
+                if ($statusCode === 200 && isset($body['choices'])) {
+                    return $body;
+                }
+                
+                // 处理错误响应
+                if (isset($body['error'])) {
+                     $errorMsg = is_array($body['error']) ? ($body['error']['message'] ?? json_encode($body['error'])) : $body['error'];
+                     throw new \Exception("OpenAI API错误: " . $errorMsg);
+                }
+
+                throw new \Exception("OpenAI API响应格式未知");
+
+            } catch (\Exception $e) {
+                $lastException = $e;
+                Log::warning('OpenAI API请求失败', [
+                    'error' => $e->getMessage(),
+                    'retry' => $i + 1,
+                ]);
+            }
+            
+             // 等待后重试
+            if ($i < $maxRetries - 1) {
+                sleep($retryDelay);
+            }
+        }
+        
         throw new \Exception('API请求失败: ' . ($lastException ? $lastException->getMessage() : '未知错误'));
     }
 
@@ -351,11 +452,16 @@ class WenxinService
      */
     private function parseResponse(array $response): string
     {
-        if (!isset($response['result'])) {
-            throw new \Exception('API响应格式错误: 缺少result字段');
+        // 尝试解析 OpenAI 格式
+        if (isset($response['choices'][0]['message']['content'])) {
+            $text = trim($response['choices'][0]['message']['content']);
+        } 
+        // 尝试解析百度原版格式
+        elseif (isset($response['result'])) {
+            $text = trim($response['result']);
+        } else {
+            throw new \Exception('API响应格式错误: 未找到生成内容');
         }
-
-        $text = trim($response['result']);
 
         if (empty($text)) {
             throw new \Exception('生成的内容为空');
@@ -396,29 +502,46 @@ class WenxinService
     public function testConnection(): array
     {
         $startTime = microtime(true);
+        $protocol = $this->config['protocol'] ?? 'native';
 
         try {
-            // 测试获取访问令牌
-            $accessToken = $this->getAccessToken();
-
-            if (empty($accessToken)) {
-                return [
-                    'success' => false,
-                    'message' => '获取访问令牌失败',
-                    'time' => round(microtime(true) - $startTime, 2),
-                ];
+            $accessTokenInfo = '';
+            
+            // 仅在原生模式下检查 Access Token
+            if ($protocol !== 'openai') {
+                // 测试获取访问令牌
+                $accessToken = $this->getAccessToken();
+    
+                if (empty($accessToken)) {
+                    return [
+                        'success' => false,
+                        'message' => '获取访问令牌失败',
+                        'time' => round(microtime(true) - $startTime, 2),
+                    ];
+                }
+                $accessTokenInfo = substr($accessToken, 0, 10) . '...';
+            } else {
+                $accessTokenInfo = 'OpenAI Protocol (Key: ' . substr($this->config['api_key'] ?? '', 0, 8) . '...)';
             }
 
             // 测试简单对话
             $testPrompt = '请用一句话介绍你自己。';
             $response = $this->chat($testPrompt);
+            
+            // 解析响应内容
+            $responseText = '';
+            if (isset($response['choices'][0]['message']['content'])) {
+                $responseText = $response['choices'][0]['message']['content'];
+            } elseif (isset($response['result'])) {
+                $responseText = $response['result'];
+            }
 
             return [
                 'success' => true,
                 'message' => '连接测试成功',
-                'access_token' => substr($accessToken, 0, 10) . '...',
+                'access_token' => $accessTokenInfo,
                 'model' => $this->config['model'],
-                'response' => $response['result'] ?? '',
+                'response' => $responseText,
                 'time' => round(microtime(true) - $startTime, 2),
             ];
 

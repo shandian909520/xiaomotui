@@ -23,7 +23,7 @@ class TemplateManage extends BaseController
      * 中间件配置
      * @var array
      */
-    protected $middleware = [
+    protected array $middleware = [
         'app\middleware\JwtAuth'
     ];
 

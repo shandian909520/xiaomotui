@@ -3,11 +3,18 @@ import { ElMessage } from 'element-plus'
 import router from '@/router'
 
 // Token存储的key
+// ⚠️ 安全提示: localStorage容易受到XSS攻击
+// 生产环境建议:
+// 1. 使用httpOnly Cookie存储Token(需要后端配合)
+// 2. 或使用sessionStorage(会话级别,关闭浏览器后自动清除)
+// 3. 确保所有用户输入都经过XSS过滤
+// 4. 配置Content-Security-Policy响应头
 const TOKEN_KEY = 'token'
+const USE_SESSION_STORAGE = false // 设置为true使用sessionStorage
 
 // 创建axios实例
 const service = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:37080/api',
+  baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
   timeout: 30000, // 请求超时时间 30秒
   headers: {
     'Content-Type': 'application/json;charset=UTF-8'
@@ -15,16 +22,25 @@ const service = axios.create({
 })
 
 /**
+ * 获取存储对象(根据配置选择localStorage或sessionStorage)
+ * @returns {Storage}
+ */
+function getStorage() {
+  return USE_SESSION_STORAGE ? sessionStorage : localStorage
+}
+
+/**
  * 获取Token
  * @returns {string|null} JWT Token
  */
 function getTokenInternal() {
-  return localStorage.getItem(TOKEN_KEY)
+  return getStorage().getItem(TOKEN_KEY)
 }
 
 // 请求拦截器
 service.interceptors.request.use(
   config => {
+    console.log('Request Interceptor:', config.method, config.url)
     // 自动添加token到请求头
     const token = getTokenInternal()
     if (token) {
@@ -166,7 +182,7 @@ service.interceptors.response.use(
  */
 export function setToken(token) {
   if (token) {
-    localStorage.setItem(TOKEN_KEY, token)
+    getStorage().setItem(TOKEN_KEY, token)
   }
 }
 
@@ -175,15 +191,16 @@ export function setToken(token) {
  * @returns {string|null} JWT Token
  */
 export function getToken() {
-  return localStorage.getItem(TOKEN_KEY)
+  return getStorage().getItem(TOKEN_KEY)
 }
 
 /**
  * 删除Token
  */
 export function removeToken() {
-  localStorage.removeItem(TOKEN_KEY)
-  localStorage.removeItem('user')
+  const storage = getStorage()
+  storage.removeItem(TOKEN_KEY)
+  storage.removeItem('user')
 }
 
 /**

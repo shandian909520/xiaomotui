@@ -4,47 +4,99 @@
       <div class="login-header">
         <h2>小魔推管理后台</h2>
         <p>NFC智能营销管理系统</p>
-        <div style="margin-top: 10px; font-size: 12px; color: #666;">
-          测试账号：13800138000，验证码：123456
-        </div>
       </div>
-      <el-form ref="loginFormRef" :model="loginForm" :rules="loginRules">
-        <el-form-item prop="phone">
-          <el-input v-model="loginForm.phone" placeholder="手机号" size="large" />
-        </el-form-item>
-        <el-form-item prop="code">
-          <div style="display: flex; gap: 10px;">
-            <el-input v-model="loginForm.code" placeholder="验证码" size="large" style="flex: 1;" />
-            <el-button @click="handleSendCode" :disabled="codeTimer > 0" size="large">
-              {{ codeTimer > 0 ? `${codeTimer}秒后重试` : '获取验证码' }}
-            </el-button>
-          </div>
-        </el-form-item>
-        <el-form-item>
-          <el-checkbox v-model="rememberMe">记住我</el-checkbox>
-        </el-form-item>
-        <el-form-item>
-          <el-button type="primary" :loading="loading" @click="handleLogin" style="width:100%">登录</el-button>
-        </el-form-item>
-      </el-form>
+
+      <el-tabs v-model="loginType" class="login-tabs" stretch>
+        <el-tab-pane label="账号登录" name="account">
+          <el-form ref="accountFormRef" :model="loginForm" :rules="accountRules" size="large">
+            <el-form-item prop="username">
+              <el-input 
+                v-model="loginForm.username" 
+                placeholder="用户名" 
+                prefix-icon="User"
+              />
+            </el-form-item>
+            <el-form-item prop="password">
+              <el-input 
+                v-model="loginForm.password" 
+                placeholder="密码" 
+                prefix-icon="Lock"
+                type="password" 
+                show-password
+                @keyup.enter="handleLogin"
+              />
+            </el-form-item>
+          </el-form>
+        </el-tab-pane>
+
+        <el-tab-pane label="手机登录" name="mobile">
+          <el-form ref="mobileFormRef" :model="loginForm" :rules="mobileRules" size="large">
+            <el-form-item prop="phone">
+              <el-input 
+                v-model="loginForm.phone" 
+                placeholder="手机号" 
+                prefix-icon="Iphone"
+              />
+            </el-form-item>
+            <el-form-item prop="code">
+              <div style="display: flex; gap: 10px;">
+                <el-input 
+                  v-model="loginForm.code" 
+                  placeholder="验证码" 
+                  prefix-icon="Message"
+                  style="flex: 1;"
+                  @keyup.enter="handleLogin"
+                />
+                <el-button @click="handleSendCode" :disabled="codeTimer > 0">
+                  {{ codeTimer > 0 ? `${codeTimer}秒后重试` : '获取验证码' }}
+                </el-button>
+              </div>
+            </el-form-item>
+          </el-form>
+        </el-tab-pane>
+      </el-tabs>
+
+      <div style="margin-bottom: 20px;">
+        <el-checkbox v-model="rememberMe">记住我</el-checkbox>
+      </div>
+      
+      <el-button type="primary" :loading="loading" @click="handleLogin" style="width:100%" size="large">登录</el-button>
     </div>
   </div>
 </template>
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { useUserStore } from '@/store/modules/user'
+import { useUserStore } from '@/stores/user'
 import { authApi } from '@/api'
+import { setToken } from '@/utils/request'
+import { User, Lock, Iphone, Message } from '@element-plus/icons-vue'
+
 const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
-const loginFormRef = ref(null)
-const loginForm = reactive({ phone: '', code: '' })
+
+const loginType = ref('account')
+const accountFormRef = ref(null)
+const mobileFormRef = ref(null)
+
+const loginForm = reactive({ 
+  username: '', 
+  password: '',
+  phone: '', 
+  code: '' 
+})
 const rememberMe = ref(false)
 const loading = ref(false)
 const codeTimer = ref(0)
-const loginRules = {
+
+const accountRules = {
+  username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
+  password: [{ required: true, message: '请输入密码', trigger: 'blur' }]
+}
+
+const mobileRules = {
   phone: [
     { required: true, message: '请输入手机号', trigger: 'blur' },
     { pattern: /^1[3-9]\d{9}$/, message: '请输入正确的手机号', trigger: 'blur' }
@@ -54,15 +106,52 @@ const loginRules = {
     { len: 6, message: '验证码为6位数字', trigger: 'blur' }
   ]
 }
+
 const handleLogin = async () => {
-  if (!loginFormRef.value) return
+  const formRef = loginType.value === 'account' ? accountFormRef.value : mobileFormRef.value
+  if (!formRef) return
+
   try {
-    await loginFormRef.value.validate()
+    await formRef.validate()
     loading.value = true
-    // 使用手机号登录
-    await authApi.login({ phone: loginForm.phone, code: loginForm.code })
-    ElMessage.success('登录成功')
-    router.push(route.query.redirect || '/dashboard')
+    
+    const data = {}
+    if (loginType.value === 'account') {
+      data.username = loginForm.username
+      data.password = loginForm.password
+    } else {
+      data.phone = loginForm.phone
+      data.code = loginForm.code
+    }
+
+    console.log('Calling authApi.login with data:', data)
+    const res = await authApi.login(data)
+    console.log('Login Response Object:', JSON.stringify(res))
+    console.log('Token to save:', res?.token)
+    
+    // Request interceptor returns res.data directly if successful
+     // and rejects if code !== 200
+     if (res && res.token) {
+         // Update store state directly (Pinia allows this)
+         userStore.token = res.token
+         userStore.user = res.user
+         
+         // Persist token to localStorage
+         console.log('Saving token to localStorage:', res.token)
+         setToken(res.token)
+         const savedToken = localStorage.getItem('token') // Verify save
+         console.log('Token in localStorage after save:', savedToken)
+
+         if (res.user) {
+             localStorage.setItem('user', JSON.stringify(res.user))
+         }
+
+         ElMessage.success('登录成功')
+         router.push(route.query.redirect || '/dashboard')
+     } else {
+         console.error('Token missing in response')
+         throw new Error('登录失败：未获取到Token')
+     }
   } catch (error) {
     ElMessage.error(error.message || '登录失败')
   } finally {
@@ -82,11 +171,9 @@ const handleSendCode = async () => {
   }
 
   try {
-    // 发送验证码
     await authApi.sendCode({ phone: loginForm.phone })
     ElMessage.success('验证码已发送')
 
-    // 开始倒计时
     codeTimer.value = 60
     const timer = setInterval(() => {
       codeTimer.value--
@@ -98,10 +185,6 @@ const handleSendCode = async () => {
     ElMessage.error(error.message || '发送验证码失败')
   }
 }
-
-onMounted(() => {
-  if (userStore.isLoggedIn) router.push('/dashboard')
-})
 </script>
 <style lang="scss" scoped>
 .login-container {

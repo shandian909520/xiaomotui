@@ -4,6 +4,7 @@ declare (strict_types = 1);
 namespace app\controller;
 
 use app\service\AuthService;
+use app\service\SmsService;
 use app\validate\WechatAuth;
 use think\Request;
 
@@ -34,10 +35,10 @@ class Auth extends BaseController
 
                 $result = $this->authService->adminLogin($data['username'], $data['password']);
 
-                return $this->success($result, '????');
+                return $this->success($result, '登录成功');
             }
 
-            // ???????????????
+            // 微信小程序登录
             $scene = (!empty($data['encrypted_data']) && !empty($data['iv'])) ? 'loginWithUserInfo' : 'login';
             $this->validate($data, 'WechatAuth.' . $scene);
 
@@ -47,7 +48,7 @@ class Auth extends BaseController
                 $data['iv'] ?? ''
             );
 
-            return $this->success($result, '????');
+            return $this->success($result, '登录成功');
         } catch (\Exception $e) {
             return $this->error($e->getMessage(), 400, 'login_failed');
         }
@@ -113,10 +114,12 @@ class Auth extends BaseController
             // 从请求中获取用户ID(由中间件设置)
             $userId = $this->request->user_id ?? null;
 
-            if (!$userId) {
+            // 检查是否为null而不是!$userId，因为管理员user_id可能为0
+            if ($userId === null) {
                 return $this->error('用户未登录', 401, 'unauthorized');
             }
 
+            // 获取用户信息（支持user_id=0的管理员）
             $userInfo = $this->authService->getUserInfo($userId);
 
             return $this->success($userInfo, '获取成功');
@@ -173,7 +176,15 @@ class Auth extends BaseController
                 'code' => 'require|length:6,6'
             ]);
 
-            $result = $this->authService->bindPhone($userId, $data['phone'], $data['code']);
+            // 创建短信服务实例验证验证码
+            $smsService = new SmsService();
+
+            // 验证验证码
+            if (!$smsService->verifyCode($data['phone'], $data['code'])) {
+                return $this->error('验证码错误或已过期', 400, 'invalid_code');
+            }
+
+            $result = $this->authService->bindPhone($userId, $data['phone']);
 
             return $this->success($result, '绑定成功');
         } catch (\Exception $e) {
@@ -190,26 +201,25 @@ class Auth extends BaseController
         $data = $this->request->post();
 
         try {
+            // 验证手机号格式
             $this->validate($data, [
                 'phone' => 'require|mobile'
             ]);
 
-            // 生成6位数验证码
-            $code = str_pad((string)rand(0, 999999), 6, '0', STR_PAD_LEFT);
+            // 创建短信服务实例
+            $smsService = new SmsService();
 
-            // 将验证码存储到缓存，有效期5分钟
-            $cacheKey = 'sms_code:' . $data['phone'];
-            cache($cacheKey, $code, 300);
+            // 发送验证码
+            $result = $smsService->sendCode($data['phone']);
 
-            // TODO: 实际项目中应该调用短信服务发送验证码
-            // 开发环境直接返回验证码（生产环境应该删除此行）
-            $responseData = [
-                'message' => '验证码已发送',
-                'code' => $code // 生产环境删除此行
-            ];
-
-            return $this->success($responseData, '验证码已发送');
+            return $this->success($result, '验证码已发送');
         } catch (\Exception $e) {
+            // 记录错误日志
+            \think\facade\Log::error('发送验证码失败', [
+                'phone' => $data['phone'] ?? '',
+                'error' => $e->getMessage(),
+            ]);
+
             return $this->error($e->getMessage(), 400, 'send_code_failed');
         }
     }
@@ -228,26 +238,13 @@ class Auth extends BaseController
                 'code' => 'require|length:6,6'
             ]);
 
-            // 测试模式：允许特定验证码直接登录
-            $testMode = env('app.debug', false);
-            $testCode = '123456';
+            // 创建短信服务实例
+            $smsService = new SmsService();
 
-            if ($testMode && $data['code'] === $testCode) {
-                // 测试模式下直接登录
-                $result = $this->authService->phoneLogin($data['phone']);
-                return $this->success($result, '登录成功(测试模式)');
-            }
-
-            // 正常模式：验证验证码
-            $cacheKey = 'sms_code:' . $data['phone'];
-            $cachedCode = cache($cacheKey);
-
-            if (!$cachedCode || $cachedCode !== $data['code']) {
+            // 验证验证码
+            if (!$smsService->verifyCode($data['phone'], $data['code'])) {
                 return $this->error('验证码错误或已过期', 400, 'invalid_code');
             }
-
-            // 删除已使用的验证码
-            cache($cacheKey, null);
 
             // 查找或创建用户
             $result = $this->authService->phoneLogin($data['phone']);

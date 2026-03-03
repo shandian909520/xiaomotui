@@ -9,46 +9,16 @@
     <!-- 内容区域 -->
     <view class="content-wrapper" v-else>
       <!-- 媒体预览区域 -->
-      <view class="media-section">
-        <!-- 视频预览 -->
-        <view class="video-wrapper" v-if="materialData.type === 'VIDEO'">
-          <video
-            class="video-player"
-            :src="materialData.file_url"
-            :poster="materialData.cover_url"
-            :controls="true"
-            :show-center-play-btn="true"
-            :show-fullscreen-btn="true"
-            :enable-progress-gesture="true"
-            @error="onVideoError"
-            @timeupdate="onVideoTimeUpdate"
-          />
-          <view class="video-info">
-            <text class="video-duration" v-if="videoDuration">{{ formatDuration(videoDuration) }}</text>
-            <text class="video-size" v-if="materialData.file_size">{{ formatFileSize(materialData.file_size) }}</text>
-          </view>
-        </view>
-
-        <!-- 图片预览 -->
-        <image
-          v-else-if="materialData.type === 'IMAGE'"
-          class="preview-image"
-          :src="materialData.file_url"
-          mode="aspectFit"
-          @tap="previewImage"
-        />
-
-        <!-- 文本预览 -->
-        <view v-else-if="materialData.type === 'TEXT'" class="text-preview">
-          <text class="text-content">{{ materialData.content }}</text>
-        </view>
-
-        <!-- 模板预览 -->
-        <view v-else-if="materialData.type === 'TEMPLATE'" class="template-preview">
-          <text class="template-icon">📄</text>
-          <text class="template-name">{{ materialData.title }}</text>
-        </view>
-      </view>
+      <media-preview
+        :type="materialData.type"
+        :fileUrl="materialData.file_url"
+        :coverUrl="materialData.cover_url"
+        :content="materialData.content"
+        :title="materialData.title"
+        :fileSize="materialData.file_size || 0"
+        @preview="previewImage"
+        @video-error="onVideoError"
+      />
 
       <!-- 基本信息区域 -->
       <view class="info-section">
@@ -113,47 +83,17 @@
       </view>
 
       <!-- 使用统计区域 -->
-      <view class="stats-section">
-        <view class="section-header">
-          <text class="section-icon">📊</text>
-          <text class="section-title">使用统计</text>
-        </view>
-        <view class="stats-grid">
-          <view class="stat-card">
-            <text class="stat-value">{{ materialData.usage_count || 0 }}</text>
-            <text class="stat-label">使用次数</text>
-          </view>
-          <view class="stat-card">
-            <text class="stat-value">{{ materialData.download_count || 0 }}</text>
-            <text class="stat-label">下载次数</text>
-          </view>
-          <view class="stat-card">
-            <text class="stat-value">{{ materialData.share_count || 0 }}</text>
-            <text class="stat-label">分享次数</text>
-          </view>
-        </view>
-      </view>
+      <material-stats
+        :usageCount="materialData.usage_count || 0"
+        :downloadCount="materialData.download_count || 0"
+        :shareCount="materialData.share_count || 0"
+      />
 
       <!-- 相关素材区域 -->
-      <view class="related-section" v-if="relatedMaterials.length">
-        <view class="section-header">
-          <text class="section-icon">🔗</text>
-          <text class="section-title">相关素材</text>
-        </view>
-        <scroll-view class="related-scroll" scroll-x>
-          <view class="related-list">
-            <view
-              class="related-item"
-              v-for="item in relatedMaterials"
-              :key="item.id"
-              @tap="viewRelatedMaterial(item.id)"
-            >
-              <image class="related-image" :src="item.cover_url || item.file_url" mode="aspectFill" />
-              <text class="related-title">{{ item.title }}</text>
-            </view>
-          </view>
-        </scroll-view>
-      </view>
+      <related-materials
+        :materials="relatedMaterials"
+        @view="viewRelatedMaterial"
+      />
 
       <!-- 操作按钮区域 -->
       <view class="action-section">
@@ -191,16 +131,17 @@
 
 <script>
 import api from '../../api/index.js'
+import MediaPreview from '../../components/business/material/media-preview.vue'
+import MaterialStats from '../../components/business/material/material-stats.vue'
+import RelatedMaterials from '../../components/business/material/related-materials.vue'
 
 export default {
+  components: { MediaPreview, MaterialStats, RelatedMaterials },
   data() {
     return {
       materialId: '',
       materialData: {},
       relatedMaterials: [],
-
-      // 视频相关
-      videoDuration: 0,
 
       // 状态
       isLoading: true,
@@ -567,13 +508,6 @@ export default {
     },
 
     /**
-     * 视频时间更新
-     */
-    onVideoTimeUpdate(e) {
-      this.videoDuration = e.detail.duration
-    },
-
-    /**
      * 生成模拟素材数据
      */
     generateMockMaterialData() {
@@ -625,26 +559,6 @@ export default {
         })
       }
       return materials
-    },
-
-    /**
-     * 格式化文件大小
-     */
-    formatFileSize(bytes) {
-      if (!bytes) return '-'
-      if (bytes < 1024) return bytes + 'B'
-      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + 'KB'
-      return (bytes / 1024 / 1024).toFixed(1) + 'MB'
-    },
-
-    /**
-     * 格式化时长
-     */
-    formatDuration(seconds) {
-      if (!seconds) return '00:00'
-      const mins = Math.floor(seconds / 60)
-      const secs = Math.floor(seconds % 60)
-      return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
     },
 
     /**
@@ -728,80 +642,6 @@ export default {
   .loading-text {
     font-size: 14px;
     color: #6b7280;
-  }
-}
-
-// 媒体预览区域
-.media-section {
-  width: 100%;
-  background: #000000;
-  position: relative;
-
-  .video-wrapper {
-    position: relative;
-    width: 100%;
-
-    .video-player {
-      width: 100%;
-      height: 600rpx;
-    }
-
-    .video-info {
-      position: absolute;
-      bottom: 20rpx;
-      right: 20rpx;
-      display: flex;
-      gap: 16rpx;
-
-      .video-duration,
-      .video-size {
-        padding: 8rpx 16rpx;
-        background: rgba(0, 0, 0, 0.6);
-        border-radius: 20rpx;
-        color: #ffffff;
-        font-size: 12px;
-        backdrop-filter: blur(10rpx);
-      }
-    }
-  }
-
-  .preview-image {
-    width: 100%;
-    min-height: 400rpx;
-    background: #000000;
-  }
-
-  .text-preview {
-    padding: 60rpx;
-    min-height: 400rpx;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-
-    .text-content {
-      font-size: 16px;
-      color: #ffffff;
-      line-height: 1.8;
-      white-space: pre-wrap;
-    }
-  }
-
-  .template-preview {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    min-height: 400rpx;
-    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-    gap: 30rpx;
-
-    .template-icon {
-      font-size: 80px;
-    }
-
-    .template-name {
-      font-size: 20px;
-      font-weight: 600;
-      color: #ffffff;
-    }
   }
 }
 
@@ -932,113 +772,6 @@ export default {
       border-radius: 20rpx;
       font-size: 14px;
       font-weight: 500;
-    }
-  }
-}
-
-// 统计区域
-.stats-section {
-  background: #ffffff;
-  padding: 30rpx;
-  margin-bottom: 20rpx;
-
-  .section-header {
-    display: flex;
-    align-items: center;
-    gap: 12rpx;
-    margin-bottom: 20rpx;
-
-    .section-icon {
-      font-size: 20px;
-    }
-
-    .section-title {
-      font-size: 16px;
-      font-weight: 600;
-      color: #1f2937;
-    }
-  }
-
-  .stats-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 20rpx;
-
-    .stat-card {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 30rpx 20rpx;
-      background: #f9fafb;
-      border-radius: 12rpx;
-      gap: 12rpx;
-
-      .stat-value {
-        font-size: 24px;
-        font-weight: 600;
-        color: #6366f1;
-      }
-
-      .stat-label {
-        font-size: 12px;
-        color: #6b7280;
-      }
-    }
-  }
-}
-
-// 相关素材区域
-.related-section {
-  background: #ffffff;
-  padding: 30rpx;
-  margin-bottom: 20rpx;
-
-  .section-header {
-    display: flex;
-    align-items: center;
-    gap: 12rpx;
-    margin-bottom: 20rpx;
-
-    .section-icon {
-      font-size: 20px;
-    }
-
-    .section-title {
-      font-size: 16px;
-      font-weight: 600;
-      color: #1f2937;
-    }
-  }
-
-  .related-scroll {
-    width: 100%;
-    white-space: nowrap;
-  }
-
-  .related-list {
-    display: inline-flex;
-    gap: 20rpx;
-
-    .related-item {
-      display: inline-flex;
-      flex-direction: column;
-      width: 200rpx;
-      gap: 12rpx;
-
-      .related-image {
-        width: 200rpx;
-        height: 200rpx;
-        border-radius: 12rpx;
-        background: #f3f4f6;
-      }
-
-      .related-title {
-        font-size: 14px;
-        color: #4b5563;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
     }
   }
 }

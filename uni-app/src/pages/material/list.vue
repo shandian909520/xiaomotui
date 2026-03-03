@@ -54,6 +54,7 @@
               class="cover-image"
               :src="item.cover_url"
               mode="aspectFill"
+              lazy-load
             />
             <view v-else class="cover-placeholder">
               <text class="placeholder-icon">{{ getTypeIcon(item.type) }}</text>
@@ -102,11 +103,13 @@
       </view>
 
       <!-- 空状态 -->
-      <view class="empty-state" v-if="!loading && materialList.length === 0">
-        <text class="empty-icon">📦</text>
-        <text class="empty-text">暂无素材</text>
-        <button class="upload-btn" @tap="handleUpload">上传素材</button>
-      </view>
+      <empty-state
+        v-if="!loading && materialList.length === 0"
+        icon="📦"
+        title="暂无素材"
+        btnText="上传素材"
+        @action="handleUpload"
+      />
     </scroll-view>
 
     <!-- 底部操作栏 -->
@@ -637,34 +640,6 @@ export default {
   border-top-color: #6366f1;
   border-radius: 50%;
   animation: spin 1s linear infinite;
-}
-
-// 空状态
-.empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 120rpx 40rpx;
-
-  .empty-icon {
-    font-size: 80px;
-    margin-bottom: 30rpx;
-  }
-
-  .empty-text {
-    font-size: 16px;
-    color: #9ca3af;
-    margin-bottom: 40rpx;
-  }
-
-  .upload-btn {
-    padding: 20rpx 60rpx;
-    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
-    color: #ffffff;
-    border: none;
-    border-radius: 12rpx;
-    font-size: 16px;
-  }
 }
 
 // 底部操作栏

@@ -391,21 +391,42 @@ class DeviceAlertService
      */
     protected function sendNotification(Merchant $merchant, array $alertData): bool
     {
-        // TODO: 实现具体的通知方式
-        // 1. 短信通知
-        // 2. 邮件通知
-        // 3. 微信公众号通知
-        // 4. 系统内通知
+        try {
+            // 邮件通知
+            if (!empty($merchant->email)) {
+                $emailService = new \app\service\EmailService();
+                $emailService->sendDeviceAlertEmail($merchant->email, [
+                    'device_code' => $alertData['device_info']['device_code'] ?? '',
+                    'device_name' => $alertData['device_info']['device_name'] ?? '',
+                    'alert_type' => $alertData['alert_type'],
+                    'alert_level' => $alertData['level'],
+                    'alert_message' => $alertData['message'],
+                    'trigger_time' => $alertData['time'],
+                    'location' => $alertData['device_info']['location'] ?? '',
+                    'suggestions' => $alertData['suggestions'] ?? []
+                ]);
+            }
 
-        // 目前仅记录日志
-        Log::info('告警通知已发送', [
-            'merchant_id' => $merchant->id,
-            'merchant_name' => $merchant->name,
-            'alert_type' => $alertData['alert_type'],
-            'level' => $alertData['level']
-        ]);
+            // 短信通知（TODO: 集成短信服务）
+            // 微信公众号通知（TODO: 集成微信服务）
 
-        return true;
+            // 记录日志
+            Log::info('告警通知已发送', [
+                'merchant_id' => $merchant->id,
+                'merchant_name' => $merchant->name,
+                'alert_type' => $alertData['alert_type'],
+                'level' => $alertData['level']
+            ]);
+
+            return true;
+
+        } catch (\Exception $e) {
+            Log::error('发送告警通知失败', [
+                'merchant_id' => $merchant->id,
+                'error' => $e->getMessage()
+            ]);
+            return false;
+        }
     }
 
     /**

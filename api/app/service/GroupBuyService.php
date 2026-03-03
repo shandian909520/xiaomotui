@@ -32,6 +32,38 @@ class GroupBuyService
     ];
 
     /**
+     * 解析动态配置（基于时间规则）
+     *
+     * @param array $config 原始配置
+     * @param string|null $time 测试用的时间（格式 H:i），默认为当前时间
+     * @return array 解析后的配置
+     */
+    public function resolveDynamicConfig(array $config, ?string $time = null): array
+    {
+        // 如果没有时间规则，直接返回原始配置
+        if (empty($config['time_rules']) || !is_array($config['time_rules'])) {
+            return $config;
+        }
+
+        $now = $time ?? date('H:i');
+        
+        foreach ($config['time_rules'] as $rule) {
+            $startTime = $rule['start_time'] ?? '00:00';
+            $endTime = $rule['end_time'] ?? '23:59';
+            
+            if ($now >= $startTime && $now <= $endTime) {
+                // 命中规则，合并规则中的配置覆盖默认配置
+                // 规则中可以包含 platform, deal_id, custom_url 等
+                // Log::info('GroupBuy dynamic rule matched', ['rule' => $rule, 'time' => $now]);
+                return array_merge($config, $rule);
+            }
+        }
+
+        // 如果没有命中任何规则，返回原始配置（默认配置）
+        return $config;
+    }
+
+    /**
      * 生成团购跳转URL
      *
      * @param array $config 配置参数

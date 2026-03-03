@@ -35,7 +35,7 @@ return [
             // 密码
             'password' => env('redis.password', ''),
             // 缓存有效期 0表示永久缓存
-            'expire' => env('redis.expire', 0),
+            'expire' => (int) env('redis.expire', 0),
             // 缓存前缀
             'prefix' => env('redis.prefix', 'xmt:'),
             // 数据库

@@ -1,5 +1,5 @@
 -- 创建敏感词表
-CREATE TABLE IF NOT EXISTS `sensitive_words` (
+CREATE TABLE IF NOT EXISTS `xmt_sensitive_words` (
   `id` int(11) unsigned NOT NULL AUTO_INCREMENT COMMENT '词ID',
   `word` varchar(100) NOT NULL COMMENT '敏感词',
   `category` varchar(50) DEFAULT NULL COMMENT '分类',
@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS `sensitive_words` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='敏感词表';
 
 -- 插入一些示例敏感词（实际使用时应该导入完整的敏感词库）
-INSERT INTO `sensitive_words` (`word`, `category`, `level`, `action`, `status`, `create_time`, `update_time`) VALUES
+INSERT INTO `xmt_sensitive_words` (`word`, `category`, `level`, `action`, `status`, `create_time`, `update_time`) VALUES
 ('测试敏感词', 'OTHER', 1, 'REVIEW', 1, NOW(), NOW()),
 ('违规词汇', 'ILLEGAL', 3, 'BLOCK', 1, NOW(), NOW()),
 ('广告推广', 'SPAM', 2, 'REVIEW', 1, NOW(), NOW()),

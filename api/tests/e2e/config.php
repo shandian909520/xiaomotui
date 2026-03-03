@@ -4,7 +4,7 @@
  */
 return [
     // 基础配置
-    'base_url' => 'http://localhost',
+    'base_url' => 'http://localhost:28080',
     'api_prefix' => '/api',
 
     // 测试环境配置

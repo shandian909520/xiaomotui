@@ -9,10 +9,10 @@ const path = require('path');
 // 环境配置
 const envConfigs = {
   development: {
-    apiBaseUrl: 'http://localhost:37080',
-    h5Domain: 'http://localhost:37075',
-    uploadUrl: 'http://localhost:37080/api/upload',
-    wsUrl: 'ws://localhost:37080',
+    apiBaseUrl: 'http://localhost:8080',
+    h5Domain: 'http://localhost:8081',
+    uploadUrl: 'http://localhost:8080/api/upload',
+    wsUrl: 'ws://localhost:8080',
     enableDebug: true,
     enableVConsole: true
   },

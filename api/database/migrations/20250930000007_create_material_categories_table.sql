@@ -1,5 +1,5 @@
 -- 素材分类表
-CREATE TABLE IF NOT EXISTS `material_categories` (
+CREATE TABLE IF NOT EXISTS `xmt_material_categories` (
   `id` int(11) unsigned NOT NULL AUTO_INCREMENT COMMENT '分类ID',
   `parent_id` int(11) DEFAULT 0 COMMENT '父分类ID',
   `name` varchar(100) NOT NULL COMMENT '分类名称',

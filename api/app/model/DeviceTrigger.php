@@ -24,13 +24,14 @@ use think\Model;
  */
 class DeviceTrigger extends Model
 {
-    protected $name = 'device_triggers';
+    protected $table = 'xmt_device_triggers';
 
     // 设置字段信息
     protected $schema = [
         'id'             => 'int',
         'device_id'      => 'int',
         'device_code'    => 'string',
+        'merchant_id'    => 'int',
         'user_id'        => 'int',
         'user_openid'    => 'string',
         'trigger_mode'   => 'string',
@@ -41,22 +42,23 @@ class DeviceTrigger extends Model
         'user_agent'     => 'string',
         'success'        => 'int',
         'error_message'  => 'string',
+        'trigger_time'   => 'datetime',
         'create_time'    => 'datetime',
     ];
 
     // 自动时间戳 - 只记录创建时间
-    protected $autoWriteTimestamp = 'create_time';
+    protected $autoWriteTimestamp = 'datetime';
     protected $updateTime = false;
 
     // 字段类型转换
     protected $type = [
         'id'           => 'integer',
         'device_id'    => 'integer',
+        'merchant_id'  => 'integer',
         'user_id'      => 'integer',
         'response_data'=> 'array',
         'response_time'=> 'integer',
         'success'      => 'integer',
-        'create_time'  => 'timestamp',
     ];
 
     // JSON 字段
@@ -64,9 +66,9 @@ class DeviceTrigger extends Model
 
     // 允许批量赋值的字段
     protected $field = [
-        'device_id', 'device_code', 'user_id', 'user_openid', 'trigger_mode',
+        'device_id', 'device_code', 'merchant_id', 'user_id', 'user_openid', 'trigger_mode',
         'response_type', 'response_data', 'response_time', 'client_ip',
-        'user_agent', 'success', 'error_message'
+        'user_agent', 'success', 'error_message', 'trigger_time'
     ];
 
     /**
@@ -134,6 +136,7 @@ class DeviceTrigger extends Model
         $trigger = new self();
         $trigger->device_id = $data['device_id'];
         $trigger->device_code = $data['device_code'];
+        $trigger->merchant_id = $data['merchant_id'] ?? 0;
         $trigger->user_id = $data['user_id'] ?? null;
         $trigger->user_openid = $data['user_openid'];
         $trigger->trigger_mode = $data['trigger_mode'];
@@ -144,6 +147,7 @@ class DeviceTrigger extends Model
         $trigger->user_agent = $data['user_agent'] ?? '';
         $trigger->success = $data['success'] ? 1 : 0;
         $trigger->error_message = $data['error_message'] ?? '';
+        $trigger->trigger_time = date('Y-m-d H:i:s');
         $trigger->save();
 
         return $trigger;
@@ -166,6 +170,7 @@ class DeviceTrigger extends Model
     public static function recordSuccess(
         int $deviceId,
         string $deviceCode,
+        int $merchantId,
         ?int $userId,
         string $userOpenid,
         string $triggerMode,
@@ -178,6 +183,7 @@ class DeviceTrigger extends Model
         return self::recordTrigger([
             'device_id' => $deviceId,
             'device_code' => $deviceCode,
+            'merchant_id' => $merchantId,
             'user_id' => $userId,
             'user_openid' => $userOpenid,
             'trigger_mode' => $triggerMode,
@@ -206,6 +212,7 @@ class DeviceTrigger extends Model
     public static function recordError(
         ?int $deviceId,
         string $deviceCode,
+        int $merchantId,
         ?int $userId,
         string $userOpenid,
         string $triggerMode,
@@ -217,6 +224,7 @@ class DeviceTrigger extends Model
         return self::recordTrigger([
             'device_id' => $deviceId,
             'device_code' => $deviceCode,
+            'merchant_id' => $merchantId,
             'user_id' => $userId,
             'user_openid' => $userOpenid,
             'trigger_mode' => $triggerMode,

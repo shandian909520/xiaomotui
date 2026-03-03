@@ -365,10 +365,23 @@ class MerchantNotificationService
                 return ['success' => false, 'message' => '商家未设置邮箱'];
             }
 
-            // TODO: 调用邮件发送服务
-            // 这里可以集成 PHPMailer、SwiftMailer 等
+            // 调用邮件发送服务
+            $emailService = new \app\service\EmailService();
+            $emailService->setFrom(
+                config('email.from_address'),
+                config('email.from_name')
+            );
+            $emailService->addTo($merchant['email'], $merchant['name'] ?? '');
+            $emailService->setSubject($notification['title']);
+            $emailService->setBody(
+                $notification['content_html'] ?? $notification['content'],
+                strip_tags($notification['content'])
+            );
 
-            Log::info('邮件通知模拟发送', [
+            // 使用异步队列发送
+            $emailService->sendAsync();
+
+            Log::info('邮件通知已发送', [
                 'to' => $merchant['email'],
                 'subject' => $notification['title']
             ]);
@@ -420,16 +433,146 @@ class MerchantNotificationService
     protected function sendWechatNotification(array $notification): array
     {
         try {
-            // TODO: 调用微信模板消息或公众号消息接口
-            Log::info('微信通知模拟发送', [
-                'merchant_id' => $notification['merchant_id'],
-                'title' => $notification['title']
-            ]);
+            // 获取商家信息
+            $merchant = Db::name('merchants')
+                ->where('id', $notification['merchant_id'])
+                ->find();
 
-            return ['success' => true, 'message' => '微信通知已发送'];
+            if (empty($merchant)) {
+                return ['success' => false, 'message' => '商家不存在'];
+            }
+
+            // 获取商家用户的微信OpenID
+            $user = Db::name('users')
+                ->where('id', $merchant['user_id'])
+                ->find();
+
+            if (empty($user) || empty($user['wechat_openid'])) {
+                return ['success' => false, 'message' => '用户未绑定微信'];
+            }
+
+            // 使用微信模板消息服务
+            $wechatTemplateService = new \app\service\WechatTemplateService('miniprogram');
+
+            // 根据通知类型选择模板
+            $templateType = $this->getWechatTemplateType($notification['type']);
+
+            if (empty($templateType)) {
+                return ['success' => false, 'message' => '不支持的通知类型'];
+            }
+
+            // 构建模板数据
+            $templateData = $this->buildWechatTemplateData($notification);
+
+            // 发送模板消息
+            $success = $wechatTemplateService->sendTemplateMessage(
+                $merchant['user_id'],
+                $user['wechat_openid'],
+                $templateType,
+                $templateData,
+                '',  // 跳转页面，可根据需要配置
+                ['notification_id' => $notification['id']]
+            );
+
+            if ($success) {
+                Log::info('微信通知发送成功', [
+                    'merchant_id' => $notification['merchant_id'],
+                    'notification_type' => $notification['type']
+                ]);
+                return ['success' => true, 'message' => '微信通知已发送'];
+            } else {
+                return ['success' => false, 'message' => '微信通知发送失败'];
+            }
         } catch (\Exception $e) {
+            Log::error('发送微信通知失败', [
+                'merchant_id' => $notification['merchant_id'],
+                'error' => $e->getMessage()
+            ]);
             return ['success' => false, 'message' => $e->getMessage()];
         }
+    }
+
+    /**
+     * 获取微信模板类型
+     *
+     * @param string $notificationType 通知类型
+     * @return string|null
+     */
+    protected function getWechatTemplateType(string $notificationType): ?string
+    {
+        $templateMap = [
+            'VIOLATION' => 'merchant_audit',        // 违规通知
+            'APPEAL_RESULT' => 'merchant_audit',    // 申诉结果
+            'WARNING' => 'device_alert',            // 警告通知
+        ];
+
+        return $templateMap[$notificationType] ?? null;
+    }
+
+    /**
+     * 构建微信模板数据
+     *
+     * @param array $notification 通知数据
+     * @return array
+     */
+    protected function buildWechatTemplateData(array $notification): array
+    {
+        // 解析关联数据
+        $relatedData = json_decode($notification['related_data'], true) ?: [];
+
+        switch ($notification['type']) {
+            case 'VIOLATION':
+                return [
+                    'thing1' => ['value' => '违规通知'],
+                    'thing2' => ['value' => $this->extractViolationType($relatedData)],
+                    'date3' => ['value' => date('Y-m-d H:i:s')],
+                    'thing4' => ['value' => '请及时处理'],
+                ];
+
+            case 'APPEAL_RESULT':
+                $approved = $relatedData['approved'] ?? false;
+                return [
+                    'thing1' => ['value' => '申诉结果'],
+                    'phrase2' => ['value' => $approved ? '已通过' : '未通过'],
+                    'thing3' => ['value' => $notification['title']],
+                    'date4' => ['value' => date('Y-m-d H:i:s')],
+                ];
+
+            case 'WARNING':
+                return [
+                    'thing1' => ['value' => '重要通知'],
+                    'thing2' => ['value' => $notification['title']],
+                    'date3' => ['value' => date('Y-m-d H:i:s')],
+                    'thing4' => ['value' => '请及时处理'],
+                ];
+
+            default:
+                return [];
+        }
+    }
+
+    /**
+     * 提取违规类型
+     *
+     * @param array $relatedData 关联数据
+     * @return string
+     */
+    protected function extractViolationType(array $relatedData): string
+    {
+        $violationTypes = [
+            'SENSITIVE' => '敏感内容',
+            'ILLEGAL' => '违法内容',
+            'PORN' => '色情内容',
+            'VIOLENCE' => '暴力内容',
+            'AD' => '广告内容',
+            'FRAUD' => '欺诈内容',
+            'SPAM' => '垃圾内容',
+            'COPYRIGHT' => '版权问题',
+            'OTHER' => '其他违规',
+        ];
+
+        $type = $relatedData['violation_type'] ?? 'OTHER';
+        return $violationTypes[$type] ?? '违规内容';
     }
 
     /**

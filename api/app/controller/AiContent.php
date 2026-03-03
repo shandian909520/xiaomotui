@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace app\controller;
 
 use app\service\WenxinService;
+use app\model\ContentTask;
 use think\facade\Log;
 use think\Response;
 
@@ -13,6 +14,9 @@ use think\Response;
  */
 class AiContent extends BaseController
 {
+    protected array $middleware = [
+        'app\middleware\JwtAuth'
+    ];
     /**
      * 生成营销文案
      *
@@ -38,6 +42,31 @@ class AiContent extends BaseController
 
             // 生成文案
             $result = $wenxinService->generateText($params);
+
+            // 保存生成记录到任务历史
+            try {
+                $userId = $this->request->user_id ?? 0;
+                $merchantId = $this->request->merchant_id ?? 0;
+                
+                ContentTask::create([
+                    'user_id' => $userId,
+                    'merchant_id' => $merchantId,
+                    'type' => 'TEXT',
+                    'status' => ContentTask::STATUS_COMPLETED,
+                    'input_data' => $params,
+                    'output_data' => [
+                        'text' => $result['text'],
+                        'tokens' => $result['tokens'] ?? 0,
+                        'model' => $result['model'] ?? ''
+                    ],
+                    'ai_provider' => 'wenxin', // 或者根据实际使用的模型判断
+                    'generation_time' => isset($result['time']) ? intval($result['time']) : 0,
+                    'complete_time' => date('Y-m-d H:i:s')
+                ]);
+            } catch (\Exception $e) {
+                // 记录日志但不影响主流程返回
+                Log::error('保存AI生成历史记录失败', ['error' => $e->getMessage()]);
+            }
 
             return $this->success([
                 'text' => $result['text'],
@@ -105,6 +134,58 @@ class AiContent extends BaseController
             ]);
 
             return $this->error($e->getMessage());
+        }
+    }
+
+    /**
+     * 获取创作历史
+     *
+     * @return Response
+     */
+    public function history(): Response
+    {
+        try {
+            $userId = $this->request->user_id ?? 0;
+            $limit = $this->request->get('limit', 10);
+            
+            $list = ContentTask::where('user_id', $userId)
+                ->where('type', 'TEXT')
+                ->where('status', ContentTask::STATUS_COMPLETED)
+                ->order('create_time', 'desc')
+                ->limit((int)$limit)
+                ->select();
+                
+            $result = [];
+            foreach ($list as $item) {
+                // 确保 output_data 是数组
+                $outputData = $item->output_data;
+                if (is_string($outputData)) {
+                    $outputData = json_decode($outputData, true);
+                } elseif (is_object($outputData)) {
+                    $outputData = (array)$outputData;
+                }
+                
+                // 确保 input_data 是数组
+                $inputData = $item->input_data;
+                if (is_string($inputData)) {
+                    $inputData = json_decode($inputData, true);
+                } elseif (is_object($inputData)) {
+                    $inputData = (array)$inputData;
+                }
+                
+                $result[] = [
+                    'id' => $item->id,
+                    'content' => $outputData['text'] ?? '',
+                    'create_time' => $item->create_time,
+                    // 前端期望 params 是 JSON 字符串以便 JSON.parse
+                    'params' => json_encode($inputData)
+                ];
+            }
+            
+            return $this->success($result, '获取历史记录成功');
+            
+        } catch (\Exception $e) {
+            return $this->error('获取历史记录失败: ' . $e->getMessage());
         }
     }
 
@@ -257,13 +338,13 @@ class AiContent extends BaseController
         }
 
         // 风格验证
-        $validStyles = ['温馨', '时尚', '文艺', '潮流', '高端', '亲民'];
+        $validStyles = ['温馨', '时尚', '文艺', '潮流', '高端', '亲民', '专业权威', '幽默风趣', '亲切自然', '激情促销', '亲切', '专业', '幽默', '激情'];
         if (!in_array($params['style'], $validStyles)) {
             throw new \Exception('不支持的风格: ' . $params['style']);
         }
 
         // 平台验证
-        $validPlatforms = ['DOUYIN', 'XIAOHONGSHU', 'WECHAT'];
+        $validPlatforms = ['DOUYIN', 'XIAOHONGSHU', 'WECHAT', 'KUAISHOU', 'VIDEO', 'RED'];
         if (!in_array(strtoupper($params['platform']), $validPlatforms)) {
             throw new \Exception('不支持的平台: ' . $params['platform']);
         }

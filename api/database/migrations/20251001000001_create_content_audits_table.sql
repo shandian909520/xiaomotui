@@ -1,5 +1,5 @@
 -- 创建内容审核记录表
-CREATE TABLE IF NOT EXISTS `content_audits` (
+CREATE TABLE IF NOT EXISTS `xmt_content_audits` (
   `id` int(11) unsigned NOT NULL AUTO_INCREMENT COMMENT '审核ID',
   `content_id` int(11) unsigned NOT NULL COMMENT '内容ID',
   `content_type` enum('MATERIAL','CONTENT_TASK','COMMENT','USER_CONTENT') NOT NULL COMMENT '内容类型',

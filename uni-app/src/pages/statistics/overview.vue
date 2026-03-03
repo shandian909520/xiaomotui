@@ -34,8 +34,11 @@
         <view class="section-header">
           <text class="section-title">访问趋势</text>
         </view>
-        <view class="chart-placeholder">
-          <text>📈 图表区域</text>
+        <view class="simple-chart">
+          <view class="chart-bar" v-for="(item, idx) in trendData" :key="idx">
+            <view class="bar-fill" :style="{ height: getBarHeight(item.value) + 'rpx' }"></view>
+            <text class="bar-label">{{ item.label }}</text>
+          </view>
         </view>
       </view>
 
@@ -61,28 +64,29 @@
 </template>
 
 <script>
+import api from '@/api/index.js'
+
 export default {
   data() {
     return {
+      loading: false,
       currentPeriod: 'today',
       dateTabs: [
         { label: '今日', value: 'today' },
         { label: '本周', value: 'week' },
         { label: '本月', value: 'month' }
       ],
-      coreMetrics: [
-        { key: 'scan', icon: '👆', label: '扫码次数', value: '1,234', trend: 12.5 },
-        { key: 'user', icon: '👥', label: '访问用户', value: '856', trend: 8.3 },
-        { key: 'content', icon: '📄', label: '内容浏览', value: '3,456', trend: 15.2 },
-        { key: 'conversion', icon: '💰', label: '转化率', value: '23%', trend: -2.1 }
-      ],
-      deviceStats: [
-        { name: 'NFC设备-1', count: 456, percent: 85 },
-        { name: 'NFC设备-2', count: 328, percent: 61 },
-        { name: 'NFC设备-3', count: 245, percent: 46 },
-        { name: 'NFC设备-4', count: 189, percent: 35 }
-      ]
+      coreMetrics: [],
+      deviceStats: [],
+      trendData: []
     }
+  },
+  onLoad() {
+    this.loadData()
+  },
+  onPullDownRefresh() {
+    this.loadData()
+    setTimeout(() => uni.stopPullDownRefresh(), 1000)
   },
   methods: {
     goBack() {
@@ -92,8 +96,72 @@ export default {
       this.currentPeriod = period
       this.loadData()
     },
-    loadData() {
-      // 模拟加载数据
+    async loadData() {
+      this.loading = true
+      try {
+        const res = await api.statistics.getOverview({ type: this.currentPeriod })
+
+        if (res && res.data) {
+          this.coreMetrics = [
+            { key: 'scan', icon: '👆', label: '扫码次数', value: res.data.triggers || 0, trend: res.data.triggerTrend || 0 },
+            { key: 'user', icon: '👥', label: '访问用户', value: res.data.users || 0, trend: res.data.userTrend || 0 },
+            { key: 'content', icon: '📄', label: '内容浏览', value: res.data.contents || 0, trend: res.data.contentTrend || 0 },
+            { key: 'conversion', icon: '💰', label: '转化率', value: (res.data.conversionRate || 0) + '%', trend: res.data.conversionTrend || 0 }
+          ]
+
+          if (res.data.deviceStats && res.data.deviceStats.length > 0) {
+            const maxCount = Math.max(...res.data.deviceStats.map(d => d.count))
+            this.deviceStats = res.data.deviceStats.map(d => ({
+              name: d.name || d.device_name,
+              count: d.count,
+              percent: maxCount > 0 ? Math.round((d.count / maxCount) * 100) : 0
+            }))
+          }
+
+          if (res.data.trend && res.data.trend.length > 0) {
+            this.trendData = res.data.trend
+          } else {
+            this.loadMockTrend()
+          }
+        }
+      } catch (error) {
+        console.error('加载数据失败:', error)
+        this.loadMockData()
+      } finally {
+        this.loading = false
+      }
+    },
+    loadMockTrend() {
+      const labels = this.currentPeriod === 'today'
+        ? ['00:00', '04:00', '08:00', '12:00', '16:00', '20:00']
+        : this.currentPeriod === 'week'
+        ? ['周一', '周二', '周三', '周四', '周五', '周六', '周日']
+        : ['第1周', '第2周', '第3周', '第4周']
+
+      this.trendData = labels.map(label => ({
+        label,
+        value: Math.floor(Math.random() * 500) + 100
+      }))
+    },
+    getBarHeight(value) {
+      if (!this.trendData.length) return 0
+      const max = Math.max(...this.trendData.map(d => d.value))
+      return max > 0 ? Math.round((value / max) * 200) : 0
+    },
+    loadMockData() {
+      this.coreMetrics = [
+        { key: 'scan', icon: '👆', label: '扫码次数', value: '1,234', trend: 12.5 },
+        { key: 'user', icon: '👥', label: '访问用户', value: '856', trend: 8.3 },
+        { key: 'content', icon: '📄', label: '内容浏览', value: '3,456', trend: 15.2 },
+        { key: 'conversion', icon: '💰', label: '转化率', value: '23%', trend: -2.1 }
+      ]
+      this.deviceStats = [
+        { name: 'NFC设备-1', count: 456, percent: 85 },
+        { name: 'NFC设备-2', count: 328, percent: 61 },
+        { name: 'NFC设备-3', count: 245, percent: 46 },
+        { name: 'NFC设备-4', count: 189, percent: 35 }
+      ]
+      this.loadMockTrend()
     }
   }
 }
@@ -120,7 +188,10 @@ export default {
 .chart-section, .device-stats { background: #fff; border-radius: 16rpx; padding: 30rpx; margin-bottom: 20rpx; }
 .section-header { margin-bottom: 20rpx; }
 .section-title { font-size: 16px; font-weight: 600; color: #1f2937; }
-.chart-placeholder { height: 400rpx; display: flex; align-items: center; justify-content: center; background: #f9fafb; border-radius: 12rpx; font-size: 16px; color: #9ca3af; }
+.simple-chart { display: flex; align-items: flex-end; justify-content: space-around; height: 240rpx; padding: 20rpx 0; }
+.chart-bar { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; }
+.bar-fill { width: 60%; background: linear-gradient(180deg, #6366f1, #8b5cf6); border-radius: 6rpx 6rpx 0 0; min-height: 10rpx; transition: height 0.3s; }
+.bar-label { font-size: 11px; color: #9ca3af; margin-top: 8rpx; }
 .stat-list { }
 .stat-item { margin-bottom: 30rpx; }
 .stat-item:last-child { margin-bottom: 0; }

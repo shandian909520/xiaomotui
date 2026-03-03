@@ -545,16 +545,18 @@ class NotificationService
     protected function sendEmail(string $email, string $subject, string $content, array $config): bool
     {
         try {
-            // 这里可以集成具体的邮件服务
-            // 如PHPMailer、SwiftMailer等
+            // 调用邮件发送服务
+            $emailService = new \app\service\EmailService();
+            $emailService->setFrom(
+                config('email.from_address'),
+                config('email.from_name')
+            );
+            $emailService->addTo($email);
+            $emailService->setSubject($subject);
+            $emailService->setHtmlBody($content);
 
-            Log::info('邮件发送模拟', [
-                'email' => $email,
-                'subject' => $subject
-            ]);
-
-            // 模拟发送成功
-            return true;
+            // 使用异步队列发送
+            return $emailService->sendAsync();
 
         } catch (\Exception $e) {
             Log::error('邮件发送失败', [

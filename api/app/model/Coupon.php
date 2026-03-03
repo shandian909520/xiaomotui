@@ -25,7 +25,7 @@ use think\Model;
  */
 class Coupon extends Model
 {
-    protected $name = 'coupons';
+    protected $table = 'coupons';
 
     // 设置字段信息
     protected $schema = [
@@ -47,7 +47,7 @@ class Coupon extends Model
     ];
 
     // 自动时间戳
-    protected $autoWriteTimestamp = true;
+    protected $autoWriteTimestamp = 'datetime';
 
     // 字段类型转换
     protected $type = [
@@ -60,10 +60,10 @@ class Coupon extends Model
         'per_user_limit' => 'integer',
         'valid_days'     => 'integer',
         'status'         => 'integer',
-        'start_time'     => 'timestamp',
-        'end_time'       => 'timestamp',
-        'create_time'    => 'timestamp',
-        'update_time'    => 'timestamp',
+        'start_time'     => 'datetime',
+        'end_time'       => 'datetime',
+        'create_time'    => 'datetime',
+        'update_time'    => 'datetime',
     ];
 
     // 允许批量赋值的字段

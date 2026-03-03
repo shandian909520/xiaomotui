@@ -14,10 +14,12 @@ import user from './modules/user.js'
 import ai from './modules/ai.js'
 import alert from './modules/alert.js'
 import coupon from './modules/coupon.js'
-import groupbuy from './modules/groupbuy.js'
-import table from './modules/table.js'
-import dining from './modules/dining.js'
 import template from './modules/template.js'
+import promo from './modules/promo.js'
+import promoMaterial from './modules/promoMaterial.js'
+import promoTemplate from './modules/promoTemplate.js'
+import promoCampaign from './modules/promoCampaign.js'
+import promoStats from './modules/promoStats.js'
 import request from './request.js'
 
 // 导出所有API模块
@@ -33,10 +35,12 @@ export default {
 	ai,          // AI服务模块
 	alert,       // 告警系统模块
 	coupon,      // 优惠券模块
-	groupbuy,    // 团购模块
-	table,       // 餐桌管理模块
-	dining,      // 就餐服务模块
 	template,    // 模板管理模块
+	promo,       // 推广模块
+	promoMaterial, // 商家推广素材模块
+	promoTemplate, // 视频合成模板模块
+	promoCampaign, // 推广活动模块
+	promoStats,   // 推广统计模块
 	request      // 请求实例（用于自定义请求）
 }
 
@@ -53,9 +57,11 @@ export {
 	ai,
 	alert,
 	coupon,
-	groupbuy,
-	table,
-	dining,
 	template,
+	promo,
+	promoMaterial,
+	promoTemplate,
+	promoCampaign,
+	promoStats,
 	request
 }

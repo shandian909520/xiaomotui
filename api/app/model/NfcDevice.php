@@ -26,7 +26,7 @@ use think\Model;
  */
 class NfcDevice extends Model
 {
-    protected $name = 'nfc_devices';
+    protected $table = 'xmt_nfc_devices';
 
     // 设置字段信息
     protected $schema = [
@@ -42,6 +42,10 @@ class NfcDevice extends Model
         'group_buy_config' => 'json',
         'wifi_ssid'       => 'string',
         'wifi_password'   => 'string',
+        'promo_video_id'  => 'int',
+        'promo_copywriting' => 'string',
+        'promo_tags'      => 'json',
+        'promo_reward_coupon_id' => 'int',
         'status'          => 'int',
         'battery_level'   => 'int',
         'last_heartbeat'  => 'datetime',
@@ -50,7 +54,7 @@ class NfcDevice extends Model
     ];
 
     // 自动时间戳
-    protected $autoWriteTimestamp = true;
+    protected $autoWriteTimestamp = 'datetime';
 
     // 隐藏字段（WiFi密码永远不直接返回）
     protected $hidden = ['wifi_password'];
@@ -63,9 +67,12 @@ class NfcDevice extends Model
         'status'           => 'integer',
         'battery_level'    => 'integer',
         'group_buy_config' => 'json',
-        'last_heartbeat'   => 'timestamp',
-        'create_time'      => 'timestamp',
-        'update_time'      => 'timestamp',
+        'promo_video_id'   => 'integer',
+        'promo_tags'       => 'json',
+        'promo_reward_coupon_id' => 'integer',
+        'last_heartbeat'   => 'datetime',
+        'create_time'      => 'datetime',
+        'update_time'      => 'datetime',
     ];
 
     /**
@@ -83,18 +90,34 @@ class NfcDevice extends Model
 
     /**
      * WiFi密码解密 - 访问器
-     * 从数据库读取时自动解密
+     * 从数据库读取时不再自动解密，返回密文
+     * 安全性改进：移除自动解密，防止敏感信息泄露
      */
     public function getWifiPasswordAttr($value)
     {
-        if (empty($value)) {
+        // 不再自动解密，返回空字符串
+        // 如需解密，请使用 getDecryptedWifiPassword() 方法
+        return '';
+    }
+
+    /**
+     * 获取解密后的WiFi密码
+     * 需要显式调用，防止意外泄露
+     *
+     * @return string 解密后的密码或空字符串
+     */
+    public function getDecryptedWifiPassword(): string
+    {
+        if (empty($this->wifi_password)) {
             return '';
         }
         try {
-            // 使用ThinkPHP内置解密方法
-            return decrypt($value);
+            return decrypt($this->wifi_password);
         } catch (\Exception $e) {
-            // 解密失败返回空字符串（兼容旧数据）
+            \think\facade\Log::error('WiFi密码解密失败', [
+                'device_id' => $this->id,
+                'error' => $e->getMessage()
+            ]);
             return '';
         }
     }
@@ -106,7 +129,9 @@ class NfcDevice extends Model
     protected $field = [
         'merchant_id', 'device_code', 'device_name', 'location', 'type',
         'trigger_mode', 'template_id', 'redirect_url', 'group_buy_config',
-        'wifi_ssid', 'wifi_password', 'status', 'battery_level', 'last_heartbeat'
+        'wifi_ssid', 'wifi_password',
+        'promo_video_id', 'promo_copywriting', 'promo_tags', 'promo_reward_coupon_id',
+        'status', 'battery_level', 'last_heartbeat'
     ];
 
     /**
@@ -133,6 +158,7 @@ class NfcDevice extends Model
     const TRIGGER_CONTACT = 'CONTACT';   // 联系方式
     const TRIGGER_MENU = 'MENU';         // 菜单展示
     const TRIGGER_GROUP_BUY = 'GROUP_BUY'; // 团购跳转
+    const TRIGGER_PROMO = 'PROMO';           // 消费者推广
 
     /**
      * 状态获取器
@@ -172,7 +198,8 @@ class NfcDevice extends Model
             self::TRIGGER_WIFI => 'WiFi连接',
             self::TRIGGER_CONTACT => '联系方式',
             self::TRIGGER_MENU => '菜单展示',
-            self::TRIGGER_GROUP_BUY => '团购跳转'
+            self::TRIGGER_GROUP_BUY => '团购跳转',
+            self::TRIGGER_PROMO => '消费者推广'
         ];
         return $modes[$data['trigger_mode']] ?? '未知';
     }
@@ -386,6 +413,22 @@ class NfcDevice extends Model
     }
 
     /**
+     * 推广视频模板关联
+     */
+    public function promoVideo()
+    {
+        return $this->belongsTo(\app\model\ContentTemplate::class, 'promo_video_id');
+    }
+
+    /**
+     * 推广奖励优惠券关联
+     */
+    public function promoRewardCoupon()
+    {
+        return $this->belongsTo(\app\model\Coupon::class, 'promo_reward_coupon_id');
+    }
+
+    /**
      * 验证数据
      */
     public static function getValidateRules(): array
@@ -396,7 +439,7 @@ class NfcDevice extends Model
             'device_name' => 'require|max:100',
             'location' => 'max:100',
             'type' => 'in:TABLE,WALL,COUNTER,ENTRANCE',
-            'trigger_mode' => 'in:VIDEO,COUPON,WIFI,CONTACT,MENU,GROUP_BUY',
+            'trigger_mode' => 'in:VIDEO,COUPON,WIFI,CONTACT,MENU,GROUP_BUY,PROMO',
             'template_id' => 'integer|>:0',
             'redirect_url' => 'url|max:255',
             'wifi_ssid' => 'max:50',

@@ -10,54 +10,12 @@
     </view>
 
     <!-- 新手引导 -->
-    <view class="first-time-guide" v-if="showGuide">
-      <view class="guide-mask" @tap="skipGuide"></view>
-      <view class="guide-content">
-        <view class="guide-header">
-          <text class="guide-title">🎯 如何使用碰一碰</text>
-          <text class="guide-close" @tap="skipGuide">✕</text>
-        </view>
-
-        <view class="guide-steps">
-          <view class="guide-step">
-            <view class="step-number">1</view>
-            <view class="step-content">
-              <text class="step-title">📱 靠近设备</text>
-              <text class="step-desc">将手机背面靠近NFC设备（距离<5cm）</text>
-              <image class="step-image" src="/static/guide/nfc-touch.png" mode="aspectFit" />
-            </view>
-          </view>
-
-          <view class="guide-step">
-            <view class="step-number">2</view>
-            <view class="step-content">
-              <text class="step-title">✨ 自动触发</text>
-              <text class="step-desc">手机震动后即可看到生成的内容</text>
-              <image class="step-image" src="/static/guide/auto-trigger.png" mode="aspectFit" />
-            </view>
-          </view>
-
-          <view class="guide-step">
-            <view class="step-number">3</view>
-            <view class="step-content">
-              <text class="step-title">📷 备选方式</text>
-              <text class="step-desc">手机不支持NFC？点击"扫码"按钮扫描二维码</text>
-              <image class="step-image" src="/static/guide/scan-qr.png" mode="aspectFit" />
-            </view>
-          </view>
-        </view>
-
-        <view class="guide-footer">
-          <button class="guide-skip-btn" @tap="skipGuide">跳过</button>
-          <button class="guide-start-btn" @tap="startUsing">我知道了</button>
-        </view>
-
-        <view class="guide-checkbox">
-          <checkbox :checked="dontShowAgain" @change="onCheckboxChange" />
-          <text>不再提示</text>
-        </view>
-      </view>
-    </view>
+    <nfc-guide
+      :visible="showGuide"
+      @skip="skipGuide"
+      @start="skipGuide"
+      @dont-show="handleDontShowGuide"
+    />
 
     <!-- 主内容区 -->
     <view class="content-wrapper">
@@ -77,105 +35,24 @@
       </view>
 
       <!-- 触发中状态 -->
-      <view class="triggering-state" v-if="isTriggering">
-        <!-- 设备信息 -->
-        <view class="device-info" v-if="deviceInfo">
-          <view class="device-icon">🏪</view>
-          <view class="device-name">{{ deviceInfo.name }}</view>
-          <view class="device-code">设备码: {{ deviceCode }}</view>
-        </view>
-
-        <!-- 任务状态 -->
-        <view class="task-status">
-          <view class="status-icon" :class="statusClass">
-            <text v-if="taskStatus === 'pending'">⏳</text>
-            <text v-if="taskStatus === 'processing'">⚙️</text>
-            <text v-if="taskStatus === 'completed'">✅</text>
-            <text v-if="taskStatus === 'failed'">❌</text>
-          </view>
-          <view class="status-text">{{ statusText }}</view>
-        </view>
-
-        <!-- AI进度可视化组件 -->
-        <view class="ai-progress-section" v-if="taskStatus === 'processing' || taskStatus === 'pending'">
-          <ai-progress
-            :progress="progress"
-            :steps="progressSteps"
-            :elapsedTime="elapsedTime"
-            :remainingTime="remainingTime"
-            :currentStepName="currentStepName"
-            :taskStatus="taskStatus"
-          ></ai-progress>
-        </view>
-
-        <!-- 生成信息 -->
-        <view class="generation-info" v-if="generationInfo">
-          <view class="info-item" v-if="generationInfo.content_type">
-            <text class="info-label">内容类型:</text>
-            <text class="info-value">{{ formatContentType(generationInfo.content_type) }}</text>
-          </view>
-          <view class="info-item" v-if="generationInfo.platform">
-            <text class="info-label">目标平台:</text>
-            <text class="info-value">{{ generationInfo.platform }}</text>
-          </view>
-          <view class="info-item" v-if="generationInfo.generation_time">
-            <text class="info-label">生成时间:</text>
-            <text class="info-value">{{ generationInfo.generation_time }}秒</text>
-          </view>
-        </view>
-
-        <!-- 错误信息（增强版） -->
-        <view class="error-message" v-if="errorMessage">
-          <view class="error-icon">{{ errorInfo.icon || '⚠️' }}</view>
-          <view class="error-content">
-            <text class="error-title">{{ errorInfo.message || errorMessage }}</text>
-            <text class="error-solution" v-if="errorInfo.solution">
-              💡 {{ errorInfo.solution }}
-            </text>
-            <text class="error-device-code" v-if="errorInfo.contact_merchant && deviceCode">
-              设备编号：{{ deviceCode }}
-            </text>
-          </view>
-        </view>
-
-        <!-- 操作按钮 -->
-        <view class="action-buttons">
-          <!-- 完成状态 -->
-          <button
-            class="primary-btn"
-            v-if="taskStatus === 'completed'"
-            @tap="handleViewContent"
-          >
-            查看内容
-          </button>
-
-          <!-- 失败状态 -->
-          <button
-            class="primary-btn"
-            v-if="taskStatus === 'failed' && errorInfo.retry"
-            @tap="handleRetry"
-          >
-            重新触发
-          </button>
-
-          <!-- 联系商家按钮 -->
-          <button
-            class="secondary-btn"
-            v-if="taskStatus === 'failed' && errorInfo.contact_merchant"
-            @tap="contactMerchant"
-          >
-            联系商家
-          </button>
-
-          <!-- 处理中状态 -->
-          <button
-            class="secondary-btn"
-            v-if="taskStatus === 'processing' || taskStatus === 'pending'"
-            @tap="handleCancel"
-          >
-            取消任务
-          </button>
-        </view>
+      <view class="triggering-state" v-if="isTriggering && taskStatus !== ''">
+        <trigger-progress
+          :taskStatus="taskStatus"
+          :progress="progress"
+          :progressSteps="progressSteps"
+          :elapsedTime="elapsedTime"
+          :remainingTime="remainingTime"
+          :currentStepName="currentStepName"
+          :errorMessage="errorMessage"
+          :errorInfo="errorInfo"
+          :deviceInfo="deviceInfo"
+          :deviceCode="deviceCode"
+          :generationInfo="generationInfo"
+          @view-content="viewContent"
+          @retry="retryTrigger"
+          @cancel="cancelTask"
+          @contact-merchant="contactMerchant"
+        />
       </view>
 
       <!-- 已触发状态（显示设备信息） -->
@@ -222,12 +99,16 @@
 import api from '../../api/index.js'
 import AiProgress from '../../components/ai-progress/ai-progress.vue'
 import ErrorDetail from '../../components/error-detail/error-detail.vue'
+import NfcGuide from '../../components/business/nfc/nfc-guide.vue'
+import TriggerProgress from '../../components/business/nfc/trigger-progress.vue'
 import FeedbackHelper from '@/utils/feedbackHelper.js'
 
 export default {
   components: {
     AiProgress,
-    ErrorDetail
+    ErrorDetail,
+    NfcGuide,
+    TriggerProgress
   },
 
   data() {
@@ -392,6 +273,34 @@ export default {
     },
 
     /**
+     * 处理不再显示引导
+     */
+    handleDontShowGuide(value) {
+      this.dontShowAgain = value
+    },
+
+    /**
+     * 查看内容（子组件事件映射）
+     */
+    viewContent() {
+      this.handleViewContent()
+    },
+
+    /**
+     * 重新触发（子组件事件映射）
+     */
+    retryTrigger() {
+      this.handleRetry()
+    },
+
+    /**
+     * 取消任务（子组件事件映射）
+     */
+    cancelTask() {
+      this.handleCancel()
+    },
+
+    /**
      * 扫描二维码
      */
     async handleScan() {
@@ -499,6 +408,15 @@ export default {
         })
 
         console.log('触发结果:', res)
+
+        // 如果是推广模式，跳转到推广页面
+        if (res.type === 'promo') {
+          this.isLoading = false
+          uni.redirectTo({
+            url: `/pages/promo/index?device_code=${this.deviceCode}`
+          })
+          return
+        }
 
         // 保存任务ID
         this.taskId = res.content_task_id || res.task_id
@@ -1026,157 +944,6 @@ export default {
   display: flex;
   flex-direction: column;
   align-items: center;
-
-  .device-info {
-    background: #ffffff;
-    border-radius: 16rpx;
-    padding: 40rpx;
-    width: 100%;
-    text-align: center;
-    margin-bottom: 40rpx;
-    box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);
-
-    .device-icon {
-      font-size: 48px;
-      margin-bottom: 20rpx;
-    }
-
-    .device-name {
-      font-size: 18px;
-      font-weight: 600;
-      color: #1f2937;
-      margin-bottom: 12rpx;
-    }
-
-    .device-code {
-      font-size: 12px;
-      color: #9ca3af;
-      font-family: monospace;
-    }
-  }
-
-  .task-status {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    margin-bottom: 40rpx;
-
-    .status-icon {
-      font-size: 60px;
-      margin-bottom: 20rpx;
-      animation: pulse 2s ease-in-out infinite;
-
-      &.status-processing {
-        animation: rotate 2s linear infinite;
-      }
-    }
-
-    .status-text {
-      font-size: 16px;
-      color: #4b5563;
-      font-weight: 500;
-    }
-  }
-
-  // AI进度组件区域
-  .ai-progress-section {
-    width: 100%;
-    margin-bottom: 40rpx;
-  }
-
-  .progress-wrapper {
-    width: 100%;
-    margin-bottom: 40rpx;
-
-    .progress-bar {
-      width: 100%;
-      height: 12rpx;
-      background: #e5e7eb;
-      border-radius: 6rpx;
-      overflow: hidden;
-      margin-bottom: 16rpx;
-
-      .progress-fill {
-        height: 100%;
-        background: linear-gradient(90deg, #6366f1 0%, #8b5cf6 100%);
-        border-radius: 6rpx;
-        transition: width 0.3s ease;
-      }
-    }
-
-    .progress-text {
-      text-align: center;
-      font-size: 14px;
-      color: #6b7280;
-      font-weight: 600;
-    }
-  }
-
-  .generation-info {
-    width: 100%;
-    background: #f9fafb;
-    border-radius: 12rpx;
-    padding: 30rpx;
-    margin-bottom: 40rpx;
-
-    .info-item {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 16rpx 0;
-      border-bottom: 1rpx solid #e5e7eb;
-
-      &:last-child {
-        border-bottom: none;
-      }
-
-      .info-label {
-        font-size: 14px;
-        color: #6b7280;
-      }
-
-      .info-value {
-        font-size: 14px;
-        color: #1f2937;
-        font-weight: 500;
-      }
-    }
-  }
-
-  .error-message {
-    width: 100%;
-    background: #fef2f2;
-    border: 1rpx solid #fecaca;
-    border-radius: 12rpx;
-    padding: 30rpx;
-    margin-bottom: 40rpx;
-    display: flex;
-    align-items: flex-start;
-    gap: 16rpx;
-
-    .error-icon {
-      font-size: 24px;
-      flex-shrink: 0;
-    }
-
-    .error-text {
-      flex: 1;
-      font-size: 14px;
-      color: #dc2626;
-      line-height: 1.6;
-    }
-  }
-
-  .action-buttons {
-    width: 100%;
-    display: flex;
-    flex-direction: column;
-    gap: 20rpx;
-
-    button {
-      width: 100%;
-    }
-  }
 }
 
 // 底部提示

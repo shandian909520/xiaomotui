@@ -1,0 +1,48 @@
+# 依赖
+node_modules/
+vendor/
+composer.lock
+
+# 环境配置（敏感信息）
+api/.env
+admin/.env
+
+# 构建产物
+admin/dist/
+uni-app/unpackage/
+uni-app/dist/
+
+# 运行时
+api/runtime/
+api/log/
+*.log
+
+# 临时文件
+*.tmp
+*.swp
+*.swo
+*~
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.sublime-*
+
+# Docker
+docker/nginx/ssl/*.pem
+docker/nginx/ssl/*.key
+
+# 缓存
+.phpunit.cache/
+coverage/
+*.cache
+
+# 测试数据（如果包含敏感信息）
+api/database/test_*.php
+api/debug_*.php
+api/get_token.php
+
+# 其他
+.DS_Store
+desktop.ini

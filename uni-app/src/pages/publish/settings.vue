@@ -7,219 +7,42 @@
     </view>
 
     <!-- 加载状态 -->
-    <view class="loading-state" v-if="isLoading && !platformAccounts.length">
-      <view class="loading-spinner"></view>
-      <text class="loading-text">加载平台账号中...</text>
-    </view>
+    <skeleton type="list" :rows="3" :loading="isLoading && !platformAccounts.length" />
 
     <!-- 主内容区域 -->
-    <view class="content-wrapper" v-else>
+    <view class="content-wrapper" v-if="!isLoading || platformAccounts.length">
       <!-- 平台选择区域 -->
       <view class="section platform-section">
-        <view class="section-header">
-          <text class="section-icon">📱</text>
-          <text class="section-title">选择发布平台</text>
-          <text class="section-tip">（至少选择一个）</text>
-        </view>
-
-        <view class="platform-list" v-if="platformAccounts.length">
-          <view
-            class="platform-card"
-            :class="{ 'platform-selected': isPlatformSelected(account.id) }"
-            v-for="account in platformAccounts"
-            :key="account.id"
-            @tap="togglePlatform(account)"
-          >
-            <view class="platform-checkbox">
-              <view class="checkbox-icon" v-if="isPlatformSelected(account.id)">✓</view>
-            </view>
-
-            <view class="platform-info">
-              <view class="platform-header">
-                <text class="platform-icon">{{ getPlatformIcon(account.platform) }}</text>
-                <text class="platform-name">{{ getPlatformName(account.platform) }}</text>
-              </view>
-              <view class="platform-account">
-                <text class="account-nickname">{{ account.nickname || account.account_name }}</text>
-                <view class="account-badge" :class="`badge-${account.status}`">
-                  {{ account.status === 'ACTIVE' ? '已授权' : '已失效' }}
-                </view>
-              </view>
-            </view>
-          </view>
-        </view>
-
-        <!-- 无账号提示 -->
-        <view class="empty-platforms" v-else>
-          <view class="empty-icon">📱</view>
-          <view class="empty-title">暂无授权平台</view>
-          <view class="empty-tip">请先授权至少一个发布平台</view>
-          <button class="empty-btn" @tap="goToAuthPage">去授权</button>
-        </view>
-
-        <!-- 添加平台按钮 -->
-        <view class="add-platform-btn" v-if="platformAccounts.length" @tap="goToAuthPage">
-          <text class="btn-icon">➕</text>
-          <text>添加更多平台</text>
-        </view>
+        <platform-selector
+          :accounts="platformAccounts"
+          :selectedIds="selectedPlatforms.map(p => p.id)"
+          @toggle="togglePlatform"
+          @add-platform="goToAuthPage"
+        />
       </view>
 
       <!-- 发布配置区域 -->
       <view class="section config-section" v-if="selectedPlatforms.length">
-        <view class="section-header">
-          <text class="section-icon">⚙️</text>
-          <text class="section-title">发布配置</text>
-        </view>
-
-        <!-- 通用配置 -->
-        <view class="config-form">
-          <view class="form-item">
-            <view class="form-label">
-              <text class="label-text">发布标题</text>
-              <text class="label-tip">（可选）</text>
-            </view>
-            <input
-              class="form-input"
-              v-model="publishConfig.title"
-              placeholder="默认使用内容标题"
-              maxlength="100"
-            />
-          </view>
-
-          <view class="form-item">
-            <view class="form-label">
-              <text class="label-text">内容描述</text>
-              <text class="label-tip">（可选）</text>
-            </view>
-            <textarea
-              class="form-textarea"
-              v-model="publishConfig.description"
-              placeholder="为内容添加描述信息"
-              maxlength="500"
-              :auto-height="true"
-            />
-          </view>
-
-          <view class="form-item">
-            <view class="form-label">
-              <text class="label-text">标签</text>
-              <text class="label-tip">（用空格分隔）</text>
-            </view>
-            <input
-              class="form-input"
-              v-model="tagsInput"
-              placeholder="例如：美食 探店 推荐"
-              @blur="handleTagsChange"
-            />
-            <view class="tags-preview" v-if="publishConfig.tags && publishConfig.tags.length">
-              <view class="tag-item" v-for="(tag, index) in publishConfig.tags" :key="index">
-                #{{ tag }}
-              </view>
-            </view>
-          </view>
-        </view>
-
-        <!-- 平台特定配置 -->
-        <view class="platform-configs">
-          <view
-            class="platform-config-item"
-            v-for="platform in selectedPlatforms"
-            :key="platform.id"
-          >
-            <view class="config-item-header" @tap="togglePlatformConfig(platform.id)">
-              <view class="config-header-left">
-                <text class="config-icon">{{ getPlatformIcon(platform.platform) }}</text>
-                <text class="config-title">{{ getPlatformName(platform.platform) }} 专属设置</text>
-              </view>
-              <text class="toggle-icon">{{ expandedConfigs[platform.id] ? '▼' : '▶' }}</text>
-            </view>
-
-            <view class="config-item-body" v-if="expandedConfigs[platform.id]">
-              <view class="form-item">
-                <view class="form-label">
-                  <text class="label-text">平台标题</text>
-                </view>
-                <input
-                  class="form-input"
-                  v-model="platformConfigs[platform.id].title"
-                  :placeholder="`${getPlatformName(platform.platform)}专用标题`"
-                />
-              </view>
-
-              <view class="form-item">
-                <view class="form-label">
-                  <text class="label-text">平台描述</text>
-                </view>
-                <textarea
-                  class="form-textarea"
-                  v-model="platformConfigs[platform.id].description"
-                  :placeholder="`${getPlatformName(platform.platform)}专用描述`"
-                  :auto-height="true"
-                />
-              </view>
-            </view>
-          </view>
-        </view>
+        <publish-config-form
+          :config="publishConfig"
+          :selectedPlatforms="getSelectedPlatformObjects()"
+          :platformConfigs="platformConfigs"
+          :expandedConfigs="expandedConfigs"
+          @update:config="publishConfig = $event"
+          @update:platformConfig="handlePlatformConfigUpdate"
+          @toggle-expand="togglePlatformConfig"
+        />
       </view>
 
       <!-- 定时发布区域 -->
       <view class="section schedule-section" v-if="selectedPlatforms.length">
-        <view class="section-header">
-          <text class="section-icon">⏰</text>
-          <text class="section-title">定时发布</text>
-        </view>
-
-        <view class="schedule-toggle">
-          <view class="toggle-info">
-            <text class="toggle-title">启用定时发布</text>
-            <text class="toggle-tip">在指定时间自动发布内容</text>
-          </view>
-          <switch
-            :checked="isScheduled"
-            @change="handleScheduleToggle"
-            color="#6366f1"
-          />
-        </view>
-
-        <view class="schedule-picker" v-if="isScheduled">
-          <view class="picker-item">
-            <view class="picker-label">
-              <text class="label-icon">📅</text>
-              <text class="label-text">发布日期</text>
-            </view>
-            <picker
-              mode="date"
-              :value="scheduleDate"
-              :start="minDate"
-              @change="handleDateChange"
-            >
-              <view class="picker-value">
-                {{ scheduleDate || '选择日期' }}
-              </view>
-            </picker>
-          </view>
-
-          <view class="picker-item">
-            <view class="picker-label">
-              <text class="label-icon">🕐</text>
-              <text class="label-text">发布时间</text>
-            </view>
-            <picker
-              mode="time"
-              :value="scheduleTime"
-              @change="handleTimeChange"
-            >
-              <view class="picker-value">
-                {{ scheduleTime || '选择时间' }}
-              </view>
-            </picker>
-          </view>
-
-          <view class="schedule-preview" v-if="scheduleDate && scheduleTime">
-            <text class="preview-icon">⏰</text>
-            <text class="preview-text">将在 {{ formatScheduleTime() }} 自动发布</text>
-          </view>
-        </view>
+        <schedule-picker
+          :isScheduled="isScheduled"
+          :scheduleDate="scheduleDate"
+          :scheduleTime="scheduleTime"
+          @toggle="handleScheduleToggle"
+          @change="handleScheduleChange"
+        />
       </view>
 
       <!-- 发布预览 -->
@@ -288,8 +111,13 @@
 
 <script>
 import api from '../../api/index.js'
+import PlatformSelector from '../../components/business/publish/platform-selector.vue'
+import PublishConfigForm from '../../components/business/publish/publish-config-form.vue'
+import SchedulePicker from '../../components/business/publish/schedule-picker.vue'
 
 export default {
+  components: { PlatformSelector, PublishConfigForm, SchedulePicker },
+
   data() {
     return {
       contentTaskId: '',
@@ -310,14 +138,10 @@ export default {
       platformConfigs: {},
       expandedConfigs: {},
 
-      // 标签输入
-      tagsInput: '',
-
       // 定时发布
       isScheduled: false,
       scheduleDate: '',
       scheduleTime: '',
-      minDate: '',
 
       // 状态
       isLoading: false,
@@ -356,10 +180,6 @@ export default {
      * 初始化页面
      */
     async initPage() {
-      // 设置最小日期为今天
-      const today = new Date()
-      this.minDate = this.formatDate(today)
-
       // 并发加载数据
       await Promise.all([
         this.loadPlatformAccounts(),
@@ -443,7 +263,6 @@ export default {
           } else if (Array.isArray(this.contentData.tags)) {
             this.publishConfig.tags = this.contentData.tags
           }
-          this.tagsInput = this.publishConfig.tags.join(' ')
         }
       } catch (error) {
         console.error('加载内容数据失败:', error)
@@ -452,13 +271,6 @@ export default {
           icon: 'none'
         })
       }
-    },
-
-    /**
-     * 判断平台是否已选择
-     */
-    isPlatformSelected(accountId) {
-      return this.selectedPlatforms.some(p => p.id === accountId)
     },
 
     /**
@@ -495,27 +307,24 @@ export default {
     },
 
     /**
-     * 处理标签变化
+     * 获取已选平台的完整对象列表
      */
-    handleTagsChange() {
-      if (!this.tagsInput.trim()) {
-        this.publishConfig.tags = []
-        return
-      }
+    getSelectedPlatformObjects() {
+      return this.platformAccounts.filter(a => this.selectedPlatforms.some(p => p.id === a.id))
+    },
 
-      // 按空格分割，去除空白和重复
-      const tags = this.tagsInput
-        .split(/\s+/)
-        .map(tag => tag.trim())
-        .filter(tag => tag)
-      this.publishConfig.tags = [...new Set(tags)]
+    /**
+     * 处理平台专属配置更新
+     */
+    handlePlatformConfigUpdate({ platformId, config }) {
+      this.$set(this.platformConfigs, platformId, config)
     },
 
     /**
      * 处理定时发布开关
      */
-    handleScheduleToggle(e) {
-      this.isScheduled = e.detail.value
+    handleScheduleToggle(value) {
+      this.isScheduled = value
 
       // 如果开启定时发布，设置默认时间为1小时后
       if (this.isScheduled && !this.scheduleDate) {
@@ -528,43 +337,11 @@ export default {
     },
 
     /**
-     * 处理日期变化
+     * 处理定时日期/时间变化
      */
-    handleDateChange(e) {
-      this.scheduleDate = e.detail.value
-    },
-
-    /**
-     * 处理时间变化
-     */
-    handleTimeChange(e) {
-      this.scheduleTime = e.detail.value
-    },
-
-    /**
-     * 格式化定时时间显示
-     */
-    formatScheduleTime() {
-      if (!this.scheduleDate || !this.scheduleTime) return ''
-
-      const dateObj = new Date(`${this.scheduleDate} ${this.scheduleTime}`)
-      const now = new Date()
-
-      // 判断是今天、明天还是具体日期
-      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-      const targetDate = new Date(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate())
-      const diffDays = Math.floor((targetDate - today) / (1000 * 60 * 60 * 24))
-
-      let dateStr = ''
-      if (diffDays === 0) {
-        dateStr = '今天'
-      } else if (diffDays === 1) {
-        dateStr = '明天'
-      } else {
-        dateStr = this.scheduleDate
-      }
-
-      return `${dateStr} ${this.scheduleTime}`
+    handleScheduleChange({ date, time }) {
+      this.scheduleDate = date
+      this.scheduleTime = time
     },
 
     /**
@@ -584,36 +361,6 @@ export default {
       const hours = String(date.getHours()).padStart(2, '0')
       const minutes = String(date.getMinutes()).padStart(2, '0')
       return `${hours}:${minutes}`
-    },
-
-    /**
-     * 获取平台图标
-     */
-    getPlatformIcon(platform) {
-      const icons = {
-        douyin: '🎵',
-        xiaohongshu: '📕',
-        wechat: '💬',
-        channels: '📹',
-        weibo: '📱',
-        kuaishou: '🎬'
-      }
-      return icons[platform] || '📱'
-    },
-
-    /**
-     * 获取平台名称
-     */
-    getPlatformName(platform) {
-      const names = {
-        douyin: '抖音',
-        xiaohongshu: '小红书',
-        wechat: '微信',
-        channels: '视频号',
-        weibo: '微博',
-        kuaishou: '快手'
-      }
-      return names[platform] || platform
     },
 
     /**
@@ -748,30 +495,6 @@ export default {
   }
 }
 
-// 加载状态
-.loading-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 120rpx 0;
-
-  .loading-spinner {
-    width: 60rpx;
-    height: 60rpx;
-    border: 4rpx solid #e5e7eb;
-    border-top-color: #6366f1;
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
-    margin-bottom: 30rpx;
-  }
-
-  .loading-text {
-    font-size: 14px;
-    color: #6b7280;
-  }
-}
-
 // 内容包装器
 .content-wrapper {
   padding: 20rpx 30rpx;
@@ -805,365 +528,6 @@ export default {
       font-size: 12px;
       color: #9ca3af;
       margin-left: 8rpx;
-    }
-  }
-}
-
-// 平台列表
-.platform-list {
-  display: flex;
-  flex-direction: column;
-  gap: 20rpx;
-}
-
-.platform-card {
-  display: flex;
-  align-items: center;
-  gap: 24rpx;
-  padding: 24rpx;
-  background: #f9fafb;
-  border: 2rpx solid #e5e7eb;
-  border-radius: 12rpx;
-  transition: all 0.3s;
-
-  &.platform-selected {
-    background: #ede9fe;
-    border-color: #6366f1;
-    box-shadow: 0 4rpx 12rpx rgba(99, 102, 241, 0.1);
-  }
-
-  .platform-checkbox {
-    width: 48rpx;
-    height: 48rpx;
-    border: 2rpx solid #d1d5db;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: #ffffff;
-    flex-shrink: 0;
-
-    .checkbox-icon {
-      color: #6366f1;
-      font-size: 20px;
-      font-weight: bold;
-    }
-  }
-
-  &.platform-selected .platform-checkbox {
-    border-color: #6366f1;
-    background: #6366f1;
-
-    .checkbox-icon {
-      color: #ffffff;
-    }
-  }
-
-  .platform-info {
-    flex: 1;
-
-    .platform-header {
-      display: flex;
-      align-items: center;
-      gap: 12rpx;
-      margin-bottom: 12rpx;
-
-      .platform-icon {
-        font-size: 22px;
-      }
-
-      .platform-name {
-        font-size: 16px;
-        font-weight: 600;
-        color: #1f2937;
-      }
-    }
-
-    .platform-account {
-      display: flex;
-      align-items: center;
-      gap: 16rpx;
-
-      .account-nickname {
-        font-size: 14px;
-        color: #6b7280;
-      }
-
-      .account-badge {
-        padding: 4rpx 12rpx;
-        border-radius: 12rpx;
-        font-size: 12px;
-        font-weight: 500;
-
-        &.badge-ACTIVE {
-          background: #d1fae5;
-          color: #065f46;
-        }
-
-        &.badge-EXPIRED {
-          background: #fee2e2;
-          color: #991b1b;
-        }
-      }
-    }
-  }
-}
-
-// 空状态
-.empty-platforms {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 80rpx 0;
-
-  .empty-icon {
-    font-size: 80px;
-    margin-bottom: 30rpx;
-    opacity: 0.5;
-  }
-
-  .empty-title {
-    font-size: 16px;
-    font-weight: 600;
-    color: #374151;
-    margin-bottom: 12rpx;
-  }
-
-  .empty-tip {
-    font-size: 14px;
-    color: #9ca3af;
-    margin-bottom: 40rpx;
-  }
-
-  .empty-btn {
-    padding: 20rpx 60rpx;
-    background: #6366f1;
-    color: #ffffff;
-    border: none;
-    border-radius: 24rpx;
-    font-size: 14px;
-  }
-}
-
-// 添加平台按钮
-.add-platform-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12rpx;
-  padding: 24rpx;
-  margin-top: 20rpx;
-  background: #ffffff;
-  border: 2rpx dashed #d1d5db;
-  border-radius: 12rpx;
-  color: #6b7280;
-  font-size: 14px;
-
-  .btn-icon {
-    font-size: 18px;
-  }
-}
-
-// 表单配置
-.config-form {
-  display: flex;
-  flex-direction: column;
-  gap: 30rpx;
-}
-
-.form-item {
-  .form-label {
-    display: flex;
-    align-items: baseline;
-    margin-bottom: 16rpx;
-
-    .label-text {
-      font-size: 14px;
-      font-weight: 500;
-      color: #374151;
-    }
-
-    .label-tip {
-      font-size: 12px;
-      color: #9ca3af;
-      margin-left: 8rpx;
-    }
-  }
-
-  .form-input {
-    width: 100%;
-    padding: 24rpx;
-    background: #f9fafb;
-    border: 1rpx solid #e5e7eb;
-    border-radius: 8rpx;
-    font-size: 14px;
-    color: #1f2937;
-  }
-
-  .form-textarea {
-    width: 100%;
-    min-height: 120rpx;
-    padding: 24rpx;
-    background: #f9fafb;
-    border: 1rpx solid #e5e7eb;
-    border-radius: 8rpx;
-    font-size: 14px;
-    color: #1f2937;
-    line-height: 1.6;
-  }
-
-  .tags-preview {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 16rpx;
-    margin-top: 16rpx;
-
-    .tag-item {
-      padding: 8rpx 20rpx;
-      background: #ede9fe;
-      color: #6366f1;
-      border-radius: 20rpx;
-      font-size: 12px;
-      font-weight: 500;
-    }
-  }
-}
-
-// 平台配置项
-.platform-configs {
-  margin-top: 30rpx;
-}
-
-.platform-config-item {
-  border: 1rpx solid #e5e7eb;
-  border-radius: 12rpx;
-  overflow: hidden;
-  margin-bottom: 20rpx;
-
-  &:last-child {
-    margin-bottom: 0;
-  }
-
-  .config-item-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 24rpx;
-    background: #f9fafb;
-    cursor: pointer;
-
-    .config-header-left {
-      display: flex;
-      align-items: center;
-      gap: 12rpx;
-
-      .config-icon {
-        font-size: 18px;
-      }
-
-      .config-title {
-        font-size: 14px;
-        font-weight: 500;
-        color: #374151;
-      }
-    }
-
-    .toggle-icon {
-      font-size: 12px;
-      color: #9ca3af;
-    }
-  }
-
-  .config-item-body {
-    padding: 24rpx;
-    display: flex;
-    flex-direction: column;
-    gap: 24rpx;
-  }
-}
-
-// 定时发布
-.schedule-toggle {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 24rpx;
-  background: #f9fafb;
-  border-radius: 12rpx;
-
-  .toggle-info {
-    flex: 1;
-
-    .toggle-title {
-      display: block;
-      font-size: 14px;
-      font-weight: 500;
-      color: #374151;
-      margin-bottom: 8rpx;
-    }
-
-    .toggle-tip {
-      font-size: 12px;
-      color: #9ca3af;
-    }
-  }
-}
-
-.schedule-picker {
-  margin-top: 30rpx;
-  display: flex;
-  flex-direction: column;
-  gap: 20rpx;
-
-  .picker-item {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 24rpx;
-    background: #f9fafb;
-    border-radius: 12rpx;
-
-    .picker-label {
-      display: flex;
-      align-items: center;
-      gap: 12rpx;
-
-      .label-icon {
-        font-size: 18px;
-      }
-
-      .label-text {
-        font-size: 14px;
-        font-weight: 500;
-        color: #374151;
-      }
-    }
-
-    .picker-value {
-      font-size: 14px;
-      color: #6366f1;
-      font-weight: 500;
-    }
-  }
-
-  .schedule-preview {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 12rpx;
-    padding: 24rpx;
-    background: #fef3c7;
-    border-radius: 12rpx;
-    margin-top: 10rpx;
-
-    .preview-icon {
-      font-size: 18px;
-    }
-
-    .preview-text {
-      font-size: 14px;
-      color: #92400e;
-      font-weight: 500;
     }
   }
 }

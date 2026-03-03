@@ -29,7 +29,7 @@ use think\Model;
  */
 class DeviceAlert extends Model
 {
-    protected $name = 'device_alerts';
+    protected $table = 'xmt_device_alerts';
 
     // 设置字段信息
     protected $schema = [

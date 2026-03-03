@@ -38,7 +38,7 @@ class WechatService
 
         $this->httpClient = new Client([
             'timeout' => 30,
-            'verify' => false,
+            'verify' => true, // 强制开启SSL验证
         ]);
     }
 

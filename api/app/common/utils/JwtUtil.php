@@ -35,9 +35,8 @@ class JwtUtil
         if (self::$config === null) {
             self::$config = Config::get('jwt', []);
 
-            // 默认配置
+            // 默认配置(不包含secret,必须在配置文件中设置)
             $defaultConfig = [
-                'secret' => 'xiaomotui_jwt_secret_key_2024',
                 'algorithm' => 'HS256',
                 'issuer' => 'xiaomotui',
                 'audience' => 'miniprogram',
@@ -58,6 +57,14 @@ class JwtUtil
             ];
 
             self::$config = array_merge($defaultConfig, self::$config);
+
+            // 验证必需的密钥配置
+            if (empty(self::$config['secret'])) {
+                throw new \RuntimeException(
+                    'JWT密钥未配置,请在.env文件中设置JWT_SECRET_KEY环境变量。' .
+                    '建议使用至少32位的随机字符串,可以使用命令生成: php -r "echo bin2hex(random_bytes(32));"'
+                );
+            }
         }
         return self::$config;
     }
@@ -444,9 +451,22 @@ class JwtUtil
             throw JwtException::issuerInvalid("无效的签发者: {$payload['iss']}");
         }
 
-        // 验证接收者
-        if (isset($payload['aud']) && $payload['aud'] !== ($config['audience'] ?? 'miniprogram')) {
-            throw JwtException::audienceInvalid("无效的接收者: {$payload['aud']}");
+        // 验证接收者 - 支持多种audience
+        if (isset($payload['aud'])) {
+            $role = $payload['role'] ?? 'user';
+            $validAudiences = ['miniprogram']; // 默认有效audience
+
+            // 根据角色确定有效的audience
+            if ($role === 'admin') {
+                $validAudiences[] = 'admin';
+            } elseif ($role === 'merchant') {
+                $validAudiences[] = 'merchant';
+            }
+
+            // 检查aud是否在有效列表中
+            if (!in_array($payload['aud'], $validAudiences)) {
+                throw JwtException::audienceInvalid("无效的接收者: {$payload['aud']}");
+            }
         }
 
         // 验证角色

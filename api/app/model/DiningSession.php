@@ -22,7 +22,7 @@ use think\Model;
  */
 class DiningSession extends Model
 {
-    protected $name = 'dining_sessions';
+    protected $table = 'xmt_dining_sessions';
 
     // 设置字段信息
     protected $schema = [

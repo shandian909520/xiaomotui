@@ -5,8 +5,9 @@
  */
 
 return [
-    // JWT签名密钥 (生产环境请修改为复杂密钥)
-    'secret' => 'xiaomotui_jwt_secret_key_2024_secure_token', // 临时硬编码以解决环境变量读取问题
+    // JWT签名密钥 (必须在.env文件中配置JWT_SECRET_KEY)
+    // ⚠️ 警告: 未配置密钥将导致应用无法启动
+    'secret' => env('JWT_SECRET_KEY', ''),
 
     // JWT算法
     'algorithm' => env('JWT_ALGORITHM', 'HS256'),

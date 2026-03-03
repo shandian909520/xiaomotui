@@ -139,32 +139,61 @@ class MigrationRunner {
         }
 
         try {
-            // 开始事务
-            $this->pdo->beginTransaction();
-
-            // 分割SQL语句并执行
+            // 分割SQL语句并分类
             $statements = $this->splitSqlStatements($sql);
+
+            // 分类为DDL和DML语句
+            $ddlStatements = [];
+            $dmlStatements = [];
+
             foreach ($statements as $statement) {
                 $statement = trim($statement);
-                if (!empty($statement)) {
-                    $this->pdo->exec($statement);
+                if (empty($statement)) continue;
+
+                // 检查是否为DDL语句
+                $upperStatement = strtoupper(substr($statement, 0, 10));
+                if (strpos($upperStatement, 'CREATE') !== false ||
+                    strpos($upperStatement, 'ALTER') !== false ||
+                    strpos($upperStatement, 'DROP') !== false ||
+                    strpos($upperStatement, 'TRUNCATE') !== false) {
+                    $ddlStatements[] = $statement;
+                } else {
+                    $dmlStatements[] = $statement;
                 }
             }
 
-            // 记录迁移
-            if ($recordMigration) {
-                $this->recordMigration($fileName);
+            // 先执行DDL语句(DDL会自动提交,不需要事务)
+            foreach ($ddlStatements as $statement) {
+                $this->pdo->exec($statement);
             }
 
-            // 提交事务
-            $this->pdo->commit();
+            // 再执行DML语句(使用事务)
+            if (!empty($dmlStatements)) {
+                $this->pdo->beginTransaction();
+                try {
+                    foreach ($dmlStatements as $statement) {
+                        $this->pdo->exec($statement);
+                    }
+                    // 记录迁移(在事务中)
+                    if ($recordMigration) {
+                        $this->recordMigration($fileName);
+                    }
+                    $this->pdo->commit();
+                } catch (Exception $e) {
+                    $this->pdo->rollBack();
+                    throw $e;
+                }
+            } else {
+                // 如果只有DDL语句,单独记录迁移
+                if ($recordMigration) {
+                    $this->recordMigration($fileName);
+                }
+            }
 
             $this->log("✓ 迁移执行成功: $fileName");
             return true;
 
         } catch (Exception $e) {
-            // 回滚事务
-            $this->pdo->rollBack();
             $this->log("✗ 迁移执行失败: $fileName - " . $e->getMessage());
             throw $e;
         }
@@ -372,7 +401,20 @@ if (basename(__FILE__) === basename($_SERVER['SCRIPT_NAME'])) {
                ->showStatus();
 
         echo "\n";
-        $input = readline("是否执行待执行的迁移? (y/n): ");
+        
+        // 检查命令行参数是否有 -y 或 --yes
+        $autoConfirm = false;
+        global $argv;
+        if (isset($argv) && (in_array('-y', $argv) || in_array('--yes', $argv))) {
+            $autoConfirm = true;
+        }
+
+        if ($autoConfirm) {
+            echo "自动确认执行迁移...\n";
+            $input = 'y';
+        } else {
+            $input = readline("是否执行待执行的迁移? (y/n): ");
+        }
 
         if (strtolower($input) === 'y' || strtolower($input) === 'yes') {
             $success = $runner->runMigrations();

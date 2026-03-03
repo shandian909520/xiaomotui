@@ -78,7 +78,7 @@ class Publish extends BaseController
 
             // 获取用户ID（从JWT中间件解析）
             $userId = $this->request->user_id ?? null;
-            if (!$userId) {
+            if ($userId === null) {
                 return $this->error('用户未登录', 401, 'unauthorized');
             }
 
@@ -165,7 +165,7 @@ class Publish extends BaseController
         try {
             // 获取用户ID（从JWT中间件解析）
             $userId = $this->request->user_id ?? null;
-            if (!$userId) {
+            if ($userId === null) {
                 return $this->error('用户未登录', 401, 'unauthorized');
             }
 
@@ -335,7 +335,7 @@ class Publish extends BaseController
 
             // 获取用户ID（从JWT中间件解析）
             $userId = $this->request->user_id ?? null;
-            if (!$userId) {
+            if ($userId === null) {
                 return $this->error('用户未登录', 401, 'unauthorized');
             }
 
@@ -442,7 +442,7 @@ class Publish extends BaseController
         try {
             // 获取用户ID（从JWT中间件解析）
             $userId = $this->request->user_id ?? null;
-            if (!$userId) {
+            if ($userId === null) {
                 return $this->error('用户未登录', 401, 'unauthorized');
             }
 
@@ -458,7 +458,7 @@ class Publish extends BaseController
                 'content_task_id' => $this->request->param('content_task_id', ''),
                 'start_date' => $this->request->param('start_date', ''),
                 'end_date' => $this->request->param('end_date', ''),
-                'sort' => $this->request->param('sort', 'created_at'),
+                'sort' => $this->request->param('sort', 'create_time'),
                 'order' => $this->request->param('order', 'desc')
             ];
 
@@ -559,7 +559,7 @@ class Publish extends BaseController
 
             // 获取用户ID（从JWT中间件解析）
             $userId = $this->request->user_id ?? null;
-            if (!$userId) {
+            if ($userId === null) {
                 return $this->error('用户未登录', 401, 'unauthorized');
             }
 
@@ -666,7 +666,7 @@ class Publish extends BaseController
 
             // 获取用户ID
             $userId = $this->request->user_id ?? null;
-            if (!$userId) {
+            if ($userId === null) {
                 return $this->error('用户未登录', 401, 'unauthorized');
             }
 
@@ -758,7 +758,7 @@ class Publish extends BaseController
         try {
             // 获取用户ID（从JWT中间件解析）
             $userId = $this->request->user_id ?? null;
-            if (!$userId) {
+            if ($userId === null) {
                 return $this->error('用户未登录', 401, 'unauthorized');
             }
 
@@ -842,7 +842,7 @@ class Publish extends BaseController
         try {
             // 获取用户ID（从JWT中间件解析）
             $userId = $this->request->user_id ?? null;
-            if (!$userId) {
+            if ($userId === null) {
                 return $this->error('用户未登录', 401, 'unauthorized');
             }
 
@@ -907,7 +907,7 @@ class Publish extends BaseController
         try {
             // 获取用户ID（从JWT中间件解析）
             $userId = $this->request->user_id ?? null;
-            if (!$userId) {
+            if ($userId === null) {
                 return $this->error('用户未登录', 401, 'unauthorized');
             }
 
@@ -984,7 +984,7 @@ class Publish extends BaseController
         try {
             // 获取用户ID（从JWT中间件解析）
             $userId = $this->request->user_id ?? null;
-            if (!$userId) {
+            if ($userId === null) {
                 return $this->error('用户未登录', 401, 'unauthorized');
             }
 
@@ -1047,7 +1047,7 @@ class Publish extends BaseController
         try {
             // 获取用户ID和商户ID
             $userId = $this->request->user_id ?? null;
-            if (!$userId) {
+            if ($userId === null) {
                 return $this->error('用户未登录', 401, 'unauthorized');
             }
 

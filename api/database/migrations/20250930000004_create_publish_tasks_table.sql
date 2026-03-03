@@ -1,5 +1,5 @@
 -- 发布任务表
-CREATE TABLE IF NOT EXISTS publish_tasks (
+CREATE TABLE IF NOT EXISTS xmt_publish_tasks (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY COMMENT '发布任务ID',
     content_task_id INT UNSIGNED NOT NULL COMMENT '内容任务ID',
     user_id INT UNSIGNED NOT NULL COMMENT '用户ID',

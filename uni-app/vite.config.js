@@ -7,14 +7,20 @@ export default defineConfig({
   plugins: [uni()],
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './'),
-      '@api': path.resolve(__dirname, './api')
+      '@': path.resolve(__dirname, './src'),
+      '@api': path.resolve(__dirname, './src/api')
     }
   },
   server: {
-    port: 37075,
+    port: 8081,
     host: '0.0.0.0',
-    strictPort: false
+    strictPort: true,
+    proxy: {
+      '/api': {
+        target: 'http://127.0.0.1:8000',
+        changeOrigin: true
+      }
+    }
   },
   css: {
     preprocessorOptions: {

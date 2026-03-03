@@ -122,6 +122,17 @@ return [
             'content/task/*',
             'content/my',
             'content/templates',
+            'content/feedback',
+            'content/feedback/*',
+
+            // 模板管理（基础查看）
+            'template/list',
+            'template/detail/*',
+            'template/categories',
+            'template/styles',
+            'template/hot',
+            'template/statistics',
+            'template/preview/*',
 
             // AI服务
             'ai/*',

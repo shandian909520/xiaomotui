@@ -75,7 +75,7 @@ const props = defineProps({
   },
   // 标题图标
   icon: {
-    type: String,
+    type: [String, Object],
     default: ''
   },
   // 图表高度

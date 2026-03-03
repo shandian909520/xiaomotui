@@ -12,7 +12,7 @@
       <el-dropdown @command="handleCommand">
         <div class="user-info">
           <el-avatar :size="32" icon="User" />
-          <span class="username">{{ userStore.userInfo?.username || '管理员' }}</span>
+          <span class="username">{{ userStore.username || '管理员' }}</span>
         </div>
         <template #dropdown>
           <el-dropdown-menu>

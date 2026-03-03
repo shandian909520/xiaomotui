@@ -23,7 +23,7 @@ use think\Model;
  */
 class User extends Model
 {
-    protected $name = 'user';
+    protected $table = 'xmt_user';
 
     // 设置字段信息
     protected $schema = [

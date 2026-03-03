@@ -8,6 +8,8 @@ use think\facade\Cache;
 use think\Exception;
 use app\model\Material;
 use app\model\MaterialCategory;
+use app\service\OssService;
+use app\service\oss\MediaMetadataExtractor;
 
 /**
  * 素材导入服务
@@ -83,22 +85,34 @@ class MaterialImportService
     ];
 
     /**
-     * OSS配置
+     * OSS服务实例
+     * @var OssService|null
      */
-    protected $ossConfig = [];
+    protected ?OssService $ossService = null;
+
+    /**
+     * 媒体元数据提取器
+     * @var MediaMetadataExtractor|null
+     */
+    protected ?MediaMetadataExtractor $metadataExtractor = null;
 
     /**
      * 构造函数
      */
     public function __construct()
     {
-        $this->ossConfig = [
-            'access_key' => config('material.oss.access_key'),
-            'secret_key' => config('material.oss.secret_key'),
-            'bucket' => config('material.oss.bucket'),
-            'endpoint' => config('material.oss.endpoint'),
-            'domain' => config('material.oss.domain')
-        ];
+        try {
+            // 初始化OSS服务
+            $this->ossService = new OssService();
+
+            // 初始化媒体元数据提取器
+            $this->metadataExtractor = new MediaMetadataExtractor();
+
+        } catch (\Exception $e) {
+            Log::warning('OSS服务初始化失败', [
+                'error' => $e->getMessage()
+            ]);
+        }
     }
 
     /**
@@ -425,7 +439,7 @@ class MaterialImportService
     }
 
     /**
-     * 上传素材到阿里云OSS
+     * 上传素材到OSS
      * @param string $localFilePath 本地文件路径
      * @param string $materialType 素材类型
      * @param array $options 上传选项
@@ -434,6 +448,10 @@ class MaterialImportService
     public function uploadToOss(string $localFilePath, string $materialType, array $options = []): string
     {
         try {
+            if (!$this->ossService) {
+                throw new Exception('OSS服务未初始化');
+            }
+
             // 生成OSS存储路径
             $extension = pathinfo($localFilePath, PATHINFO_EXTENSION);
             $fileName = $options['original_name'] ?? basename($localFilePath);
@@ -442,23 +460,30 @@ class MaterialImportService
             Log::info('开始上传到OSS', [
                 'local_path' => $localFilePath,
                 'oss_path' => $ossPath,
-                'type' => $materialType
+                'type' => $materialType,
+                'driver' => $this->ossService->getDriverName()
             ]);
 
-            // 实际项目中这里应该使用阿里云OSS SDK
-            // 这里使用模拟实现
-            if (config('material.oss.enabled', false)) {
-                // TODO: 实现真实的OSS上传
-                // $ossClient = new \OSS\OssClient(...);
-                // $ossClient->uploadFile($this->ossConfig['bucket'], $ossPath, $localFilePath);
+            // 根据文件大小选择上传方式
+            $fileSize = filesize($localFilePath);
+            $chunkSize = config('oss.global.chunk_size', 5242880); // 5MB
+
+            if ($fileSize > $chunkSize) {
+                // 大文件使用分片上传
+                $result = $this->ossService->multipartUpload($localFilePath, $ossPath, $options);
+            } else {
+                // 小文件直接上传
+                $result = $this->ossService->upload($localFilePath, $ossPath, $options);
             }
 
-            // 生成访问URL
-            $ossUrl = $this->ossConfig['domain'] . '/' . $ossPath;
+            // 返回CDN URL(如果配置了CDN)或普通URL
+            $ossUrl = $this->ossService->getCdnUrl($ossPath);
 
             Log::info('OSS上传成功', [
                 'oss_path' => $ossPath,
-                'oss_url' => $ossUrl
+                'oss_url' => $ossUrl,
+                'file_size' => $fileSize,
+                'driver' => $this->ossService->getDriverName()
             ]);
 
             return $ossUrl;
@@ -842,9 +867,82 @@ class MaterialImportService
     protected function generateThumbnail(string $filePath, string $materialType): ?string
     {
         try {
-            // TODO: 实现真实的缩略图生成
-            // 对于视频，需要使用FFmpeg
-            // 对于图片，使用GD或Imagick
+            $thumbnailConfig = config('oss.thumbnail', []);
+
+            if (!($thumbnailConfig['enabled'] ?? true)) {
+                return null;
+            }
+
+            if ($materialType === 'IMAGE') {
+                // 图片缩略图生成
+                $thumbnailService = new \app\service\oss\OssThumbnailService($thumbnailConfig);
+
+                // 生成中等尺寸缩略图
+                $result = $thumbnailService->generate($filePath, 'medium');
+
+                if ($result['success']) {
+                    $thumbnailPath = $result['thumbnail_path'];
+
+                    // 将缩略图上传到OSS
+                    if ($this->ossService) {
+                        $thumbnailFileName = basename($thumbnailPath);
+                        $thumbnailOssPath = 'thumbnails/' . date('Y/m/d') . '/' . $thumbnailFileName;
+
+                        $uploadResult = $this->ossService->upload($thumbnailPath, $thumbnailOssPath);
+
+                        // 删除本地缩略图
+                        @unlink($thumbnailPath);
+
+                        return $this->ossService->getCdnUrl($thumbnailOssPath);
+                    }
+
+                    // 如果没有OSS,返回本地路径
+                    return '/uploads/' . str_replace(public_path(), '', $thumbnailPath);
+                }
+
+            } elseif ($materialType === 'VIDEO') {
+                // 视频缩略图生成
+                if ($this->metadataExtractor) {
+                    $thumbnailPath = runtime_path() . 'thumbnails/' . uniqid() . '.jpg';
+
+                    // 确保目录存在
+                    $thumbnailDir = dirname($thumbnailPath);
+                    if (!is_dir($thumbnailDir)) {
+                        mkdir($thumbnailDir, 0755, true);
+                    }
+
+                    // 从视频中提取缩略图
+                    $success = $this->metadataExtractor->extractVideoThumbnail(
+                        $filePath,
+                        $thumbnailPath,
+                        5, // 提取第5秒的帧
+                        [
+                            'width' => 320,
+                            'height' => 240,
+                            'quality' => 85,
+                        ]
+                    );
+
+                    if ($success && file_exists($thumbnailPath)) {
+                        // 上传缩略图到OSS
+                        if ($this->ossService) {
+                            $thumbnailFileName = basename($thumbnailPath);
+                            $thumbnailOssPath = 'thumbnails/' . date('Y/m/d') . '/' . $thumbnailFileName;
+
+                            $uploadResult = $this->ossService->upload($thumbnailPath, $thumbnailOssPath);
+
+                            // 删除本地缩略图
+                            @unlink($thumbnailPath);
+
+                            return $this->ossService->getCdnUrl($thumbnailOssPath);
+                        }
+
+                        // 如果没有OSS,返回本地路径
+                        return '/uploads/' . str_replace(public_path(), '', $thumbnailPath);
+                    }
+                }
+            }
+
             return null;
 
         } catch (\Exception $e) {
@@ -864,13 +962,60 @@ class MaterialImportService
      */
     protected function extractMediaMetadata(string $filePath): array
     {
-        // TODO: 使用FFmpeg或getID3库提取媒体元数据
-        return [
-            'duration' => 0,
-            'bitrate' => 0,
-            'codec' => '',
-            'resolution' => ''
-        ];
+        try {
+            // 使用媒体元数据提取器
+            if ($this->metadataExtractor) {
+                $extension = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
+
+                // 根据扩展名判断媒体类型
+                $mediaType = match(true) {
+                    in_array($extension, ['mp4', 'mov', 'avi', 'flv', 'mkv', 'webm']) => 'video',
+                    in_array($extension, ['mp3', 'wav', 'aac', 'm4a', 'flac', 'ogg', 'wma']) => 'audio',
+                    default => throw new Exception('不支持的媒体文件格式: ' . $extension)
+                };
+
+                $metadata = $this->metadataExtractor->extract($filePath, $mediaType);
+
+                // 标准化返回格式
+                return [
+                    'duration' => (float)($metadata['duration'] ?? 0),
+                    'bitrate' => (int)($metadata['bitrate'] ?? 0),
+                    'codec' => $metadata['codec'] ?? '',
+                    'width' => (int)($metadata['width'] ?? 0),
+                    'height' => (int)($metadata['height'] ?? 0),
+                    'fps' => (float)($metadata['fps'] ?? 0),
+                    'sample_rate' => (int)($metadata['sample_rate'] ?? 0),
+                    'channels' => (int)($metadata['channels'] ?? 0),
+                    'audio_codec' => $metadata['audio_codec'] ?? '',
+                    'format' => $metadata['format'] ?? '',
+                ];
+            }
+
+            // 降级: 返回基础元数据
+            return [
+                'duration' => 0,
+                'bitrate' => 0,
+                'codec' => '',
+                'width' => 0,
+                'height' => 0,
+                'fps' => 0,
+            ];
+
+        } catch (\Exception $e) {
+            Log::warning('提取媒体元数据失败', [
+                'file_path' => $filePath,
+                'error' => $e->getMessage()
+            ]);
+
+            return [
+                'duration' => 0,
+                'bitrate' => 0,
+                'codec' => '',
+                'width' => 0,
+                'height' => 0,
+                'fps' => 0,
+            ];
+        }
     }
 
     /**
@@ -880,13 +1025,44 @@ class MaterialImportService
      */
     protected function extractImageMetadata(string $filePath): array
     {
-        $imageInfo = @getimagesize($filePath);
-        return [
-            'width' => $imageInfo[0] ?? 0,
-            'height' => $imageInfo[1] ?? 0,
-            'type' => $imageInfo[2] ?? 0,
-            'mime' => $imageInfo['mime'] ?? ''
-        ];
+        try {
+            // 使用媒体元数据提取器
+            if ($this->metadataExtractor) {
+                $metadata = $this->metadataExtractor->extract($filePath, 'image');
+
+                return [
+                    'width' => (int)($metadata['width'] ?? 0),
+                    'height' => (int)($metadata['height'] ?? 0),
+                    'type' => $metadata['type'] ?? '',
+                    'mime' => $metadata['mime'] ?? '',
+                    'bits' => (int)($metadata['bits'] ?? 0),
+                    'channels' => (int)($metadata['channels'] ?? 0),
+                    'exif' => $metadata['exif'] ?? [],
+                ];
+            }
+
+            // 降级: 使用getimagesize
+            $imageInfo = @getimagesize($filePath);
+            return [
+                'width' => $imageInfo[0] ?? 0,
+                'height' => $imageInfo[1] ?? 0,
+                'type' => image_type_to_extension($imageInfo[2] ?? 0, false),
+                'mime' => $imageInfo['mime'] ?? '',
+            ];
+
+        } catch (\Exception $e) {
+            Log::warning('提取图片元数据失败', [
+                'file_path' => $filePath,
+                'error' => $e->getMessage()
+            ]);
+
+            return [
+                'width' => 0,
+                'height' => 0,
+                'type' => '',
+                'mime' => '',
+            ];
+        }
     }
 
     /**

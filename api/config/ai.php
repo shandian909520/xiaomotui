@@ -9,16 +9,23 @@ return [
 
     // 百度文心一言配置
     'wenxin' => [
+        // 协议类型: 'native' (原版百度协议) 或 'openai' (OpenAI兼容协议)
+        'protocol' => env('AI.BAIDU_WENXIN_PROTOCOL', 'openai'),
+
         // API认证配置
-        'api_key' => env('BAIDU_WENXIN_API_KEY', ''),
-        'secret_key' => env('BAIDU_WENXIN_SECRET_KEY', ''),
+        // 如果使用 openai 协议，api_key 填写 Access Key，secret_key 可留空
+        'api_key' => env('AI.BAIDU_WENXIN_API_KEY', ''),
+        'secret_key' => env('AI.BAIDU_WENXIN_SECRET_KEY', ''),
 
         // API端点配置
-        'auth_url' => env('BAIDU_WENXIN_AUTH_URL', 'https://aip.baidubce.com/oauth/2.0/token'),
-        'chat_url' => env('BAIDU_WENXIN_CHAT_URL', 'https://aip.baidubce.com/rpc/2.0/ai_custom/v1/wenxinworkshop/chat'),
+        'auth_url' => env('AI.BAIDU_WENXIN_AUTH_URL', 'https://aip.baidubce.com/oauth/2.0/token'),
+        // 原版百度协议 Chat URL
+        'chat_url' => env('AI.BAIDU_WENXIN_CHAT_URL', 'https://aip.baidubce.com/rpc/2.0/ai_custom/v1/wenxinworkshop/chat'),
+        // OpenAI 兼容协议 Base URL
+        'openai_base_url' => env('AI.BAIDU_WENXIN_OPENAI_BASE_URL', 'https://qianfan.baidubce.com/v2'),
 
         // 模型配置
-        'model' => env('BAIDU_WENXIN_MODEL', 'ernie-bot-turbo'),
+        'model' => env('AI.BAIDU_WENXIN_MODEL', 'ernie-bot-turbo'),
 
         // 可用的模型列表及其endpoint
         'models' => [
@@ -29,9 +36,9 @@ return [
         ],
 
         // 请求参数配置
-        'timeout' => env('BAIDU_WENXIN_TIMEOUT', 30),           // 请求超时时间（秒）
-        'max_retries' => env('BAIDU_WENXIN_MAX_RETRIES', 3),    // 最大重试次数
-        'retry_delay' => env('BAIDU_WENXIN_RETRY_DELAY', 1),    // 重试延迟（秒）
+        'timeout' => env('AI.BAIDU_WENXIN_TIMEOUT', 30),           // 请求超时时间（秒）
+        'max_retries' => env('AI.BAIDU_WENXIN_MAX_RETRIES', 3),    // 最大重试次数
+        'retry_delay' => env('AI.BAIDU_WENXIN_RETRY_DELAY', 1),    // 重试延迟（秒）
 
         // Token缓存配置
         'token_cache_key' => 'wenxin:access_token',
@@ -57,9 +64,9 @@ return [
 
     // 讯飞星火配置（预留）
     'xfyun' => [
-        'app_id' => env('IFLYTEK_APP_ID', ''),
-        'api_key' => env('IFLYTEK_API_KEY', ''),
-        'api_secret' => env('IFLYTEK_API_SECRET', ''),
+        'app_id' => env('AI.IFLYTEK_APP_ID', ''),
+        'api_key' => env('AI.IFLYTEK_API_KEY', ''),
+        'api_secret' => env('AI.IFLYTEK_API_SECRET', ''),
         'enabled' => false,
     ],
 

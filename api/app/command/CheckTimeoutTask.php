@@ -17,7 +17,7 @@ use think\facade\Log;
  * php think check:timeout-task
  *
  * 配置定时任务（crontab）：
- * */5 * * * * cd /path/to/api && php think check:timeout-task >> /dev/null 2>&1
+ * 每分钟执行: cd /path/to/api && php think check:timeout-task >> /dev/null 2>&1
  */
 class CheckTimeoutTask extends Command
 {

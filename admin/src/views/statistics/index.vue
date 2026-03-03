@@ -79,7 +79,7 @@
       <el-col :xs="24" :lg="12">
         <chart-container
           title="触发量趋势"
-          icon="TrendCharts"
+          :icon="TrendCharts"
           :loading="loading.trend"
           :empty="isEmpty.trend"
           @refresh="loadTrendData"
@@ -93,7 +93,7 @@
       <el-col :xs="24" :lg="12">
         <chart-container
           title="转化率分布"
-          icon="PieChart"
+          :icon="PieChart"
           :loading="loading.conversion"
           :empty="isEmpty.conversion"
           @refresh="loadConversionData"
@@ -109,7 +109,7 @@
       <el-col :xs="24" :lg="12">
         <chart-container
           title="设备触发排行"
-          icon="Monitor"
+          :icon="Monitor"
           :loading="loading.device"
           :empty="isEmpty.device"
           @refresh="loadDeviceData"
@@ -123,7 +123,7 @@
       <el-col :xs="24" :lg="12">
         <chart-container
           title="用户活跃度"
-          icon="User"
+          :icon="User"
           :loading="loading.userBehavior"
           :empty="isEmpty.userBehavior"
           @refresh="loadUserBehaviorData"
@@ -139,7 +139,7 @@
       <el-col :xs="24">
         <chart-container
           title="转化漏斗"
-          icon="DataAnalysis"
+          :icon="DataAnalysis"
           :loading="loading.funnel"
           :empty="isEmpty.funnel"
           @refresh="loadFunnelData"
@@ -225,7 +225,11 @@ import {
   User,
   DataAnalysis,
   Warning,
-  Lightbulb
+  Lamp,
+  DataLine,
+  Edit,
+  Share,
+  CircleCheck
 } from '@element-plus/icons-vue'
 import StatCard from '@/components/StatCard.vue'
 import ChartContainer from '@/components/ChartContainer.vue'
@@ -317,7 +321,7 @@ const metrics = ref([
     key: 'trigger',
     title: '总触发量',
     value: 0,
-    icon: 'DataLine',
+    icon: DataLine,
     color: '#409EFF',
     trend: 'up',
     trendPercent: 0,
@@ -328,7 +332,7 @@ const metrics = ref([
     key: 'generate',
     title: '内容生成量',
     value: 0,
-    icon: 'Edit',
+    icon: Edit,
     color: '#67C23A',
     trend: 'up',
     trendPercent: 0,
@@ -339,7 +343,7 @@ const metrics = ref([
     key: 'distribute',
     title: '平台分发量',
     value: 0,
-    icon: 'Share',
+    icon: Share,
     color: '#E6A23C',
     trend: 'down',
     trendPercent: 0,
@@ -350,7 +354,7 @@ const metrics = ref([
     key: 'conversion',
     title: '成功率',
     value: 0,
-    icon: 'CircleCheck',
+    icon: CircleCheck,
     color: '#F56C6C',
     trend: 'flat',
     trendPercent: 0,

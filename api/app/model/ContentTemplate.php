@@ -27,19 +27,30 @@ class ContentTemplate extends Model
 
     // 设置字段信息
     protected $schema = [
-        'id'          => 'int',
-        'merchant_id' => 'int',
-        'name'        => 'string',
-        'type'        => 'string',
-        'category'    => 'string',
-        'style'       => 'string',
-        'content'     => 'json',
-        'preview_url' => 'string',
-        'usage_count' => 'int',
-        'is_public'   => 'int',
-        'status'      => 'int',
-        'create_time' => 'datetime',
-        'update_time' => 'datetime',
+        'id'               => 'int',
+        'merchant_id'      => 'int',
+        'name'             => 'string',
+        'type'             => 'string',
+        'category'         => 'string',
+        'style'            => 'string',
+        'content'          => 'json',
+        'preview_url'      => 'string',
+        'video_url'        => 'string',
+        'video_duration'   => 'int',
+        'video_resolution' => 'string',
+        'video_size'       => 'int',
+        'video_format'     => 'string',
+        'thumbnail_time'   => 'int',
+        'aspect_ratio'     => 'string',
+        'is_template'      => 'int',
+        'template_tags'    => 'json',
+        'difficulty'       => 'string',
+        'industry'         => 'string',
+        'usage_count'      => 'int',
+        'is_public'        => 'int',
+        'status'           => 'int',
+        'create_time'      => 'datetime',
+        'update_time'      => 'datetime',
     ];
 
     // 自动时间戳
@@ -50,18 +61,23 @@ class ContentTemplate extends Model
 
     // 字段类型转换
     protected $type = [
-        'id'          => 'integer',
-        'merchant_id' => 'integer',
-        'content'     => 'array',
-        'usage_count' => 'integer',
-        'is_public'   => 'integer',
-        'status'      => 'integer',
-        'create_time' => 'timestamp',
-        'update_time' => 'timestamp',
+        'id'               => 'integer',
+        'merchant_id'      => 'integer',
+        'content'          => 'array',
+        'template_tags'    => 'array',
+        'video_duration'   => 'integer',
+        'video_size'       => 'integer',
+        'thumbnail_time'   => 'integer',
+        'usage_count'      => 'integer',
+        'is_public'        => 'integer',
+        'is_template'      => 'integer',
+        'status'           => 'integer',
+        'create_time'      => 'timestamp',
+        'update_time'      => 'timestamp',
     ];
 
     // JSON 字段
-    protected $json = ['content'];
+    protected $json = ['content', 'template_tags'];
 
     // 只读字段
     protected $readonly = [];
@@ -69,7 +85,10 @@ class ContentTemplate extends Model
     // 允许批量赋值的字段
     protected $field = [
         'merchant_id', 'name', 'type', 'category', 'style', 'content',
-        'preview_url', 'usage_count', 'is_public', 'status'
+        'preview_url', 'video_url', 'video_duration', 'video_resolution',
+        'video_size', 'video_format', 'thumbnail_time', 'aspect_ratio',
+        'is_template', 'template_tags', 'difficulty', 'industry',
+        'usage_count', 'is_public', 'status'
     ];
 
     /**

@@ -162,23 +162,23 @@ class Auth
         $userId = $payload['sub'] ?? null;
 
         if (!$userId) {
-            throw JwtException::userNotFound('??ID??');
+            throw JwtException::userNotFound('JWT载荷缺少用户ID');
         }
 
-        // ????
+        // 查询用户
         $user = User::find($userId);
         if (!$user) {
-            throw JwtException::userNotFound('?????');
+            throw JwtException::userNotFound('用户不存在');
         }
 
-        // ??????
+        // 检查用户状态
         if ($user->status !== User::STATUS_NORMAL) {
-            throw JwtException::tokenInvalid('????????');
+            throw JwtException::tokenInvalid('用户状态异常');
         }
 
         $allowedRoles = ['admin', 'merchant', 'user'];
         if (!in_array($role, $allowedRoles)) {
-            throw JwtException::roleInvalid("???????: {$role}");
+            throw JwtException::roleInvalid("角色不合法: {$role}");
         }
 
         if ($role === 'merchant') {
@@ -192,7 +192,7 @@ class Auth
     {
         $adminData = [
             'id' => $payload['sub'] ?? 0,
-            'nickname' => $payload['username'] ?? '?????',
+            'nickname' => $payload['username'] ?? '管理员',
             'status' => User::STATUS_NORMAL,
             'member_level' => User::MEMBER_LEVEL_PREMIUM,
         ];

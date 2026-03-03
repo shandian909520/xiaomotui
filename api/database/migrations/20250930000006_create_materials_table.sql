@@ -1,5 +1,5 @@
 -- 素材表
-CREATE TABLE IF NOT EXISTS `materials` (
+CREATE TABLE IF NOT EXISTS `xmt_materials` (
   `id` int(11) unsigned NOT NULL AUTO_INCREMENT COMMENT '素材ID',
   `type` enum('VIDEO','AUDIO','TRANSITION','TEXT_TEMPLATE','IMAGE','MUSIC') NOT NULL COMMENT '素材类型',
   `name` varchar(200) NOT NULL COMMENT '素材名称',

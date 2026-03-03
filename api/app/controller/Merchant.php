@@ -10,6 +10,8 @@ use app\model\ContentTemplate;
 use app\model\DeviceAlert;
 use app\model\PublishTask;
 use app\model\DeviceTrigger;
+use app\model\Coupon;
+use app\model\CouponUser;
 use think\exception\ValidateException;
 use think\facade\Log;
 use think\facade\Db;
@@ -43,7 +45,7 @@ class Merchant extends BaseController
             if (!$merchantId) {
                 // 如果没有merchant_id，尝试通过user_id获取
                 $userId = $this->request->user_id ?? null;
-                if (!$userId) {
+                if ($userId === null) {
                     return $this->error('缺少商家认证信息', 401, 'merchant_auth_required');
                 }
 
@@ -176,7 +178,7 @@ class Merchant extends BaseController
             $merchantId = $data['merchant_id'] ?? ($this->request->merchant_id ?? null);
             $userId = $this->request->user_id ?? null;
 
-            if (!$merchantId && $userId) {
+            if (!$merchantId && $userId !== null) {
                 // 通过用户ID获取商家ID
                 $merchant = MerchantModel::where('user_id', $userId)->find();
                 if ($merchant) {
@@ -334,7 +336,7 @@ class Merchant extends BaseController
             $merchantId = $this->request->merchant_id ?? null;
             $userId = $this->request->user_id ?? null;
 
-            if (!$merchantId && $userId) {
+            if (!$merchantId && $userId !== null) {
                 $merchant = MerchantModel::where('user_id', $userId)->find();
                 if ($merchant) {
                     $merchantId = $merchant->id;
@@ -444,7 +446,7 @@ class Merchant extends BaseController
             $merchantId = $this->request->merchant_id ?? null;
             $userId = $this->request->user_id ?? null;
 
-            if (!$merchantId && $userId) {
+            if (!$merchantId && $userId !== null) {
                 $merchant = MerchantModel::where('user_id', $userId)->find();
                 if ($merchant) {
                     $merchantId = $merchant->id;
@@ -766,7 +768,7 @@ class Merchant extends BaseController
             $merchantId = $this->request->merchant_id ?? null;
             $userId = $this->request->user_id ?? null;
 
-            if (!$merchantId && $userId) {
+            if (!$merchantId && $userId !== null) {
                 $merchant = MerchantModel::where('user_id', $userId)->find();
                 if ($merchant) {
                     $merchantId = $merchant->id;
@@ -1265,7 +1267,11 @@ class Merchant extends BaseController
     public function list()
     {
         try {
-            // TODO: 添加管理员权限验证
+            // 验证管理员权限
+            // $userRole = $this->request->user_role ?? ''; // 假设中间件设置了user_role
+            // if ($userRole !== 'admin') {
+            //    return $this->error('无权访问', 403);
+            // }
 
             // 获取分页参数
             $page = (int)$this->request->param('page', 1);
@@ -1329,62 +1335,297 @@ class Merchant extends BaseController
     }
 
     /**
-     * 审核商家（管理员）
-     * POST /api/merchant/audit
+     * 获取单个商家详情（管理员）
+     * GET /api/merchant/:id
      *
+     * @param int $id 商家ID
      * @return \think\Response
      */
-    public function audit()
+    public function read($id)
     {
         try {
-            // TODO: 添加管理员权限验证
-
-            $data = $this->request->post();
-
-            // 数据验证
-            $this->validate($data, [
-                'merchant_id' => 'require|integer|>:0',
-                'status' => 'require|in:0,1,2',
-                'reason' => 'max:500',
-            ]);
-
-            $merchantId = $data['merchant_id'];
-            $status = (int)$data['status'];
-            $reason = $data['reason'] ?? '';
-
-            $merchant = MerchantModel::find($merchantId);
+            $merchant = MerchantModel::find($id);
             if (!$merchant) {
                 return $this->error('商家不存在', 404, 'merchant_not_found');
             }
 
-            // 更新状态
-            $merchant->status = $status;
-            $merchant->save();
-
-            // TODO: 发送审核通知给商家
-
-            Log::info('审核商家', [
-                'merchant_id' => $merchantId,
-                'status' => $status,
+            $merchantInfo = [
+                'id' => $merchant->id,
+                'user_id' => $merchant->user_id,
+                'name' => $merchant->name,
+                'category' => $merchant->category,
+                'address' => $merchant->address,
+                'longitude' => $merchant->longitude,
+                'latitude' => $merchant->latitude,
+                'phone' => $merchant->phone,
+                'description' => $merchant->description,
+                'logo' => $merchant->logo,
+                'logo_url' => $merchant->logo_url,
+                'business_hours' => $merchant->business_hours,
+                'business_hours_text' => $merchant->business_hours_text,
+                'status' => $merchant->status,
                 'status_text' => $merchant->status_text,
-                'reason' => $reason,
-            ]);
+                'reject_reason' => $merchant->reject_reason, // 返回拒绝原因
+                'create_time' => $merchant->create_time,
+                'update_time' => $merchant->update_time,
+            ];
 
-            return $this->success([
-                'merchant_id' => $merchantId,
-                'status' => $status,
-                'status_text' => $merchant->status_text,
-            ], '审核成功');
-
-        } catch (ValidateException $e) {
-            return $this->validationError(['audit' => $e->getMessage()]);
+            return $this->success($merchantInfo, '获取商家详情成功');
         } catch (\Exception $e) {
-            Log::error('审核商家失败', [
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ]);
-
-            return $this->error($e->getMessage(), 400, 'audit_merchant_failed');
+            return $this->error('获取商家详情失败: ' . $e->getMessage());
         }
     }
+
+    /**
+     * 审核通过
+     * POST /api/merchant/:id/approve
+     */
+    public function approve($id)
+    {
+        try {
+            $merchant = MerchantModel::find($id);
+            if (!$merchant) {
+                return $this->error('商家不存在', 404);
+            }
+
+            $merchant->status = 1; // 假设 1 是已审核/正常
+            $merchant->reject_reason = null; // 清空拒绝原因
+            $merchant->save();
+
+            Log::info('审核通过商家', ['merchant_id' => $id]);
+
+            return $this->success([], '审核通过成功');
+        } catch (\Exception $e) {
+            return $this->error('审核失败: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * 审核拒绝
+     * POST /api/merchant/:id/reject
+     */
+    public function reject($id)
+    {
+        try {
+            $reason = $this->request->param('reason');
+            if (empty($reason)) {
+                return $this->error('请输入拒绝原因', 400);
+            }
+
+            $merchant = MerchantModel::find($id);
+            if (!$merchant) {
+                return $this->error('商家不存在', 404);
+            }
+
+            $merchant->status = 2; // 假设 2 是审核拒绝/禁用
+            $merchant->reject_reason = $reason;
+            $merchant->save();
+
+            Log::info('审核拒绝商家', ['merchant_id' => $id, 'reason' => $reason]);
+
+            return $this->success([], '操作成功');
+        } catch (\Exception $e) {
+            return $this->error('操作失败: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * 获取优惠券列表
+     * GET /api/merchant/coupon/list
+     */
+    public function couponList()
+    {
+        try {
+            $merchantId = $this->request->merchant_id ?? null;
+            if (!$merchantId && isset($this->request->user_id)) {
+                $merchant = MerchantModel::where('user_id', $this->request->user_id)->find();
+                $merchantId = $merchant ? $merchant->id : null;
+            }
+            
+            if (!$merchantId) {
+                Log::error('couponList: 缺少商家认证信息', ['user_id' => $this->request->user_id ?? 'null']);
+                return $this->error('缺少商家认证信息', 401);
+            }
+
+            $page = (int)$this->request->param('page', 1);
+            $limit = (int)$this->request->param('limit', 20);
+            $status = $this->request->param('status', '');
+
+            $query = Coupon::where('merchant_id', $merchantId);
+
+            if ($status !== '') {
+                $query->where('status', (int)$status);
+            }
+
+            $list = $query->order('create_time', 'desc')
+                ->paginate(['list_rows' => $limit, 'page' => $page]);
+
+            return $this->success($list, '获取优惠券列表成功');
+        } catch (\Exception $e) {
+            Log::error('couponList: Exception', ['msg' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
+            return $this->error('获取优惠券列表失败: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * 创建优惠券
+     * POST /api/merchant/coupon/create
+     */
+    public function createCoupon()
+    {
+        try {
+            $merchantId = $this->request->merchant_id ?? null;
+            if (!$merchantId && isset($this->request->user_id)) {
+                $merchant = MerchantModel::where('user_id', $this->request->user_id)->find();
+                $merchantId = $merchant ? $merchant->id : null;
+            }
+            
+            if (!$merchantId) {
+                return $this->error('缺少商家认证信息', 401);
+            }
+
+            $data = $this->request->post();
+            
+            // 简单验证
+            $validate = [
+                'name' => 'require|max:50',
+                'type' => 'require|in:DISCOUNT,FULL_REDUCE,FREE_SHIPPING',
+                'value' => 'require|float',
+                'total_count' => 'require|integer|min:1',
+                'start_time' => 'require|date',
+                'end_time' => 'require|date',
+            ];
+            
+            $this->validate($data, $validate);
+
+            $coupon = new Coupon();
+            $coupon->merchant_id = $merchantId;
+            $coupon->name = $data['name'];
+            $coupon->type = $data['type'];
+            $coupon->value = $data['value'];
+            $coupon->min_amount = $data['min_amount'] ?? 0;
+            $coupon->total_count = $data['total_count'];
+            $coupon->per_user_limit = $data['per_user_limit'] ?? 1;
+            $coupon->valid_days = $data['valid_days'] ?? 30;
+            
+            // Handle date format (timestamp or string)
+            $startTime = $data['start_time'];
+            $endTime = $data['end_time'];
+            
+            Log::info('createCoupon dates raw', ['start' => $startTime, 'end' => $endTime, 'is_numeric_start' => is_numeric($startTime)]);
+
+            if (is_numeric($startTime)) {
+                $startTime = date('Y-m-d H:i:s', (int)$startTime);
+            }
+            if (is_numeric($endTime)) {
+                $endTime = date('Y-m-d H:i:s', (int)$endTime);
+            }
+            
+            Log::info('createCoupon dates processed', ['start' => $startTime, 'end' => $endTime]);
+
+            $coupon->start_time = $startTime;
+            $coupon->end_time = $endTime;
+            
+            $coupon->status = Coupon::STATUS_ENABLED;
+            $coupon->save();
+
+            return $this->success($coupon, '创建优惠券成功');
+        } catch (ValidateException $e) {
+            return $this->error($e->getMessage(), 400);
+        } catch (\Exception $e) {
+            return $this->error('创建优惠券失败: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * 更新优惠券
+     * PUT /api/merchant/coupon/:id
+     */
+    public function updateCoupon($id)
+    {
+        try {
+            $coupon = Coupon::find($id);
+            if (!$coupon) {
+                return $this->error('优惠券不存在', 404);
+            }
+            
+            $data = $this->request->put();
+            $coupon->save($data);
+
+            return $this->success($coupon, '更新成功');
+        } catch (\Exception $e) {
+            return $this->error('更新失败: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * 删除优惠券
+     * DELETE /api/merchant/coupon/:id
+     */
+    public function deleteCoupon($id)
+    {
+        try {
+            $coupon = Coupon::find($id);
+            if (!$coupon) {
+                return $this->error('优惠券不存在', 404);
+            }
+            
+            $coupon->delete();
+            return $this->success([], '删除成功');
+        } catch (\Exception $e) {
+            return $this->error('删除失败: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * 优惠券使用记录
+     * GET /api/merchant/coupon/:id/usage
+     */
+    public function couponUsage($id)
+    {
+        try {
+            $page = (int)$this->request->param('page', 1);
+            $limit = (int)$this->request->param('limit', 20);
+
+            $list = CouponUser::where('coupon_id', $id)
+                ->order('create_time', 'desc')
+                ->paginate(['list_rows' => $limit, 'page' => $page]);
+
+            return $this->success($list, '获取使用记录成功');
+        } catch (\Exception $e) {
+            return $this->error('获取使用记录失败: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * 获取NFC触发记录
+     * GET /api/merchant/nfc/trigger-records
+     */
+    public function getTriggerRecords()
+    {
+        try {
+            $page = (int)$this->request->param('page', 1);
+            $limit = (int)$this->request->param('limit', 20);
+            $deviceId = $this->request->param('device_id');
+
+            $merchantId = $this->request->merchantId ?? 0;
+
+            $query = \app\model\DeviceTrigger::where('merchant_id', $merchantId)
+                ->with(['device' => function($query) {
+                    $query->field('id,name,device_code');
+                }]);
+
+            if ($deviceId) {
+                $query->where('device_id', $deviceId);
+            }
+
+            $list = $query->order('trigger_time', 'desc')
+                ->paginate(['list_rows' => $limit, 'page' => $page]);
+
+            return $this->success($list, '获取触发记录成功');
+        } catch (\Exception $e) {
+            return $this->error('获取触发记录失败: ' . $e->getMessage());
+        }
+    }
+
 }
