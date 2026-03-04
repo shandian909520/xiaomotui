@@ -38,10 +38,60 @@ docker/nginx/ssl/*.key
 coverage/
 *.cache
 
-# 测试数据（如果包含敏感信息）
-api/database/test_*.php
-api/debug_*.php
-api/get_token.php
+# 测试文件
+test_*.*
+*_test.php
+test_*
+debug_*.php
+check_*.php
+simple_*.php
+run_tests.*
+*_test.sh
+*_test.bat
+test_*.sql
+
+# 截图和测试报告
+*.png
+*.jpg
+*.gif
+*.webm
+test-results/
+tests/screenshots/
+tests/*.png
+tests/report_*.png
+tests/*_success.png
+tests/*_fail.png
+tests/error_*.png
+.playwright-mcp/
+*.heapsnapshot
+promo-stats-page.png
+content_creation_page.png
+screenshots/
+
+# 临时脚本和补丁
+*.patch
+latest_changes.patch
+test_alerts.*
+test_api_*.bat
+test_device_*.bat
+test_device_*.sh
+test_device_*.ps1
+test_video_library_*.bat
+test_video_library_*.sh
+test_*.py
+run-video-test.bat
+
+# 文档报告（自动生成）
+TEST_*.md
+TEST_*.json
+TEST_*.html
+*_REPORT.md
+*_REPORT.json
+*_REPORT.html
+*_SUMMARY.md
+*_CHECKLIST.md
+*_GUIDE.md
+*.md.bak
 
 # 其他
 .DS_Store
