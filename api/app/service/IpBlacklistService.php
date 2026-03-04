@@ -41,34 +41,41 @@ class IpBlacklistService
      */
     public function isBlocked(string $ip): ?array
     {
-        $cacheKey = $this->getCacheKey($ip);
-        $blocked = Cache::get($cacheKey);
+        try {
+            $cacheKey = $this->getCacheKey($ip);
+            $blocked = Cache::get($cacheKey);
 
-        if ($blocked) {
-            return $blocked;
+            if ($blocked) {
+                return $blocked;
+            }
+
+            // 从数据库查询
+            $record = Db::name($this->table)
+                ->where('ip', $ip)
+                ->where('status', 'active')
+                ->where('blocked_until', '>', time())
+                ->find();
+
+            if ($record) {
+                $data = [
+                    'reason' => $record['reason'] ?? '触发频率限制',
+                    'blocked_until' => $record['blocked_until'],
+                ];
+
+                // 回写到缓存
+                $ttl = $record['blocked_until'] - time();
+                Cache::set($cacheKey, $data, $ttl);
+
+                return $data;
+            }
+
+            return null;
+        } catch (\Throwable $e) {
+            // 表不存在或数据库错误时，返回 null（不拦截）
+            // 记录错误日志但不影响正常请求
+            error_log('IpBlacklistService::isBlocked - 查询失败：' . $e->getMessage());
+            return null;
         }
-
-        // 从数据库查询
-        $record = Db::name($this->table)
-            ->where('ip', $ip)
-            ->where('status', 'active')
-            ->where('blocked_until', '>', time())
-            ->find();
-
-        if ($record) {
-            $data = [
-                'reason' => $record['reason'] ?? '触发频率限制',
-                'blocked_until' => $record['blocked_until'],
-            ];
-
-            // 回写到缓存
-            $ttl = $record['blocked_until'] - time();
-            Cache::set($cacheKey, $data, $ttl);
-
-            return $data;
-        }
-
-        return null;
     }
 
     /**
