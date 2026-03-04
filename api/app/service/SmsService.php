@@ -72,6 +72,33 @@ class SmsService
             // 生成验证码
             $code = $this->generateCode();
 
+            // 调试模式：不调用真实短信服务，直接返回测试验证码
+            if ($this->isDebugMode()) {
+                $testCode = $this->config['debug']['test_code'] ?? '123456';
+
+                // 缓存验证码
+                $this->cacheCode($phone, $testCode);
+
+                // 更新发送频率限制
+                $this->updateRateLimit($phone);
+
+                // 更新每日发送次数
+                $this->updateDailyCount($phone);
+
+                // 记录日志
+                $this->log('info', '调试模式：验证码已生成（未发送真实短信）', [
+                    'phone' => $phone,
+                    'test_code' => $testCode,
+                ]);
+
+                return [
+                    'success' => true,
+                    'driver' => 'debug',
+                    'message' => '验证码已发送（调试模式）',
+                    'code' => $testCode, // 调试模式返回验证码
+                ];
+            }
+
             // 调用短信驱动发送验证码
             $result = $this->driver->send($phone, $code, $data);
 
@@ -90,11 +117,6 @@ class SmsService
 
             // 更新每日发送次数
             $this->updateDailyCount($phone);
-
-            // 调试模式返回验证码
-            if ($this->isDebugMode()) {
-                $result['code'] = $code;
-            }
 
             return $result;
         } catch (\Exception $e) {
