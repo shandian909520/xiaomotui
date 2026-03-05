@@ -14,7 +14,9 @@ RUN apk add --no-cache \
     libxml2-dev \
     icu-dev \
     redis \
-    ffmpeg
+    ffmpeg \
+    linux-headers \
+    $PHPIZE_DEPS
 
 # 安装 PHP 扩展
 RUN docker-php-ext-configure gd --with-freetype --with-jpeg --with-webp \
@@ -39,7 +41,7 @@ COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 WORKDIR /var/www/html
 
 # 复制项目文件
-COPY . .
+COPY api/ .
 
 # 安装 PHP 依赖（生产模式，不安装 dev 依赖）
 RUN composer install --no-dev --optimize-autoloader --no-interaction
@@ -49,7 +51,7 @@ RUN chown -R www-data:www-data /var/www/html/runtime \
     && chmod -R 775 /var/www/html/runtime
 
 # 配置 PHP-FPM
-COPY ../docker/api/www.conf /usr/local/etc/php-fpm.d/www.conf
+COPY docker/api/www.conf /usr/local/etc/php-fpm.d/www.conf
 
 EXPOSE 9000
 

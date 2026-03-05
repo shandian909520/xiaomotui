@@ -1,0 +1,110 @@
+# 生产环境 Docker Compose 配置
+# 使用阿里云镜像仓库
+# 部署前请先登录: docker login crpi-6wut8f1pmvyiv5nm.cn-beijing.personal.cr.aliyuncs.com
+
+version: '3.8'
+
+services:
+  # MySQL 数据库（阿里云镜像）
+  mysql:
+    image: crpi-6wut8f1pmvyiv5nm.cn-beijing.personal.cr.aliyuncs.com/xiaomotui/mysql:${IMAGE_TAG:-latest}
+    container_name: xiaomotui-mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: xiaomotui_prod
+      MYSQL_USER: xiaomotui
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      TZ: Asia/Shanghai
+    volumes:
+      - mysql_data:/var/lib/mysql
+    ports:
+      - "3306:3306"
+    command: --default-authentication-plugin=mysql_native_password --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    networks:
+      - xiaomotui-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis 缓存（阿里云镜像）
+  redis:
+    image: crpi-6wut8f1pmvyiv5nm.cn-beijing.personal.cr.aliyuncs.com/xiaomotui/redis:${IMAGE_TAG:-latest}
+    container_name: xiaomotui-redis
+    restart: always
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - xiaomotui-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # PHP-FPM 后端 API（阿里云镜像）
+  api:
+    image: crpi-6wut8f1pmvyiv5nm.cn-beijing.personal.cr.aliyuncs.com/xiaomotui/api:${IMAGE_TAG:-latest}
+    container_name: xiaomotui-api
+    restart: always
+    working_dir: /var/www/html
+    volumes:
+      - api_storage:/var/www/html/runtime
+    environment:
+      - APP_ENV=production
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_DATABASE=xiaomotui_prod
+      - DB_USERNAME=xiaomotui
+      - DB_PASSWORD=${MYSQL_PASSWORD}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - xiaomotui-network
+    healthcheck:
+      test: ["CMD", "php-fpm-healthcheck"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Nginx Web 服务器（阿里云镜像）
+  nginx:
+    image: crpi-6wut8f1pmvyiv5nm.cn-beijing.personal.cr.aliyuncs.com/xiaomotui/nginx:${IMAGE_TAG:-latest}
+    container_name: xiaomotui-nginx
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./ssl:/etc/nginx/ssl:ro
+      - nginx_logs:/var/log/nginx
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - xiaomotui-network
+
+volumes:
+  mysql_data:
+    driver: local
+  redis_data:
+    driver: local
+  api_storage:
+    driver: local
+  nginx_logs:
+    driver: local
+
+networks:
+  xiaomotui-network:
+    driver: bridge
