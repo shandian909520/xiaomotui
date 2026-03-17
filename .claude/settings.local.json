@@ -16,5 +16,11 @@
     ],
     "deny": [],
     "ask": []
-  }
+  },
+  "enabledMcpjsonServers": [
+    "playwright",
+    "chrome-devtools",
+    "zai-mcp-server"
+  ],
+  "enableAllProjectMcpServers": true
 }

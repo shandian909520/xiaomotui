@@ -10,7 +10,7 @@ const env = process.env.NODE_ENV || 'development'
 const baseUrls = {
 	development: '',  // 开发环境通过vite代理转发
 	testing: 'http://test.xiaomotui.com',  // 测试环境
-	production: 'https://api.xiaomotui.com' // 生产环境
+	production: 'http://pengpeng.moban8.top' // 生产环境
 }
 
 // 请求配置

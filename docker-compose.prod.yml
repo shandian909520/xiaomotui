@@ -80,22 +80,9 @@ services:
       timeout: 10s
       retries: 3
 
-  # Nginx Web 服务器（阿里云镜像）
-  nginx:
-    image: crpi-6wut8f1pmvyiv5nm.cn-beijing.personal.cr.aliyuncs.com/xiaomotui/nginx:${IMAGE_TAG:-latest}
-    container_name: xiaomotui-nginx
-    restart: always
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./ssl:/etc/nginx/ssl:ro
-      - nginx_logs:/var/log/nginx
-    depends_on:
-      api:
-        condition: service_healthy
-    networks:
-      - xiaomotui-network
+  # 注意: Nginx 服务已移除
+  # 服务器使用宝塔面板的 Nginx，通过 FastCGI 转发到 Docker 容器
+  # 宝塔 Nginx 配置文件: /www/server/panel/vhost/nginx/pengh5.moban8.top.conf
 
 volumes:
   mysql_data:
@@ -103,8 +90,6 @@ volumes:
   redis_data:
     driver: local
   api_storage:
-    driver: local
-  nginx_logs:
     driver: local
 
 networks:

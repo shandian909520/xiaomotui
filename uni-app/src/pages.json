@@ -350,26 +350,26 @@
     "list": [
       {
         "pagePath": "pages/index/index",
-        "iconPath": "static/tabbar/home.png",
-        "selectedIconPath": "static/tabbar/home-active.png",
+        "iconPath": "static/tabbar/home.svg",
+        "selectedIconPath": "static/tabbar/home-active.svg",
         "text": "首页"
       },
       {
         "pagePath": "pages/material/list",
-        "iconPath": "static/tabbar/material.png",
-        "selectedIconPath": "static/tabbar/material-active.png",
+        "iconPath": "static/tabbar/material.svg",
+        "selectedIconPath": "static/tabbar/material-active.svg",
         "text": "素材"
       },
       {
         "pagePath": "pages/statistics/overview",
-        "iconPath": "static/tabbar/stats.png",
-        "selectedIconPath": "static/tabbar/stats-active.png",
+        "iconPath": "static/tabbar/stats.svg",
+        "selectedIconPath": "static/tabbar/stats-active.svg",
         "text": "数据"
       },
       {
         "pagePath": "pages/user/profile",
-        "iconPath": "static/tabbar/user.png",
-        "selectedIconPath": "static/tabbar/user-active.png",
+        "iconPath": "static/tabbar/user.svg",
+        "selectedIconPath": "static/tabbar/user-active.svg",
         "text": "我的"
       }
     ]
