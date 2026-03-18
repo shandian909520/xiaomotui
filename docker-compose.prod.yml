@@ -80,9 +80,22 @@ services:
       timeout: 10s
       retries: 3
 
-  # 注意: Nginx 服务已移除
-  # 服务器使用宝塔面板的 Nginx，通过 FastCGI 转发到 Docker 容器
-  # 宝塔 Nginx 配置文件: /www/server/panel/vhost/nginx/pengh5.moban8.top.conf
+  # Nginx Web 服务器（使用非标准端口避免冲突）
+  nginx:
+    image: crpi-6wut8f1pmvyiv5nm.cn-beijing.personal.cr.aliyuncs.com/xiaomotui/nginx:${IMAGE_TAG:-latest}
+    container_name: xiaomotui-nginx
+    restart: always
+    ports:
+      - "8080:80"    # HTTP 使用 8080 端口
+      - "8443:443"   # HTTPS 使用 8443 端口
+    volumes:
+      - ./ssl:/etc/nginx/ssl:ro
+      - nginx_logs:/var/log/nginx
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - xiaomotui-network
 
 volumes:
   mysql_data:
@@ -90,6 +103,8 @@ volumes:
   redis_data:
     driver: local
   api_storage:
+    driver: local
+  nginx_logs:
     driver: local
 
 networks:
