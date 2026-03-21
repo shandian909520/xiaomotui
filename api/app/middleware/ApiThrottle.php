@@ -58,6 +58,12 @@ class ApiThrottle
             return $next($request);
         }
 
+        // 跳过短信接口的限流（短信接口有自己的限流逻辑）
+        $url = $request->url();
+        if (str_contains($url, '/api/common/sms')) {
+            return $next($request);
+        }
+
         $ip = $request->ip();
 
         // 检查白名单
