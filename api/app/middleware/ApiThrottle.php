@@ -58,7 +58,13 @@ class ApiThrottle
             return $next($request);
         }
 
-        // 跳过短信接口的限流（短信接口有自己的限流逻辑）
+        // 跳过短信接口的限流
+        $path = $request->path();
+        if (str_starts_with($path, 'api/common/sms')) {
+            return $next($request);
+        }
+
+        // 跳过短信接口的限流
         $url = $request->url();
         if (str_contains($url, '/api/common/sms')) {
             return $next($request);
@@ -172,6 +178,12 @@ class ApiThrottle
      */
     protected function getThrottleKey(Request $request): string
     {
+        // 跳过短信接口的限流
+        $path = $request->path();
+        if (str_starts_with($path, 'api/common/sms')) {
+            return $next($request);
+        }
+
         $ip = $request->ip();
         $route = $request->rule()->getName();
         $method = $request->method();
