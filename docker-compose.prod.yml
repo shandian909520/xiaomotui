@@ -89,7 +89,6 @@ services:
       - "8080:80"    # HTTP 使用 8080 端口
       - "8443:443"   # HTTPS 使用 8443 端口
     volumes:
-      - ./ssl:/etc/nginx/ssl:ro
       - nginx_logs:/var/log/nginx
     depends_on:
       api:
