@@ -48,7 +48,7 @@ return [
                 // 启用持久连接
                 \PDO::ATTR_PERSISTENT => env('database.persistent', false),
                 // 连接时执行的SQL
-                \PDO::MYSQL_ATTR_INIT_COMMAND => 'SET sql_mode="STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION"',
+                \PDO::MYSQL_ATTR_INIT_COMMAND => 'SET sql_mode="STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION"',
             ],
             // 数据库编码默认采用utf8mb4
             'charset'         => env('database.charset', 'utf8mb4'),
