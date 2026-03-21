@@ -1,9 +1,8 @@
 <?php
 use think\facade\Route;
-use think\facade\Cache;
 
 // 短信发送接口（模拟）
-Route::post('api/sms/send', function () {
+Route::post('api/common/sms/send', function () {
     $phone = request()->post('phone');
 
     if (!preg_match('/^1[3-9]\d{9}$/', $phone)) {
@@ -11,7 +10,9 @@ Route::post('api/sms/send', function () {
     }
 
     $code = '123456';
-    Cache::set('sms_code:' . $phone, $code, 300);
+    $file = runtime_path() . '/sms_' . md5($phone) . '.txt';
+    $data = json_encode(['code' => $code, 'expire' => time() + 300]);
+    file_put_contents($file, $data);
 
     return json([
         'code' => 200,
@@ -21,16 +22,25 @@ Route::post('api/sms/send', function () {
 });
 
 // 短信验证接口
-Route::post('api/sms/verify', function () {
+Route::post('api/common/sms/verify', function () {
     $phone = request()->post('phone');
     $code = request()->post('code');
 
-    $cached = Cache::get('sms_code:' . $phone);
+    $file = runtime_path() . '/sms_' . md5($phone) . '.txt';
+    if (!file_exists($file)) {
+        return json(['code' => 400, 'msg' => '验证码不存在或已过期']);
+    }
 
-    if ($cached && $cached === $code) {
-        Cache::delete('sms_code:' . $phone);
+    $data = json_decode(file_get_contents($file), true);
+    if ($data['expire'] < time()) {
+        unlink($file);
+        return json(['code' => 400, 'msg' => '验证码已过期']);
+    }
+
+    if ($data['code'] === $code) {
+        unlink($file);
         return json(['code' => 200, 'msg' => '验证成功']);
     }
 
-    return json(['code' => 400, 'msg' => '验证码错误或已过期']);
+    return json(['code' => 400, 'msg' => '验证码错误']);
 });

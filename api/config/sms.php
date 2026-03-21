@@ -77,11 +77,11 @@ return [
 
     // 开发环境配置
     'debug' => [
-        // 是否启用调试模式
-        'enabled' => env('app.debug', false),
+        // 是否启用调试模式 (生产环境也启用模拟模式)
+        'enabled' => env('sms.debug.enabled', true),
         // 调试模式测试验证码
         'test_code' => env('sms.debug.test_code', '123456'),
-        // 是否在响应中返回验证码(仅开发环境)
+        // 是否在响应中返回验证码
         'return_code' => env('sms.debug.return_code', true),
     ],
 ];

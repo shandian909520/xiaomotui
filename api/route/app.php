@@ -79,6 +79,53 @@ Route::group('api', function () {
         Route::get('version', 'Public/version');
     });
 
+    // 通用路由（无需认证）
+    Route::group('common', function () {
+        // 短信发送（模拟）
+        Route::post('sms/send', function () {
+            $phone = request()->post('phone');
+
+            if (!preg_match('/^1[3-9]\d{9}$/', $phone)) {
+                return json(['code' => 400, 'msg' => '手机号格式不正确']);
+            }
+
+            $code = '123456';
+            $file = runtime_path() . '/sms_' . md5($phone) . '.txt';
+            $data = json_encode(['code' => $code, 'expire' => time() + 300]);
+            file_put_contents($file, $data);
+
+            return json([
+                'code' => 200,
+                'msg' => '验证码已发送',
+                'data' => ['phone' => $phone, 'code' => $code]
+            ]);
+        });
+
+        // 短信验证
+        Route::post('sms/verify', function () {
+            $phone = request()->post('phone');
+            $code = request()->post('code');
+
+            $file = runtime_path() . '/sms_' . md5($phone) . '.txt';
+            if (!file_exists($file)) {
+                return json(['code' => 400, 'msg' => '验证码不存在或已过期']);
+            }
+
+            $data = json_decode(file_get_contents($file), true);
+            if ($data['expire'] < time()) {
+                unlink($file);
+                return json(['code' => 400, 'msg' => '验证码已过期']);
+            }
+
+            if ($data['code'] === $code) {
+                unlink($file);
+                return json(['code' => 200, 'msg' => '验证成功']);
+            }
+
+            return json(['code' => 400, 'msg' => '验证码错误']);
+        });
+    });
+
     // 内容查看（公开内容，无需认证）
     Route::group('content', function () {
         Route::get('view/:id', 'Content/view');
@@ -534,3 +581,7 @@ Route::get('api', function () {
         ]
     ]);
 });
+
+
+// 加载短信路由
+include __DIR__ . '/sms.php';
