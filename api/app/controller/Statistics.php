@@ -1163,7 +1163,7 @@ class Statistics extends BaseController
 
         // 从JWT中获取用户信息
         $userId = $this->request->user_id ?? 0;
-        $userRole = $this->request->user_role ?? 'user';
+        $userRole = $this->request->getUserRole();
 
         // 管理员可以访问所有商家数据
         if ($userRole === 'admin') {
@@ -1172,7 +1172,7 @@ class Statistics extends BaseController
 
         // 商家用户只能访问自己的数据
         if ($userRole === 'merchant') {
-            $userMerchantId = $this->request->merchant_id ?? 0;
+            $userMerchantId = $this->request->getMerchantId();
             return $userMerchantId === $merchantId;
         }
 

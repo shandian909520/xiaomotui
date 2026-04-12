@@ -20,6 +20,7 @@ class AiContentService
     const PROVIDER_XINGHUO = 'xinghuo';      // 讯飞星火
     const PROVIDER_JIANYING = 'jianying';    // 剪映
     const PROVIDER_ZHIYING = 'zhiying';      // 腾讯智影
+    const PROVIDER_MINIMAX = 'minimax';      // MiniMax
 
     /**
      * 内容类型常量
@@ -77,6 +78,11 @@ class AiContentService
                 'secret_id' => config('ai.zhiying.secret_id'),
                 'secret_key' => config('ai.zhiying.secret_key'),
                 'api_url' => config('ai.zhiying.api_url', 'https://zhiying.qq.com/api/v1/video/create')
+            ],
+            'minimax' => [
+                'auth_token' => config('ai.minimax.auth_token'),
+                'base_url' => config('ai.minimax.base_url', 'https://api.minimaxi.com/anthropic'),
+                'model' => config('ai.minimax.model', 'MiniMax-Text-01'),
             ]
         ];
     }
@@ -110,6 +116,7 @@ class AiContentService
             $result = match ($provider) {
                 self::PROVIDER_WENXIN => $this->callWenxinTextApi($prompt),
                 self::PROVIDER_XINGHUO => $this->callXinghuoTextApi($prompt),
+                self::PROVIDER_MINIMAX => $this->callMiniMaxTextApi($prompt),
                 default => throw new Exception("不支持的AI提供商: {$provider}")
             };
 
@@ -353,6 +360,97 @@ class AiContentService
             'tags' => [],
             'generation_time' => round($generationTime, 2)
         ];
+    }
+
+    /**
+     * 调用MiniMax文字生成API
+     *
+     * @param string $prompt 提示词
+     * @return array
+     */
+    protected function callMiniMaxTextApi(string $prompt): array
+    {
+        $startTime = microtime(true);
+
+        $config = $this->config['minimax'];
+
+        if (empty($config['auth_token'])) {
+            throw new \RuntimeException('MiniMax API密钥未配置，请检查 ANTHROPIC_AUTH_TOKEN 配置');
+        }
+
+        $apiUrl = rtrim($config['base_url'], '/') . '/v1/messages';
+
+        $requestData = [
+            'model' => $config['model'],
+            'messages' => [
+                [
+                    'role' => 'user',
+                    'content' => $prompt
+                ]
+            ],
+            'temperature' => 0.8,
+            'max_tokens' => 1000,
+        ];
+
+        try {
+            $ch = curl_init();
+
+            curl_setopt_array($ch, [
+                CURLOPT_URL => $apiUrl,
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_POST => true,
+                CURLOPT_POSTFIELDS => json_encode($requestData),
+                CURLOPT_TIMEOUT => self::TIMEOUT_TEXT,
+                CURLOPT_HTTPHEADER => [
+                    'Content-Type: application/json',
+                    'Authorization: Bearer ' . $config['auth_token'],
+                    'anthropic-version: 2023-06-01',
+                ],
+            ]);
+
+            $response = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $error = curl_error($ch);
+            curl_close($ch);
+
+            if ($error) {
+                throw new \RuntimeException('MiniMax API请求失败: ' . $error);
+            }
+
+            if ($httpCode !== 200) {
+                $errorData = json_decode($response, true);
+                $errorMsg = $errorData['error']['message'] ?? '未知错误';
+                throw new \RuntimeException('MiniMax API返回错误: ' . $errorMsg . ' (HTTP ' . $httpCode . ')');
+            }
+
+            $result = json_decode($response, true);
+
+            // MiniMax 返回的 content 数组可能包含 thinking 和 text 两种类型
+            // 需要提取 text 类型的内容
+            $text = '';
+            foreach ($result['content'] as $item) {
+                if (isset($item['type']) && $item['type'] === 'text') {
+                    $text = $item['text'] ?? '';
+                    break;
+                }
+            }
+
+            if (empty($text)) {
+                throw new \RuntimeException('MiniMax API 返回内容为空或格式错误');
+            }
+
+            $generationTime = microtime(true) - $startTime;
+
+            return [
+                'text' => $text,
+                'title' => '',
+                'tags' => [],
+                'generation_time' => round($generationTime, 2)
+            ];
+
+        } catch (\Exception $e) {
+            throw new \RuntimeException('调用MiniMax API失败: ' . $e->getMessage());
+        }
     }
 
     /**

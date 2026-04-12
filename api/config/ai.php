@@ -70,6 +70,39 @@ return [
         'enabled' => false,
     ],
 
+    // MiniMax 文字生成配置（使用 Anthropic API 兼容接口）
+    'minimax' => [
+        // API 认证配置
+        'auth_token' => env('ANTHROPIC_AUTH_TOKEN', ''),
+        'base_url' => env('ANTHROPIC_BASE_URL', 'https://api.minimaxi.com/anthropic'),
+
+        // 模型配置
+        'model' => env('AI.MINIMAX_MODEL', 'MiniMax-M2.7'),
+
+        // 可用的模型列表
+        'models' => [
+            'MiniMax-M2.7' => 'MiniMax-M2.7',  // MiniMax M2.7 模型
+        ],
+
+        // 请求参数配置
+        'timeout' => env('AI.MINIMAX_TIMEOUT', 30),
+        'max_retries' => env('AI.MINIMAX_MAX_RETRIES', 3),
+        'retry_delay' => env('AI.MINIMAX_RETRY_DELAY', 1),
+
+        // 生成参数默认值
+        'generation' => [
+            'temperature' => 0.8,
+            'top_p' => 0.9,
+            'stream' => false,
+        ],
+
+        // 内容生成配置
+        'content' => [
+            'max_length' => 2000,
+            'system_prompt' => '你是一个专业的营销文案创作助手，擅长根据不同场景和风格生成吸引人的营销内容。',
+        ],
+    ],
+
     // 内容生成提示词模板
     'prompts' => [
         // 营销文案生成
@@ -78,8 +111,10 @@ return [
 商家类别：{category}
 特殊要求：{requirements}
 
-请生成简洁有力、吸引人的文案，突出场景特色和氛围。
-{platform_specific}',
+要求：直接生成文案，不要任何解释、说明或思考过程。文案要简洁有力，20-50个中文字符，配合话题标签。
+{platform_specific}
+
+输出格式：只需输出文案本身，例如：暖灯轻洒，咖啡香浓，偷得浮生半日闲。#咖啡时光 #温暖小店',
 
         // 平台特定要求
         'platform_requirements' => [

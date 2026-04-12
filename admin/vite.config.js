@@ -14,6 +14,9 @@ export default defineConfig({
     }
   },
 
+  // 添加 base 配置，确保构建后的路径正确
+  base: '/',
+
   server: {
     port: 3003,
     proxy: {

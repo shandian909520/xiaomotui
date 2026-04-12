@@ -25,20 +25,31 @@ class AiContent extends BaseController
     public function generateText(): Response
     {
         try {
-            // 获取请求参数
-            $params = $this->request->only([
-                'scene',
-                'style',
-                'platform',
-                'category',
-                'requirements',
-            ], 'post');
+            // 获取请求参数 - 支持 JSON body 和 form-data 两种格式
+            // 优先从 JSON body 获取参数
+            $jsonInput = file_get_contents('php://input');
+            $jsonParams = !empty($jsonInput) ? json_decode($jsonInput, true) : [];
+            if (json_last_error() !== JSON_ERROR_NONE && !empty($jsonInput)) {
+                return $this->error('JSON解析失败: ' . json_last_error_msg());
+            }
+
+            // 合并 JSON 参数和 form参数，JSON 优先
+            $params = array_merge(
+                $this->request->param([
+                    'scene', 'style', 'platform', 'category', 'requirements', 'provider'
+                ], null, 'trim'),
+                $jsonParams
+            );
+
+            // 获取 AI 服务提供商，默认为 minimax
+            $provider = $params['provider'] ?? 'minimax';
+            unset($params['provider']); // 从 params 中移除，避免传递给服务
 
             // 参数验证
             $this->validateParams($params);
 
-            // 初始化文心一言服务
-            $wenxinService = new WenxinService();
+            // 初始化文心一言服务（支持 minimax）
+            $wenxinService = new WenxinService($provider);
 
             // 生成文案
             $result = $wenxinService->generateText($params);
@@ -47,7 +58,7 @@ class AiContent extends BaseController
             try {
                 $userId = $this->request->user_id ?? 0;
                 $merchantId = $this->request->merchant_id ?? 0;
-                
+
                 ContentTask::create([
                     'user_id' => $userId,
                     'merchant_id' => $merchantId,
@@ -59,7 +70,7 @@ class AiContent extends BaseController
                         'tokens' => $result['tokens'] ?? 0,
                         'model' => $result['model'] ?? ''
                     ],
-                    'ai_provider' => 'wenxin', // 或者根据实际使用的模型判断
+                    'ai_provider' => $provider,
                     'generation_time' => isset($result['time']) ? intval($result['time']) : 0,
                     'complete_time' => date('Y-m-d H:i:s')
                 ]);
@@ -73,6 +84,7 @@ class AiContent extends BaseController
                 'tokens' => $result['tokens'],
                 'time' => $result['time'],
                 'model' => $result['model'],
+                'provider' => $provider,
                 'params' => $params,
             ], '文案生成成功');
 

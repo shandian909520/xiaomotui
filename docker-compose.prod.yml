@@ -67,6 +67,8 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - ANTHROPIC_AUTH_TOKEN=${ANTHROPIC_AUTH_TOKEN}
+      - ANTHROPIC_BASE_URL=${ANTHROPIC_BASE_URL}
     depends_on:
       mysql:
         condition: service_healthy
@@ -89,6 +91,7 @@ services:
       - "8080:80"    # HTTP 使用 8080 端口
       - "8443:443"   # HTTPS 使用 8443 端口
     volumes:
+      - ./ssl:/etc/nginx/ssl:ro
       - nginx_logs:/var/log/nginx
     depends_on:
       api:

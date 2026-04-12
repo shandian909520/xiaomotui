@@ -11,14 +11,25 @@ use GuzzleHttp\Exception\GuzzleException;
 
 /**
  * 百度文心一言服务类
- * 用于集成百度文心一言API，实现AI内容生成功能
+ * 用于集成百度文心一言、 MiniMax 等AI服务，实现AI内容生成功能
  */
 class WenxinService
 {
     /**
+     * AI服务提供商常量
+     */
+    const PROVIDER_WENXIN = 'wenxin';
+    const PROVIDER_MINIMAX = 'minimax';
+
+    /**
      * 配置信息
      */
     private array $config;
+
+    /**
+     * 当前provider
+     */
+    private string $provider;
 
     /**
      * HTTP客户端
@@ -27,35 +38,60 @@ class WenxinService
 
     /**
      * 构造函数
+     *
+     * @param string $provider AI服务提供商，默认为wenxin，可选minimax
      */
-    public function __construct()
+    public function __construct(string $provider = self::PROVIDER_WENXIN)
     {
-        $this->config = config('ai.wenxin', []);
+        $this->provider = $provider;
+
+        if ($provider === self::PROVIDER_MINIMAX) {
+            $this->config = config('ai.minimax', []);
+        } else {
+            $this->config = config('ai.wenxin', []);
+        }
 
         // 验证配置
-        $protocol = $this->config['protocol'] ?? 'native';
-
-        if ($protocol === 'openai') {
-             if (empty($this->config['api_key'])) {
-                 throw new \RuntimeException(
-                     '文心一言API密钥未配置,请在.env文件中设置BAIDU_WENXIN_API_KEY'
-                 );
-             }
+        if ($provider === self::PROVIDER_MINIMAX) {
+            if (empty($this->config['auth_token'])) {
+                throw new \RuntimeException(
+                    'MiniMax API密钥未配置,请在.env文件中设置ANTHROPIC_AUTH_TOKEN'
+                );
+            }
         } else {
-             if (empty($this->config['api_key']) || empty($this->config['secret_key'])) {
-                 throw new \RuntimeException(
-                     '文心一言API密钥未配置,请在.env文件中设置BAIDU_WENXIN_API_KEY和BAIDU_WENXIN_SECRET_KEY'
-                 );
-             }
+            $protocol = $this->config['protocol'] ?? 'native';
+
+            if ($protocol === 'openai') {
+                 if (empty($this->config['api_key'])) {
+                     throw new \RuntimeException(
+                         '文心一言API密钥未配置,请在.env文件中设置BAIDU_WENXIN_API_KEY'
+                     );
+                 }
+            } else {
+                 if (empty($this->config['api_key']) || empty($this->config['secret_key'])) {
+                     throw new \RuntimeException(
+                         '文心一言API密钥未配置,请在.env文件中设置BAIDU_WENXIN_API_KEY和BAIDU_WENXIN_SECRET_KEY'
+                     );
+                 }
+            }
         }
 
         // 初始化HTTP客户端
         // 注意: 仅在本地开发环境禁用SSL验证,生产环境必须启用
         $this->httpClient = new Client([
             'timeout' => $this->config['timeout'] ?? 30,
-            'verify' => env('APP_ENV', 'production') === 'local' ? false : true,
+            'connect_timeout' => 10,
+            'verify' => false,
             'http_errors' => false,
         ]);
+    }
+
+    /**
+     * 获取当前provider
+     */
+    public function getProvider(): string
+    {
+        return $this->provider;
     }
 
     /**
@@ -77,7 +113,8 @@ class WenxinService
 
         try {
             // 如果是测试模式，返回模拟内容
-            if ($this->config['api_key'] === 'test_api_key_demo') {
+            $testKey = $this->config['api_key'] ?? ($this->config['auth_token'] ?? '');
+            if ($testKey === 'test_api_key_demo') {
                 return $this->generateMockText($params, $startTime);
             }
 
@@ -170,8 +207,13 @@ class WenxinService
      */
     private function chat(string $prompt, array $options = []): array
     {
+        // 根据 provider 选择不同的 API
+        if ($this->provider === self::PROVIDER_MINIMAX) {
+            return $this->chatMiniMax($prompt, $options);
+        }
+
         $protocol = $this->config['protocol'] ?? 'native';
-        
+
         if ($protocol === 'openai') {
             return $this->chatOpenAI($prompt, $options);
         }
@@ -350,6 +392,148 @@ class WenxinService
     }
 
     /**
+     * 调用MiniMax Chat API
+     *
+     * @param string $prompt 提示词
+     * @param array $options 额外选项
+     * @return array API响应
+     * @throws \Exception
+     */
+    private function chatMiniMax(string $prompt, array $options = []): array
+    {
+        $baseUrl = rtrim($this->config['base_url'] ?? 'https://api.minimaxi.com/anthropic', '/');
+        $url = $baseUrl . '/v1/messages';
+        $authToken = $this->config['auth_token'];
+        $model = $options['model'] ?? $this->config['model'] ?? 'MiniMax-M2.7';
+
+        $requestBody = [
+            'model' => $model,
+            'messages' => [
+                [
+                    'role' => 'user',
+                    'content' => $prompt,
+                ]
+            ],
+            'temperature' => $options['temperature'] ?? $this->config['generation']['temperature'] ?? 0.8,
+            'max_tokens' => min($options['max_tokens'] ?? $this->config['content']['max_length'] ?? 800, 800),
+        ];
+
+        // 记录请求日志用于调试
+        Log::info('MiniMax API请求', [
+            'url' => $url,
+            'model' => $model,
+        ]);
+
+        // 发送请求（带重试机制）
+        $maxRetries = $this->config['max_retries'] ?? 3;
+        $retryDelay = $this->config['retry_delay'] ?? 1;
+        $lastException = null;
+
+        for ($i = 0; $i < $maxRetries; $i++) {
+            try {
+                // 使用原生PHP curl扩展
+                $ch = curl_init();
+                curl_setopt($ch, CURLOPT_URL, $url);
+                curl_setopt($ch, CURLOPT_POST, true);
+                curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($requestBody));
+                curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                    'Content-Type: application/json',
+                    'Authorization: Bearer ' . $authToken,
+                    'anthropic-version: 2023-06-01',
+                ]);
+                curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                curl_setopt($ch, CURLOPT_TIMEOUT, $this->config['timeout'] ?? 30);
+                curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
+                // 禁用 SSL 验证以解决 OpenSSL 3.x 证书验证问题
+                curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+                curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
+                curl_setopt($ch, CURLOPT_SSL_OPTIONS, CURLSSLOPT_NO_REVOKE);
+                // 指定系统CA证书路径
+                curl_setopt($ch, CURLOPT_CAINFO, '/etc/ssl/certs/ca-certificates.crt');
+
+                $responseBody = curl_exec($ch);
+                $statusCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                $error = curl_error($ch);
+                curl_close($ch);
+
+                if ($responseBody === false) {
+                    throw new \Exception('cURL error: ' . $error);
+                }
+
+                $body = json_decode($responseBody, true);
+
+                // 记录响应日志用于调试（已禁用以减少日志噪音）
+                // Log::info('MiniMax API响应', ['statusCode' => $statusCode]);
+
+                if ($statusCode === 200 && isset($body['content'])) {
+                    // MiniMax 返回的 content 数组包含 thinking 和 text 两种类型
+                    // 需要提取 text 类型的内容，如果只有 thinking 则使用 thinking
+                    $text = '';
+                    $thinking = '';
+                    foreach ($body['content'] as $item) {
+                        if (isset($item['type']) && $item['type'] === 'text') {
+                            $text = $item['text'] ?? '';
+                            break;
+                        }
+                        if (isset($item['type']) && $item['type'] === 'thinking') {
+                            $thinking = $item['thinking'] ?? '';
+                        }
+                    }
+
+                    // 如果没有 text，使用 thinking 内容
+                    if (empty($text) && !empty($thinking)) {
+                        $text = $thinking;
+                    }
+
+                    // 过滤掉 thinking 内容（英文推理过程）
+                    // Thinking 内容通常以 "The user wants:", "We need to:", "Make sure", "Alternatively:" 等开头
+                    if (!empty($text)) {
+                        $text = $this->filterThinkingContent($text);
+                    }
+
+                    if (empty($text)) {
+                        throw new \Exception('MiniMax API 返回内容为空');
+                    }
+
+                    // 转换为 OpenAI 格式以便后续处理
+                    return [
+                        'choices' => [
+                            [
+                                'message' => [
+                                    'content' => $text,
+                                ]
+                            ]
+                        ],
+                        'usage' => $body['usage'] ?? ['total_tokens' => 0],
+                    ];
+                }
+
+                // 处理错误响应
+                if (isset($body['error'])) {
+                    $errorMsg = is_array($body['error']) ? ($body['error']['message'] ?? json_encode($body['error'])) : $body['error'];
+                    throw new \Exception('MiniMax API错误: ' . $errorMsg);
+                }
+
+                throw new \Exception('MiniMax API响应格式未知, HTTP Code: ' . $statusCode);
+
+            } catch (\Exception $e) {
+                $lastException = $e;
+                Log::warning('MiniMax API请求失败', [
+                    'error' => $e->getMessage(),
+                    'retry' => $i + 1,
+                ]);
+            }
+
+            // 等待后重试
+            if ($i < $maxRetries - 1) {
+                sleep($retryDelay);
+            }
+        }
+
+        throw new \Exception('MiniMax API请求失败: ' . ($lastException ? $lastException->getMessage() : '未知错误'));
+    }
+
+    /**
      * 获取访问令牌（带缓存）
      *
      * @return string 访问令牌
@@ -491,6 +675,85 @@ class WenxinService
             $text = str_replace($word, $replacement, $text);
         }
 
+        return $text;
+    }
+
+    /**
+     * 过滤掉 MiniMax 返回的 thinking 内容
+     * Thinking 内容通常包含推理过程，而实际文案是简洁的中文短句
+     *
+     * @param string $text 原始文本
+     * @return string 过滤后的文本
+     */
+    private function filterThinkingContent(string $text): string
+    {
+        // 方法1：查找被标记的文案（如 "Potential copy:", "Copy:", "Option 1:" 等）
+        $copyPatterns = [
+            '/Potential copy:\s*["\']?([^"\n]+)["\']?/i',
+            '/Copy:\s*["\']?([^"\n]+)["\']?/i',
+            '/Option \d+:\s*["\']?([^"\n]+)["\']?/i',
+            '/实际文案:\s*["\']?([^"\n]+)["\']?/i',
+            '/推荐文案:\s*["\']?([^"\n]+)["\']?/i',
+        ];
+
+        foreach ($copyPatterns as $pattern) {
+            if (preg_match($pattern, $text, $matches)) {
+                $potentialCopy = trim($matches[1]);
+                if (preg_match('/[\x{4e00}-\x{9fff}]/u', $potentialCopy) &&
+                    mb_strlen($potentialCopy) >= 10 &&
+                    mb_strlen($potentialCopy) < 150 &&
+                    !preg_match('/^(推荐|简洁|有力|节奏|适合)/', $potentialCopy)) {
+                    return $potentialCopy;
+                }
+            }
+        }
+
+        // 方法2：查找引号内的中文内容（通常是实际文案）
+        if (preg_match_all('/"([^"]+)"/u', $text, $matches)) {
+            foreach ($matches[1] as $match) {
+                $match = trim($match);
+                // 检查是否是实际文案（包含中文、标点，长度适中）
+                if (preg_match('/[\x{4e00}-\x{9fff}]/u', $match) &&
+                    mb_strlen($match) >= 10 &&
+                    mb_strlen($match) < 150 &&
+                    (preg_match('/[，。！？]/u', $match) || preg_match('/#\w+/', $match))) {
+                    return $match;
+                }
+            }
+        }
+
+        // 方法3：查找包含 #hashtags 的中文行（实际文案通常包含标签）
+        $lines = explode("\n", $text);
+        foreach ($lines as $line) {
+            $line = trim($line);
+            // 查找包含中文和hashtags的行
+            if (preg_match('/[\x{4e00}-\x{9fff}]/u', $line) &&
+                preg_match('/#[\w]+/', $line) &&
+                mb_strlen($line) >= 15 &&
+                mb_strlen($line) < 150) {
+                // 排除明显是标签或描述性的行
+                if (!preg_match('/^(推荐|简洁|有力|节奏|适合|特点|要求|标准)/', $line) &&
+                    !preg_match('/(描述|说明|解释|示例|案例)/', $line)) {
+                    return $line;
+                }
+            }
+        }
+
+        // 方法4：查找短中文句子（20-80字符），以中文标点结尾
+        foreach ($lines as $line) {
+            $line = trim($line);
+            if (preg_match('/[\x{4e00}-\x{9fff}]/u', $line) &&
+                mb_strlen($line) >= 20 &&
+                mb_strlen($line) <= 80 &&
+                preg_match('/[。！？]$/u', $line)) {
+                // 排除标签类内容
+                if (!preg_match('/^(推荐|简洁|有力|节奏)/', $line)) {
+                    return $line;
+                }
+            }
+        }
+
+        // 如果仍然找不到，返回原始文本
         return $text;
     }
 
