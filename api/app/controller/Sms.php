@@ -18,6 +18,15 @@ class Sms
     {
         $phone = request()->post('phone');
 
+        // 检查手机号是否为空
+        if (empty($phone)) {
+            return json([
+                'code' => 400,
+                'msg' => '手机号不能为空',
+                'data' => null
+            ]);
+        }
+
         // 验证手机号格式
         if (!preg_match('/^1[3-9]\d{9}$/', $phone)) {
             return json([
@@ -39,8 +48,7 @@ class Sms
             'code' => 200,
             'msg' => '验证码已发送',
             'data' => [
-                'phone' => $phone,
-                'code' => $code
+                'phone' => $phone
             ]
         ]);
     }
@@ -52,6 +60,22 @@ class Sms
     {
         $phone = request()->post('phone');
         $code = request()->post('code');
+
+        // 检查参数是否为空
+        if (empty($phone)) {
+            return json([
+                'code' => 400,
+                'msg' => '手机号不能为空',
+                'data' => null
+            ]);
+        }
+        if (empty($code)) {
+            return json([
+                'code' => 400,
+                'msg' => '验证码不能为空',
+                'data' => null
+            ]);
+        }
 
         $file = $this->getCodeFile($phone);
 
