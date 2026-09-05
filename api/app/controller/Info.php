@@ -14,6 +14,10 @@ use think\Response;
 class Info extends BaseController
 {
     private array $expected = [
+        // 已确认存在的核心表（探针，确认 DB 连通）
+        'xmt_merchants',
+        'xmt_nfc_devices',
+        // 缺表清单（10 张 + xmt_store_configs）
         'xmt_copywriting_pool',
         'xmt_funnel_event',
         'xmt_groupbuy_items',
