@@ -113,11 +113,11 @@ Route::group('api', function () {
         Route::get('version', 'PublicController/version');
     });
 
-    // 兼容前端 index.js 中 nfcApi 路径
+    // 兼容前端 index.js 中 nfcApi 路径（仅保留真正面向顾客端 H5 的只读接口）
+    // P0 安全修复（2026-09-05）：/api/nfc/devices 与 /api/nfc/devices/:id 原映射到 AdminCompat/stores，
+    // 该实现在公开组下会返回全量门店敏感数据（手机号/地址）。已下放到 /api/admin/nfc/stores。
+    // /api/merchants POST 同问题，已下放到 /api/admin/merchants（GET 通过 Merchant@list 401 保护）。
     Route::group('nfc', function () {
-        Route::get('devices', 'AdminCompat/stores');  // 映射到门店列表
-        Route::get('devices/:id', 'AdminCompat/storeDetail');
-
         // ====== 模块1:聚合页(顾客端 H5/uni-app) ======
         Route::get('aggregation-page', '\app\controller\Nfc@getAggregationPage');
         // ====== 模块5:团购商品列表(顾客端) ======
@@ -169,10 +169,10 @@ Route::group('api', function () {
         Route::get('users', 'Coupon/my');
     });
 
-    // 兼容前端 index.js 中 merchantApi 路径
+    // 兼容前端 index.js 中 merchantApi 路径（P0 安全修复：2026-09-05 原 GET/POST 在公开组会泄漏商户敏感数据，
+    // POST 已移至下方 /api/admin/merchants；GET 已迁回 /api/merchant/list 走 401 鉴权路径）
     Route::group('merchants', function () {
-        Route::get('', 'Merchant/list');
-        Route::post('', 'Merchant/create');
+        // 已清空,所有命中将由下方的 Merchant@list (401) 兜底
     });
 
     // 兼容前端 index.js 中 statsApi 路径
@@ -951,6 +951,18 @@ Route::group('api/admin', function () {
     Route::post('stores', 'AdminCompat/createStore');
     Route::put('stores/:id', 'AdminCompat/updateStore');
     Route::delete('stores/:id', 'AdminCompat/deleteStore');
+
+    // 商家列表 (merchants.js) —— P0 安全修复 2026-09-05：从公开组迁入鉴权组
+    Route::get('merchants', 'Merchant/list');
+    Route::post('merchants', 'Merchant/create');
+    Route::put('merchants/:id', 'Merchant/update');
+    Route::delete('merchants/:id', 'Merchant/delete');
+
+    // 门店 NFC 兼容路径 (前端 nfcApi.devices / devices/:id) —— P0 安全修复 2026-09-05
+    Route::group('nfc', function () {
+        Route::get('devices', 'AdminCompat/stores');
+        Route::get('devices/:id', 'AdminCompat/storeDetail');
+    });
 
     // 任务 (tasks.js)
     Route::get('tasks', 'AdminCompat/tasks');
