@@ -938,6 +938,8 @@ Route::group('api', function () {
 
 // 兼容前端 /api/admin/* 路径的路由（映射到 AdminCompat 控制器）
 Route::group('api/admin', function () {
+    // 临时诊断：xmt_* 缺表排查（用完即删，commit 后同 commit 一并删除控制器）
+    Route::get('info/db-status', 'Info/dbStatus');
     // 视频任务 (video.js)
     Route::get('video/tasks', 'AdminCompat/videoTasks');
     Route::post('video/tasks', 'AdminCompat/createVideoTask');
