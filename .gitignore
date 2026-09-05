@@ -107,6 +107,7 @@ test-screenshots/
 
 # ===== 构建残留 / 大文件 =====
 admin/dist2/
+admin/dist_old_*/
 downloaded_materials/
 *.mp4
 *.rar
