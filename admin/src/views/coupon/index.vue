@@ -112,6 +112,7 @@
 import { ref, reactive, onMounted, nextTick } from 'vue'
 import { getCouponList, createCoupon, updateCoupon, deleteCoupon } from '@/api/coupon'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { normalizeListPayload } from '@/utils/responseHelper'
 
 const list = ref([])
 const listLoading = ref(true)
@@ -154,24 +155,8 @@ onMounted(() => {
 
 function getList() {
   listLoading.value = true
-  getCouponList(listQuery).then(response => {
-    console.log('Coupon List API Response:', response)
-    if (response && response.data && Array.isArray(response.data)) {
-        list.value = response.data
-    } else if (response && response.data) { // pagination object but data might be inside
-        // If response.data is { total: ..., data: [...] }
-        if (Array.isArray(response.data)) {
-           list.value = response.data
-        } else if (response.data.data && Array.isArray(response.data.data)) {
-           list.value = response.data.data
-        } else {
-           list.value = []
-        }
-    } else if (Array.isArray(response)) {
-        list.value = response
-    } else {
-        list.value = []
-    }
+  getCouponList(listQuery).then(res => {
+    list.value = normalizeListPayload(res)
     listLoading.value = false
   }).catch(err => {
       console.error('Coupon List API Error:', err)

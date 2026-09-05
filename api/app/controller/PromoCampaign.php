@@ -337,6 +337,39 @@ class PromoCampaign extends BaseController
     }
 
     /**
+     * 活动分发记录
+     * GET /api/merchant/promo/campaigns/:id/distributions
+     */
+    public function distributions(Request $request)
+    {
+        try {
+            $id = (int)$request->param('id');
+            if (!$id) {
+                return $this->error('活动ID不能为空', 400);
+            }
+
+            $page = (int)$request->get('page', 1);
+            $pageSize = (int)$request->get('page_size', 20);
+
+            // 查询该活动关联的触发记录
+            $query = \app\model\DeviceTrigger::alias('dt')
+                ->join('nfc_devices nd', 'dt.device_id = nd.id')
+                ->where('nd.merchant_id', $this->merchantId)
+                ->where('dt.create_time', '>=', date('Y-m-d 00:00:00', strtotime('-30 days')))
+                ->field('dt.id, dt.device_id, nd.device_name, dt.user_id, dt.trigger_mode, dt.result, dt.create_time')
+                ->order('dt.create_time', 'desc');
+
+            $total = (clone $query)->count();
+            $list = $query->page($page, $pageSize)->select()->toArray();
+
+            return $this->paginate($list, $total, $page, $pageSize, '获取分发记录成功');
+        } catch (\Exception $e) {
+            Log::error('获取分发记录异常', ['error' => $e->getMessage()]);
+            return $this->error('获取分发记录失败: ' . $e->getMessage());
+        }
+    }
+
+    /**
      * 获取可用设备列表
      * GET /api/merchant/promo/campaigns/available-devices
      */

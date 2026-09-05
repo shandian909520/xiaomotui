@@ -368,26 +368,32 @@ class DeviceMonitorService
      */
     protected static function sendSmsNotification(Merchant $merchant, array $data): void
     {
-        // TODO: 实现短信发送
-        // 需要集成短信服务商API（如阿里云、腾讯云）
-
         if (empty($merchant->phone)) {
             Log::warning('商家手机号为空，无法发送短信', ['merchant_id' => $merchant->id]);
             return;
         }
 
-        $message = sprintf(
-            '【小魔推】您的设备"%s"已离线%d分钟，请及时处理。设备编号：%s',
-            $data['device_name'],
-            $data['offline_duration'],
-            $data['device_code']
-        );
+        try {
+            $smsService = new SmsService();
+            $smsService->sendNotify($merchant->phone, [
+                'template_type' => 'device_offline',
+                'device_name' => $data['device_name'] ?? '',
+                'offline_duration' => $data['offline_duration'] ?? 0,
+                'device_code' => $data['device_code'] ?? '',
+            ]);
 
-        Log::info('发送短信通知', [
-            'merchant_id' => $merchant->id,
-            'phone' => $merchant->phone,
-            'message' => $message
-        ]);
+            Log::info('设备离线短信通知已发送', [
+                'merchant_id' => $merchant->id,
+                'phone' => $merchant->phone,
+                'device_code' => $data['device_code'] ?? ''
+            ]);
+        } catch (\Exception $e) {
+            Log::error('设备离线短信通知发送失败', [
+                'merchant_id' => $merchant->id,
+                'phone' => $merchant->phone,
+                'error' => $e->getMessage()
+            ]);
+        }
     }
 
     /**
@@ -398,19 +404,53 @@ class DeviceMonitorService
      */
     protected static function sendEmailNotification(Merchant $merchant, array $data): void
     {
-        // TODO: 实现邮件发送
-        // 需要配置邮件服务
-
         if (empty($merchant->email)) {
             Log::warning('商家邮箱为空，无法发送邮件', ['merchant_id' => $merchant->id]);
             return;
         }
 
-        Log::info('发送邮件通知', [
-            'merchant_id' => $merchant->id,
-            'email' => $merchant->email,
-            'device_code' => $data['device_code']
-        ]);
+        try {
+            $emailService = new \app\service\EmailService();
+            $emailService->setFrom(
+                config('email.from_address'),
+                config('email.from_name')
+            );
+            $emailService->addTo($merchant->email, $merchant->name ?? '');
+            $emailService->setSubject('【小魔推】设备离线告警通知');
+            $emailService->setBody(
+                sprintf(
+                    '<div style="padding:20px;font-family:Arial,sans-serif;">'
+                    . '<h2 style="color:#e74c3c;">设备离线告警</h2>'
+                    . '<p>尊敬的商家：</p>'
+                    . '<p>您的设备<strong>「%s」</strong>（编号：%s）已离线 <strong>%d 分钟</strong>，请及时处理。</p>'
+                    . '<p style="color:#7f8c8d;font-size:12px;">小魔推系统自动通知 | %s</p>'
+                    . '</div>',
+                    $data['device_name'] ?? '未知设备',
+                    $data['device_code'] ?? '',
+                    $data['offline_duration'] ?? 0,
+                    date('Y-m-d H:i:s')
+                ),
+                sprintf(
+                    '设备离线告警：设备"%s"（编号：%s）已离线%d分钟',
+                    $data['device_name'] ?? '未知设备',
+                    $data['device_code'] ?? '',
+                    $data['offline_duration'] ?? 0
+                )
+            );
+            $emailService->send();
+
+            Log::info('设备离线邮件通知已发送', [
+                'merchant_id' => $merchant->id,
+                'email' => $merchant->email,
+                'device_code' => $data['device_code'] ?? ''
+            ]);
+        } catch (\Exception $e) {
+            Log::error('设备离线邮件通知发送失败', [
+                'merchant_id' => $merchant->id,
+                'email' => $merchant->email,
+                'error' => $e->getMessage()
+            ]);
+        }
     }
 
     /**

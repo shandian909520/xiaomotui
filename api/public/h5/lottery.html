@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#FF6B35">
+<title>幸运大转盘 · 小魔推</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:none;-webkit-touch-callout:none}
+html,body{overflow-x:hidden}
+body{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Helvetica Neue","Microsoft YaHei",sans-serif;background:linear-gradient(180deg,#FFE6D5 0%,#FFF5EE 40%,#F5F6F8 100%);color:#222;min-height:100vh;min-height:100dvh;padding-bottom:env(safe-area-inset-bottom)}
+
+.container{max-width:480px;margin:0 auto;padding:20px 16px}
+
+.header{text-align:center;color:#FF6B35;margin-bottom:8px}
+.title{font-size:22px;font-weight:800;letter-spacing:1px}
+.subtitle{font-size:12px;color:#999;margin-top:4px}
+
+.chances-bar{display:flex;justify-content:center;margin-bottom:20px}
+.chances-pill{background:#fff;border-radius:20px;padding:8px 18px;font-size:13px;color:#666;box-shadow:0 2px 8px rgba(255,107,53,.15);display:flex;align-items:center;gap:6px}
+.chances-pill .num{font-size:18px;font-weight:800;color:#FF6B35}
+
+.wheel-wrap{position:relative;width:100%;max-width:340px;aspect-ratio:1;margin:0 auto 24px}
+
+/* 外圈光晕 */
+.wheel-wrap::before{content:"";position:absolute;inset:-14px;border-radius:50%;background:conic-gradient(from 0deg,#FFD700,#FF6B35,#FF8E53,#FFD700,#FF6B35,#FFE066,#FF8E53,#FFD700);filter:blur(8px);opacity:.6;animation:spin 8s linear infinite;z-index:0}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.wheel-frame{position:absolute;inset:0;border-radius:50%;background:#fff;box-shadow:0 10px 40px rgba(255,107,53,.25);z-index:1;padding:8px}
+
+/* 实际转盘 */
+.wheel{position:relative;width:100%;height:100%;border-radius:50%;overflow:hidden;transition:transform 5s cubic-bezier(.18,.86,.31,1);transform:rotate(0deg);z-index:2;background:#fff}
+.wheel.spinning{transition:transform 5s cubic-bezier(.15,.85,.25,1)}
+
+/* SVG 转盘 */
+.wheel svg{width:100%;height:100%;display:block}
+
+/* 中心按钮 */
+.center-btn{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:30%;aspect-ratio:1;border-radius:50%;background:linear-gradient(135deg,#FF6B35,#FF8E53);color:#fff;border:4px solid #fff;font-size:15px;font-weight:800;box-shadow:0 6px 16px rgba(255,107,53,.4);cursor:pointer;z-index:3;display:flex;align-items:center;justify-content:center;flex-direction:column;line-height:1.2}
+.center-btn:disabled{background:#bbb;cursor:not-allowed;box-shadow:none}
+.center-btn:active:not(:disabled){transform:translate(-50%,-50%) scale(.95)}
+.center-btn .b-main{font-size:16px;font-weight:800}
+.center-btn .b-sub{font-size:10px;opacity:.85;margin-top:2px;font-weight:400}
+
+/* 指针 */
+.pointer{position:absolute;left:50%;top:-6px;transform:translateX(-50%);width:32px;height:46px;z-index:4}
+.pointer svg{width:100%;height:100%;filter:drop-shadow(0 2px 4px rgba(0,0,0,.2))}
+
+/* 规则 */
+.rules{background:rgba(255,255,255,.85);border-radius:12px;padding:12px 14px;font-size:12px;color:#666;line-height:1.7;margin-top:8px}
+.rules .r-title{font-weight:700;color:#FF6B35;margin-bottom:6px;font-size:13px}
+.rules li{margin-left:18px}
+
+/* 弹窗 */
+.modal-mask{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:99;padding:24px}
+.modal-mask.show{display:flex;animation:fadeIn .2s}
+.modal{background:#fff;border-radius:16px;width:100%;max-width:320px;padding:24px 20px;text-align:center;position:relative}
+.modal-close{position:absolute;top:8px;right:10px;color:#999;font-size:24px;width:32px;height:32px;display:flex;align-items:center;justify-content:center}
+.modal .m-icon{font-size:56px;margin-bottom:8px}
+.modal .m-title{font-size:18px;font-weight:800;margin-bottom:6px}
+.modal .m-title.win{color:#FF6B35}
+.modal .m-title.lose{color:#999}
+.modal .m-prize{background:linear-gradient(135deg,#FFE6D5,#FFF5EE);border-radius:10px;padding:14px;margin:12px 0}
+.modal .m-prize .pn{font-size:16px;font-weight:700;color:#FF6B35}
+.modal .m-prize .pt{font-size:11px;color:#999;margin-top:2px}
+.modal .m-tip{font-size:12px;color:#999;margin:8px 0 14px}
+.modal .m-actions{display:flex;gap:10px}
+.modal .m-btn{flex:1;padding:11px 0;border-radius:22px;font-size:14px;font-weight:700;text-align:center}
+.modal .m-btn.outline{background:#F5F6F8;color:#666}
+.modal .m-btn.primary{background:linear-gradient(135deg,#FF6B35,#FF8E53);color:#fff}
+.modal .m-btn:active{transform:scale(.96)}
+
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+
+/* loading & error */
+.loading{padding:60px 20px;text-align:center;color:#999;font-size:13px}
+.loading .spin{display:inline-block;width:18px;height:18px;border:2px solid #FF6B35;border-top-color:transparent;border-radius:50%;animation:spin2 .8s linear infinite;margin-bottom:8px;vertical-align:middle}
+@keyframes spin2{to{transform:rotate(360deg)}}
+.error{padding:40px 20px;text-align:center;color:#999;font-size:13px}
+
+.toast{position:fixed;top:40%;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.82);color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;display:none;z-index:999;max-width:80%;text-align:center}
+.toast.show{display:block;animation:fadeIn .15s}
+
+.footer{text-align:center;color:#bbb;font-size:11px;padding:18px 16px 20px}
+</style>
+</head>
+<body>
+
+<div id="app" v-cloak>
+  <div v-if="loading" class="loading"><div class="spin"></div><div style="margin-top:6px">加载中...</div></div>
+  <div v-else-if="errorMsg" class="error">{{ errorMsg }}<br><button class="modal m-btn primary" style="margin-top:14px" @click="load">重新加载</button></div>
+  <div v-else class="container">
+    <div class="header">
+      <div class="title">🎰 {{ activity.name || '幸运大转盘' }}</div>
+      <div class="subtitle">{{ activity.description || '转动转盘,赢取好礼' }}</div>
+    </div>
+
+    <div class="chances-bar">
+      <div class="chances-pill">您还剩 <span class="num">{{ remaining }}</span> 次抽奖机会</div>
+    </div>
+
+    <div class="wheel-wrap">
+      <div class="wheel-frame"></div>
+      <div class="wheel" ref="wheel">
+        <svg viewBox="0 0 200 200" preserveAspectRatio="xMidYMid meet">
+          <!-- 扇形与文字由 JS 动态生成 -->
+          <g v-for="(s,i) in segments" :key="'g'+i">
+            <path :d="s.path" :fill="s.color" stroke="#fff" stroke-width="0.6"/>
+            <text :x="s.tx" :y="s.ty" :transform="s.rot" text-anchor="middle" dominant-baseline="middle"
+                  font-size="10" font-weight="700" fill="#fff" style="text-shadow:0 1px 2px rgba(0,0,0,.3)">{{ s.name }}</text>
+          </g>
+          <circle cx="100" cy="100" r="14" fill="#fff" stroke="#FFD0B5" stroke-width="2"/>
+          <text x="100" y="103" text-anchor="middle" font-size="10" font-weight="800" fill="#FF6B35">抽奖</text>
+        </svg>
+      </div>
+      <div class="pointer">
+        <svg viewBox="0 0 32 46">
+          <defs>
+            <linearGradient id="pg" x1="0" x2="0" y1="0" y2="1">
+              <stop offset="0" stop-color="#FFE066"/>
+              <stop offset="1" stop-color="#FF6B35"/>
+            </linearGradient>
+          </defs>
+          <path d="M16 46 L4 14 Q16 6 28 14 Z" fill="url(#pg)" stroke="#fff" stroke-width="2"/>
+          <circle cx="16" cy="14" r="4" fill="#fff"/>
+        </svg>
+      </div>
+      <button class="center-btn" :disabled="spinning || remaining<=0" @click="startDraw">
+        <div class="b-main">{{ spinning ? '抽奖中' : (remaining>0 ? '开始' : '已用完') }}</div>
+        <div class="b-sub">{{ spinning ? '...' : (remaining>0 ? 'GO' : '明天再来') }}</div>
+      </button>
+    </div>
+
+    <div class="rules">
+      <div class="r-title">📌 活动规则</div>
+      <ul>
+        <li>每次 NFC 触发可获得 1 次抽奖机会</li>
+        <li>每天最多 {{ activity.daily_limit || '?' }} 次,奖品有限,先到先得</li>
+        <li>中奖后请联系店员核销</li>
+        <li>本活动最终解释权归门店所有</li>
+      </ul>
+    </div>
+
+    <div class="footer">由 小魔推 提供技术支持</div>
+  </div>
+
+  <!-- 中奖弹窗 -->
+  <div class="modal-mask" :class="{show: showResult}" @click.self="showResult=false">
+    <div class="modal">
+      <div class="modal-close" @click="showResult=false">×</div>
+      <div class="m-icon">{{ result.is_winning ? '🎉' : '🙃' }}</div>
+      <div class="m-title" :class="result.is_winning ? 'win' : 'lose'">{{ result.is_winning ? '恭喜中奖!' : '谢谢参与' }}</div>
+      <div v-if="result.is_winning" class="m-prize">
+        <div class="pn">{{ result.prize && result.prize.name || '神秘奖品' }}</div>
+        <div v-if="result.prize && result.prize.prize_type" class="pt">{{ prizeTypeText(result.prize.prize_type) }}</div>
+      </div>
+      <div v-else class="m-tip">别灰心,继续完成任务可获更多抽奖机会~</div>
+      <div class="m-actions">
+        <div class="m-btn outline" @click="showResult=false">关闭</div>
+        <div class="m-btn primary" @click="goShare">查看我的奖品</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+<script>
+(function(){
+  const { createApp, ref, reactive, onMounted, nextTick, computed } = Vue;
+  const API = '';
+  const params = new URLSearchParams(location.search);
+  const DEVICE_CODE = params.get('device_code') || '';
+  const ACTIVITY_ID = params.get('activity_id') || '';
+  const DEVICE_ID = Number(params.get('device_id') || 0);
+
+  // 用户稳定 hash(本地 + 服务端 fallback)
+  function getUserHash() {
+    let h = localStorage.getItem('xmt_user_hash');
+    if (!h) {
+      h = 'web_' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+      localStorage.setItem('xmt_user_hash', h);
+    }
+    return h;
+  }
+
+  function showToast(msg, ms=1800) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(t._tid);
+    t._tid = setTimeout(()=>t.classList.remove('show'), ms);
+  }
+
+  function buildSegments(prizes) {
+    // 后端最多返回 6 个奖项;统一规范化为 8 扇形,不够补"谢谢参与"
+    const palette = ['#FF6B35','#FF8E53','#FFD700','#FF4D4D','#5DA8FF','#9D6BFF','#52D5A8','#FF8DC7'];
+    const slots = (prizes && prizes.length) ? Math.min(8, prizes.length) : 8;
+    const segs = [];
+    const arc = 360 / slots;
+    const cx = 100, cy = 100, r = 100;
+    const list = [];
+    if (prizes && prizes.length) {
+      for (let i = 0; i < Math.min(prizes.length, 6); i++) list.push(prizes[i]);
+    }
+    while (list.length < 6) {
+      list.push({ id: 0, name: '谢谢参与', prize_type: 'THANKS', stock_status: '充足' });
+    }
+    while (list.length < slots) {
+      list.push({ id: 0, name: '谢谢参与', prize_type: 'THANKS', stock_status: '充足' });
+    }
+    // 限制为 slots
+    const finalList = list.slice(0, slots);
+
+    for (let i = 0; i < slots; i++) {
+      const startAngle = i * arc - 90; // 从顶部开始
+      const endAngle = startAngle + arc;
+      const rad1 = (startAngle) * Math.PI / 180;
+      const rad2 = (endAngle) * Math.PI / 180;
+      const x1 = cx + r * Math.cos(rad1);
+      const y1 = cy + r * Math.sin(rad1);
+      const x2 = cx + r * Math.cos(rad2);
+      const y2 = cy + r * Math.sin(rad2);
+      const largeArc = arc > 180 ? 1 : 0;
+      const path = `M ${cx} ${cy} L ${x1.toFixed(2)} ${y1.toFixed(2)} A ${r} ${r} 0 ${largeArc} 1 ${x2.toFixed(2)} ${y2.toFixed(2)} Z`;
+      // 文字位置:扇形中线
+      const midAngle = (startAngle + endAngle) / 2;
+      const midRad = midAngle * Math.PI / 180;
+      const tx = cx + (r * 0.62) * Math.cos(midRad);
+      const ty = cy + (r * 0.62) * Math.sin(midRad);
+      const rot = `rotate(${midAngle + 90}, ${tx.toFixed(2)}, ${ty.toFixed(2)})`;
+      segs.push({
+        path,
+        tx, ty, rot,
+        name: finalList[i].name || '奖品',
+        color: palette[i % palette.length],
+        prize: finalList[i],
+        index: i,
+      });
+    }
+    return segs;
+  }
+
+  createApp({
+    setup() {
+      const loading = ref(true);
+      const errorMsg = ref('');
+      const activity = ref({});
+      const prizes = ref([]);
+      const segments = ref([]);
+      const wheel = ref(null);
+      const spinning = ref(false);
+      const remaining = ref(0);
+      const showResult = ref(false);
+      const result = reactive({ is_winning: false, prize: null });
+      const currentRotation = ref(0);
+
+      async function load() {
+        loading.value = true;
+        errorMsg.value = '';
+        if (!DEVICE_CODE) {
+          loading.value = false;
+          errorMsg.value = '缺少 device_code 参数';
+          return;
+        }
+        try {
+          const r = await fetch(API + '/api/lottery/device?device_code=' + encodeURIComponent(DEVICE_CODE));
+          const j = await r.json();
+          if (j.code !== 200) throw new Error(j.msg || '加载活动失败');
+          const d = j.data || {};
+          if (!d.enabled) {
+            errorMsg.value = '当前暂无进行中的活动';
+            loading.value = false;
+            return;
+          }
+          activity.value = d;
+          prizes.value = d.prizes || [];
+          segments.value = buildSegments(prizes.value);
+          remaining.value = d.daily_limit || 0;
+        } catch (e) {
+          errorMsg.value = e.message || '网络错误';
+        } finally {
+          loading.value = false;
+        }
+      }
+
+      async function startDraw() {
+        if (spinning.value) return;
+        if (remaining.value <= 0) { showToast('今日抽奖次数已用完'); return; }
+        spinning.value = true;
+        // 先转 3-5 圈 + 偏移
+        const turns = 3 + Math.floor(Math.random() * 3); // 3~5 圈
+        let prizeIndex = -1;
+        let prizeObj = null;
+        let winning = false;
+        try {
+          const r = await fetch(API + '/api/lottery/draw', {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({
+              activity_id: Number(ACTIVITY_ID || (activity.value && activity.value.activity_id) || 0),
+              device_id: DEVICE_ID,
+              user_hash: getUserHash(),
+            }),
+          });
+          const j = await r.json();
+          if (j.code === 200 && j.data) {
+            const data = j.data;
+            winning = !!data.is_winning;
+            prizeObj = data.prize || data;
+            prizeIndex = (typeof data.prize_index === 'number')
+              ? data.prize_index
+              : (typeof data.index === 'number' ? data.index : -1);
+            result.is_winning = winning;
+            result.prize = prizeObj;
+          } else {
+            throw new Error(j.msg || '抽奖失败');
+          }
+        } catch (e) {
+          spinning.value = false;
+          showToast(e.message || '抽奖失败,请重试');
+          return;
+        }
+
+        // 计算最终角度:转 N 圈 + 目标扇区居中(指针在顶部,扇区中心在顶部时刚好对准)
+        // segments[i] 的中线角度是 i*arc - 90 + arc/2,我们要把这个角度旋转到顶部 (即 -90° 或 270°)
+        // 当前累积 currentRotation, 加上 N*360 + targetOffset
+        const arc = 360 / Math.max(1, segments.value.length);
+        let targetSegmentIndex;
+        if (prizeIndex >= 0 && prizeIndex < segments.value.length) {
+          targetSegmentIndex = prizeIndex;
+        } else if (winning && prizeObj && prizeObj.id) {
+          // 通过 id 找
+          const idx = segments.value.findIndex(s => s.prize && s.prize.id === prizeObj.id);
+          targetSegmentIndex = idx >= 0 ? idx : 0;
+        } else {
+          // 谢谢参与:随机选一个 THANKS
+          const thanks = segments.value.findIndex(s => s.prize && s.prize.prize_type === 'THANKS');
+          targetSegmentIndex = thanks >= 0 ? thanks : 0;
+        }
+        // 目标扇区中心相对 0° 位置(i*arc - 90 + arc/2),我们要把它转到 -90°(指针位置)
+        // 即旋转角 = -90 - (targetCenter) = -90 - (targetIdx*arc - 90 + arc/2)
+        //    = -targetIdx*arc - arc/2
+        // 加上当前已旋转角度(取模 360)和圈数
+        const segCenter = targetSegmentIndex * arc - 90 + arc / 2;
+        const targetFinal = -segCenter; // 旋转多少度使扇区中心落在 -90
+        const curMod = ((currentRotation.value % 360) + 360) % 360;
+        // 转到目标:至少转 N 圈,再多转到目标
+        const baseExtra = turns * 360;
+        // 计算还需要多少度(顺时针为正,CSS 旋转正方向是顺时针)
+        let delta = targetFinal - curMod;
+        // 调整到 [0, 360)
+        delta = ((delta % 360) + 360) % 360;
+        const finalDeg = currentRotation.value + baseExtra + delta;
+        currentRotation.value = finalDeg;
+        await nextTick();
+        if (wheel.value) {
+          wheel.value.style.transform = `rotate(${finalDeg}deg)`;
+        }
+        setTimeout(() => {
+          spinning.value = false;
+          remaining.value = Math.max(0, remaining.value - 1);
+          showResult.value = true;
+        }, 5100);
+      }
+
+      function goShare() {
+        showResult.value = false;
+        // 拼分享页 URL,带上中奖信息
+        const p = new URLSearchParams({
+          device_code: DEVICE_CODE,
+          activity_id: ACTIVITY_ID || (activity.value && activity.value.activity_id) || '',
+        });
+        if (result.is_winning && result.prize) {
+          p.set('prize_name', result.prize.name || '');
+          if (result.prize.id) p.set('prize_id', String(result.prize.id));
+        } else {
+          p.set('prize_name', '谢谢参与');
+        }
+        location.href = './lottery-share.html?' + p.toString();
+      }
+
+      function prizeTypeText(t) {
+        const map = { COUPON: '优惠券', POINTS: '积分', THANKS: '谢谢参与', GIFT: '实物奖品' };
+        return map[t] || t;
+      }
+
+      onMounted(load);
+
+      return { loading, errorMsg, activity, segments, wheel, spinning, remaining, showResult, result, load, startDraw, goShare, prizeTypeText };
+    }
+  }).mount('#app');
+})();
+</script>
+</body>
+</html>

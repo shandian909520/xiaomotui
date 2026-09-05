@@ -74,6 +74,8 @@ class PlatformOAuthService
             // 从state中解析merchant_id
             // 注: 实际项目中应该在OAuthHelper的state缓存中存储merchant_id
             // 这里简化处理,假设可以从请求中获取
+            // 安全风险: merchant_id 来自请求参数，攻击者可伪造以绑定到他人商户
+            // TODO: 应改为从 state 参数中解析签名信息来获取 merchant_id
             $merchantId = request()->param('merchant_id', 0);
 
             if (!$merchantId) {
@@ -172,11 +174,16 @@ class PlatformOAuthService
      * @return array
      * @throws \Exception
      */
-    public function refreshToken(int $accountId): array
+    public function refreshToken(int $accountId, int $merchantId = 0): array
     {
         $account = PlatformAccount::find($accountId);
         if (!$account) {
             throw new \Exception('平台账号不存在');
+        }
+
+        // 验证商户归属
+        if ($merchantId > 0 && (int)$account->merchant_id !== $merchantId) {
+            throw new \Exception('无权操作该平台账号');
         }
 
         // 检查是否支持token刷新
@@ -191,18 +198,15 @@ class PlatformOAuthService
                 $account->refresh_token
             );
 
-            // 更新账号信息
-            $expiresAt = time() + $tokenData['expires_in'];
-            $account->access_token = $tokenData['access_token'];
+            // 使用模型方法更新token
+            $expiresIn = $tokenData['expires_in'] ?? 7200;
+            $account->updateToken(
+                $tokenData['access_token'],
+                $tokenData['refresh_token'] ?? '',
+                $expiresIn
+            );
 
-            // 某些平台刷新后会返回新的refresh_token
-            if (!empty($tokenData['refresh_token'])) {
-                $account->refresh_token = $tokenData['refresh_token'];
-            }
-
-            $account->expires_at = $expiresAt;
-            $account->status = 'ACTIVE';
-            $account->save();
+            $expiresAt = time() + $expiresIn;
 
             Log::info("刷新平台账号token成功", [
                 'account_id' => $account->id,
@@ -216,12 +220,12 @@ class PlatformOAuthService
                 'account_id' => $account->id,
                 'platform' => $account->platform,
                 'expires_at' => $expiresAt,
+                'expires_time' => date('Y-m-d H:i:s', $expiresAt),
                 'message' => 'Token刷新成功'
             ];
         } catch (\Exception $e) {
-            // 刷新失败,标记账号为过期
-            $account->status = 'EXPIRED';
-            $account->save();
+            // 刷新失败,标记账号为失效
+            $account->markAsInvalid();
 
             Log::error("刷新平台账号token失败", [
                 'account_id' => $account->id,
@@ -453,7 +457,10 @@ class PlatformOAuthService
             // 尝试自动刷新
             try {
                 $this->refreshToken($accountId);
-                return true;
+                // 刷新后重新获取account对象以确保数据一致
+                $this->clearAccountCache($accountId);
+                $account = $this->getAccount($accountId);
+                return $account && $account->status === 'ACTIVE';
             } catch (\Exception $e) {
                 return false;
             }

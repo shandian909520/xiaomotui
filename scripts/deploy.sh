@@ -55,7 +55,7 @@ fi
 
 # ============ 登录镜像仓库 ============
 echo -e "${YELLOW}>>> 登录阿里云镜像仓库...${NC}"
-docker login --username=shandian520 --password=Dear19840520! ${REGISTRY}
+docker login --username="${REGISTRY_USERNAME}" --password="${REGISTRY_PASSWORD}" ${REGISTRY}
 
 # ============ 拉取最新镜像 ============
 echo -e "${YELLOW}>>> 拉取镜像 (版本: ${IMAGE_TAG})...${NC}"

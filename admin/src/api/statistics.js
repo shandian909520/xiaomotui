@@ -98,7 +98,7 @@ export function getUserBehavior(params) {
  */
 export function exportReport(params) {
   return request({
-    url: '/api/statistics/export',
+    url: '/statistics/export',
     method: 'post',
     data: params,
     responseType: 'blob' // 用于下载文件
@@ -113,7 +113,7 @@ export function exportReport(params) {
  */
 export function getRealTimeData(params) {
   return request({
-    url: '/api/statistics/realtime',
+    url: '/statistics/realtime',
     method: 'get',
     params
   })
@@ -129,7 +129,7 @@ export function getRealTimeData(params) {
  */
 export function getMarketingInsights(params) {
   return request({
-    url: '/api/statistics/insights',
+    url: '/statistics/insights',
     method: 'get',
     params
   })
@@ -143,7 +143,7 @@ export function getMarketingInsights(params) {
  */
 export function getAlerts(params) {
   return request({
-    url: '/api/statistics/alerts',
+    url: '/statistics/alerts',
     method: 'get',
     params
   })

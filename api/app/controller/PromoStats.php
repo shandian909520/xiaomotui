@@ -413,6 +413,40 @@ class PromoStats extends BaseController
     }
 
     /**
+     * GET /api/merchant/promo-stats/campaign-list
+     * 获取活动列表（用于下拉选择）
+     */
+    public function campaignList(Request $request)
+    {
+        try {
+            $merchantId = $this->getMerchantId();
+            if (!$merchantId) {
+                return $this->success(['list' => []], '获取活动列表成功');
+            }
+
+            $keyword = $request->param('keyword', '');
+            $limit = $request->param('limit/d', 50);
+
+            $query = \app\model\PromoCampaign::where('merchant_id', $merchantId)
+                ->field('id, name, status, start_date, end_date');
+
+            if ($keyword !== '') {
+                $query->whereLike('name', "%{$keyword}%");
+            }
+
+            $list = $query->order('create_time', 'desc')
+                ->limit($limit)
+                ->select()
+                ->toArray();
+
+            return $this->success(['list' => $list, 'total' => count($list)], '获取活动列表成功');
+        } catch (\Exception $e) {
+            Log::error('获取活动列表失败', ['error' => $e->getMessage()]);
+            return $this->error('获取活动列表失败: ' . $e->getMessage());
+        }
+    }
+
+    /**
      * 获取商家ID
      *
      * @return int|null

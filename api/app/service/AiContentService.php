@@ -112,13 +112,15 @@ class AiContentService
             // 构建提示词
             $prompt = $this->buildTextPrompt($scene, $style, $requirements, $platform);
 
-            // 根据提供商调用不同的API
-            $result = match ($provider) {
-                self::PROVIDER_WENXIN => $this->callWenxinTextApi($prompt),
-                self::PROVIDER_XINGHUO => $this->callXinghuoTextApi($prompt),
-                self::PROVIDER_MINIMAX => $this->callMiniMaxTextApi($prompt),
-                default => throw new Exception("不支持的AI提供商: {$provider}")
-            };
+            // 使用重试机制调用API
+            $result = $this->retry(function () use ($provider, $prompt) {
+                return match ($provider) {
+                    self::PROVIDER_WENXIN => $this->callWenxinTextApi($prompt),
+                    self::PROVIDER_XINGHUO => $this->callXinghuoTextApi($prompt),
+                    self::PROVIDER_MINIMAX => $this->callMiniMaxTextApi($prompt),
+                    default => throw new Exception("不支持的AI提供商: {$provider}")
+                };
+            });
 
             Log::info('AI文案生成成功', [
                 'provider' => $provider,
@@ -308,58 +310,35 @@ class AiContentService
     {
         $startTime = microtime(true);
 
-        // 获取access_token（应该缓存）
-        $accessToken = $this->getWenxinAccessToken();
+        $wenxinService = new WenxinService(self::PROVIDER_WENXIN);
+        $result = $wenxinService->generateText([
+            'scene' => '',
+            'style' => '',
+            'platform' => 'ALL',
+            '_direct_prompt' => $prompt,
+        ]);
 
-        $apiUrl = $this->config['wenxin']['api_url'] . '?access_token=' . $accessToken;
-
-        $requestData = [
-            'messages' => [
-                [
-                    'role' => 'user',
-                    'content' => $prompt
-                ]
-            ],
-            'temperature' => 0.8,
-            'top_p' => 0.9,
-            'penalty_score' => 1.0
-        ];
-
-        // 这里应该实际调用API，目前返回模拟数据
-        // $response = $this->httpPost($apiUrl, $requestData, self::TIMEOUT_TEXT);
-
-        // 模拟响应数据（实际开发中需要真实API调用）
         $generationTime = microtime(true) - $startTime;
 
         return [
-            'text' => "这是一段AI生成的营销文案示例。\n\n✨ 特色亮点\n💫 温馨氛围\n🎯 超值体验\n\n#探店推荐 #必打卡",
-            'title' => '探店推荐',
-            'tags' => ['探店推荐', '必打卡'],
-            'generation_time' => round($generationTime, 2)
+            'text' => $result['text'],
+            'title' => '',
+            'tags' => [],
+            'generation_time' => $generationTime,
         ];
     }
 
     /**
      * 调用讯飞星火文案生成API
+     * 当前未配置讯飞星火，回退到文心一言
      *
      * @param string $prompt 提示词
      * @return array
      */
     protected function callXinghuoTextApi(string $prompt): array
     {
-        $startTime = microtime(true);
-
-        // 讯飞星火API调用逻辑
-        // 实际开发中需要实现WebSocket连接和鉴权
-
-        $generationTime = microtime(true) - $startTime;
-
-        return [
-            'text' => "这是讯飞星火生成的营销文案。",
-            'title' => '营销推广',
-            'tags' => [],
-            'generation_time' => round($generationTime, 2)
-        ];
+        Log::info('讯飞星火未配置，回退到文心一言');
+        return $this->callWenxinTextApi($prompt);
     }
 
     /**
@@ -372,85 +351,22 @@ class AiContentService
     {
         $startTime = microtime(true);
 
-        $config = $this->config['minimax'];
+        $wenxinService = new WenxinService(self::PROVIDER_MINIMAX);
+        $result = $wenxinService->generateText([
+            'scene' => '',
+            'style' => '',
+            'platform' => 'ALL',
+            '_direct_prompt' => $prompt,
+        ]);
 
-        if (empty($config['auth_token'])) {
-            throw new \RuntimeException('MiniMax API密钥未配置，请检查 ANTHROPIC_AUTH_TOKEN 配置');
-        }
+        $generationTime = microtime(true) - $startTime;
 
-        $apiUrl = rtrim($config['base_url'], '/') . '/v1/messages';
-
-        $requestData = [
-            'model' => $config['model'],
-            'messages' => [
-                [
-                    'role' => 'user',
-                    'content' => $prompt
-                ]
-            ],
-            'temperature' => 0.8,
-            'max_tokens' => 1000,
+        return [
+            'text' => $result['text'],
+            'title' => '',
+            'tags' => [],
+            'generation_time' => $generationTime,
         ];
-
-        try {
-            $ch = curl_init();
-
-            curl_setopt_array($ch, [
-                CURLOPT_URL => $apiUrl,
-                CURLOPT_RETURNTRANSFER => true,
-                CURLOPT_POST => true,
-                CURLOPT_POSTFIELDS => json_encode($requestData),
-                CURLOPT_TIMEOUT => self::TIMEOUT_TEXT,
-                CURLOPT_HTTPHEADER => [
-                    'Content-Type: application/json',
-                    'Authorization: Bearer ' . $config['auth_token'],
-                    'anthropic-version: 2023-06-01',
-                ],
-            ]);
-
-            $response = curl_exec($ch);
-            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-            $error = curl_error($ch);
-            curl_close($ch);
-
-            if ($error) {
-                throw new \RuntimeException('MiniMax API请求失败: ' . $error);
-            }
-
-            if ($httpCode !== 200) {
-                $errorData = json_decode($response, true);
-                $errorMsg = $errorData['error']['message'] ?? '未知错误';
-                throw new \RuntimeException('MiniMax API返回错误: ' . $errorMsg . ' (HTTP ' . $httpCode . ')');
-            }
-
-            $result = json_decode($response, true);
-
-            // MiniMax 返回的 content 数组可能包含 thinking 和 text 两种类型
-            // 需要提取 text 类型的内容
-            $text = '';
-            foreach ($result['content'] as $item) {
-                if (isset($item['type']) && $item['type'] === 'text') {
-                    $text = $item['text'] ?? '';
-                    break;
-                }
-            }
-
-            if (empty($text)) {
-                throw new \RuntimeException('MiniMax API 返回内容为空或格式错误');
-            }
-
-            $generationTime = microtime(true) - $startTime;
-
-            return [
-                'text' => $text,
-                'title' => '',
-                'tags' => [],
-                'generation_time' => round($generationTime, 2)
-            ];
-
-        } catch (\Exception $e) {
-            throw new \RuntimeException('调用MiniMax API失败: ' . $e->getMessage());
-        }
     }
 
     /**
@@ -461,22 +377,8 @@ class AiContentService
      */
     protected function callJianyingVideoApi(array $params): array
     {
-        $startTime = microtime(true);
-
-        // 剪映API调用逻辑
-        // 实际开发中需要实现真实的API调用
-
         Log::info('调用剪映API生成视频', $params);
-
-        $generationTime = microtime(true) - $startTime;
-
-        return [
-            'video_url' => 'https://example.com/video/demo.mp4',
-            'duration' => $params['duration'] ?? 15,
-            'file_size' => 2048000,
-            'cover_url' => 'https://example.com/video/cover.jpg',
-            'generation_time' => round($generationTime, 2)
-        ];
+        throw new Exception('视频生成功能暂未开放，请使用文本生成');
     }
 
     /**
@@ -487,22 +389,8 @@ class AiContentService
      */
     protected function callZhiyingVideoApi(array $params): array
     {
-        $startTime = microtime(true);
-
-        // 腾讯智影API调用逻辑
-        // 实际开发中需要实现真实的API调用
-
         Log::info('调用腾讯智影API生成视频', $params);
-
-        $generationTime = microtime(true) - $startTime;
-
-        return [
-            'video_url' => 'https://example.com/video/demo.mp4',
-            'duration' => $params['duration'] ?? 15,
-            'file_size' => 2048000,
-            'cover_url' => 'https://example.com/video/cover.jpg',
-            'generation_time' => round($generationTime, 2)
-        ];
+        throw new Exception('视频生成功能暂未开放，请使用文本生成');
     }
 
     /**
@@ -564,63 +452,13 @@ class AiContentService
 
     /**
      * 获取百度文心一言AccessToken
+     * 委托给 WenxinService 处理
      *
      * @return string
      */
     protected function getWenxinAccessToken(): string
     {
-        $cacheKey = 'wenxin_access_token';
-
-        // 尝试从缓存获取
-        $token = Cache::get($cacheKey);
-        if ($token) {
-            return $token;
-        }
-
-        // 获取新token
-        $apiKey = $this->config['wenxin']['api_key'];
-        $secretKey = $this->config['wenxin']['secret_key'];
-
-        $url = "https://aip.baidubce.com/oauth/2.0/token?grant_type=client_credentials&client_id={$apiKey}&client_secret={$secretKey}";
-
-        // 实际调用
-        // $response = $this->httpGet($url);
-        // $token = $response['access_token'];
-
-        // 模拟token
-        $token = 'mock_access_token_' . time();
-
-        // 缓存token（有效期30天）
-        Cache::set($cacheKey, $token, 30 * 86400);
-
-        return $token;
-    }
-
-    /**
-     * HTTP GET请求
-     *
-     * @param string $url 请求URL
-     * @param int $timeout 超时时间
-     * @return array
-     */
-    protected function httpGet(string $url, int $timeout = 10): array
-    {
-        // 实际HTTP请求实现
-        return [];
-    }
-
-    /**
-     * HTTP POST请求
-     *
-     * @param string $url 请求URL
-     * @param array $data 请求数据
-     * @param int $timeout 超时时间
-     * @return array
-     */
-    protected function httpPost(string $url, array $data, int $timeout = 30): array
-    {
-        // 实际HTTP请求实现
-        return [];
+        throw new Exception('请使用 WenxinService 获取 AccessToken');
     }
 
     /**
@@ -650,7 +488,7 @@ class AiContentService
 
                 // 指数退避
                 if ($attempt < $maxRetries) {
-                    usleep(pow(2, $attempt) * 100000); // 0.2s, 0.4s, 0.8s...
+                    usleep(pow(2, $attempt) * 1000000); // 1s, 2s, 4s...
                 }
             }
         }

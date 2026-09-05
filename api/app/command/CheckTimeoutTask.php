@@ -7,6 +7,7 @@ use think\console\Command;
 use think\console\Input;
 use think\console\Output;
 use app\model\ContentTask;
+use app\service\ContentService;
 use think\facade\Log;
 
 /**
@@ -38,7 +39,7 @@ class CheckTimeoutTask extends Command
 
         try {
             // 查找所有处理中的任务
-            $processingTasks = ContentTask::where('status', 'processing')
+            $processingTasks = ContentTask::where('status', ContentTask::STATUS_PROCESSING)
                 ->select();
 
             $timeoutCount = 0;
@@ -52,7 +53,7 @@ class CheckTimeoutTask extends Command
                 // 超时检查
                 if ($processingTime > self::TIMEOUT_SECONDS) {
                     // 标记为失败
-                    $task->status = 'failed';
+                    $task->status = ContentTask::STATUS_FAILED;
                     $task->error_message = sprintf(
                         '任务处理超时（%d秒），已自动标记为失败',
                         $processingTime
@@ -69,8 +70,23 @@ class CheckTimeoutTask extends Command
                         'timeout_limit' => self::TIMEOUT_SECONDS
                     ]);
 
-                    // TODO: 发送通知给用户
-                    // event('ContentTaskTimeout', [$task]);
+                    // 通知用户任务超时
+                    try {
+                        $contentService = new ContentService();
+                        $contentService->notifyUserFailure(
+                            $task,
+                            '内容生成超时',
+                            sprintf('您的%s生成任务已超时（%d秒），已自动标记为失败，请重新尝试。',
+                                $task->type_text ?? '内容',
+                                $processingTime
+                            )
+                        );
+                    } catch (\Exception $notifyEx) {
+                        Log::error('超时通知发送失败', [
+                            'task_id' => $task->id,
+                            'error' => $notifyEx->getMessage()
+                        ]);
+                    }
                 }
             }
 

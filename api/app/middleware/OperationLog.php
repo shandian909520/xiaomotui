@@ -49,8 +49,10 @@ class OperationLog
         $userId = (int)($request->user_id ?? 0);
         $userInfo = $request->user_info ?? [];
         $username = $userInfo['username'] ?? $userInfo['nickname'] ?? $userInfo['name'] ?? '';
+        $isAdmin = ($userInfo['role'] ?? '') === 'admin';
 
-        if ($userId <= 0) {
+        // 管理员 user_id=0 也需要记录日志
+        if ($userId <= 0 && !$isAdmin) {
             return $response;
         }
 

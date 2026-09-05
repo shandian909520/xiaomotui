@@ -405,8 +405,9 @@ class AliyunOssDriver extends AbstractOssDriver
             $result = $this->client->listObjects($this->bucket, $options);
 
             $files = [];
-            if (isset($result->getObjectList())) {
-                foreach ($result->getObjectList() as $object) {
+            $objects = $result->getObjectList();
+            if (!empty($objects)) {
+                foreach ($objects as $object) {
                     $files[] = [
                         'key' => $object->getKey(),
                         'size' => $object->getSize(),

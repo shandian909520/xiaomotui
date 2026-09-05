@@ -141,11 +141,9 @@ const handleStatusChange = async (row, val) => {
   try {
     await ElMessageBox.confirm(`确定要${action}该用户吗？`, '提示', { type: 'warning' })
     row._statusLoading = true
-    const res = await systemApi.updateUserStatus(row.id, newStatus)
-    if (res.code === 200) {
-      row.status = newStatus
-      ElMessage.success(`用户已${action}`)
-    }
+    await systemApi.updateUserStatus(row.id, newStatus)
+    row.status = newStatus
+    ElMessage.success(`用户已${action}`)
   } catch (e) {
     if (e !== 'cancel') ElMessage.error('操作失败')
   } finally {
@@ -157,10 +155,9 @@ const fetchData = async () => {
   loading.value = true
   try {
     const res = await systemApi.getUsers(queryParams)
-    if (res.code === 200) {
-      tableData.value = (res.data?.list || []).map(item => ({ ...item, _statusLoading: false }))
-      total.value = res.data?.total || 0
-    }
+    const list = res?.list || res?.data || []
+    tableData.value = (Array.isArray(list) ? list : []).map(item => ({ ...item, _statusLoading: false }))
+    total.value = res?.total || res?.pagination?.total || 0
   } catch (e) {
     ElMessage.error('获取用户列表失败')
   } finally {

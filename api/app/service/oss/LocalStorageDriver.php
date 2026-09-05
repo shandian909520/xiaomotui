@@ -247,7 +247,7 @@ class LocalStorageDriver extends AbstractOssDriver
 
             return [
                 'size' => filesize($targetPath),
-                'type' => mime_content_type($targetPath),
+                'type' => xmt_mime_type($targetPath),
                 'last_modified' => date('Y-m-d H:i:s', filemtime($targetPath)),
                 'etag' => md5_file($targetPath),
                 'local_path' => $targetPath,

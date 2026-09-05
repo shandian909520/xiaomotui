@@ -139,8 +139,7 @@ export default {
         this.page++
       } catch (e) {
         console.error('加载通知失败:', e)
-        if (!loadMore && this.list.length === 0) {
-          this.list = this.getMockData()
+        if (!loadMore) {
           this.finished = true
         }
       } finally {
@@ -237,25 +236,6 @@ export default {
       return `${m}月${d}日`
     },
 
-    getMockData() {
-      const types = ['system', 'alert', 'content', 'activity']
-      const titles = ['系统升级通知', '设备离线告警', '内容审核通过', '新活动上线']
-      const contents = [
-        '系统将于今晚22:00进行升级维护',
-        '设备NFC-001已离线超过30分钟',
-        '您提交的内容已通过审核',
-        '参与新年营销活动赢取积分'
-      ]
-      return Array.from({ length: 8 }, (_, i) => ({
-        id: i + 1,
-        type: types[i % 4],
-        title: titles[i % 4],
-        content: contents[i % 4],
-        is_read: i > 2,
-        created_at: new Date(Date.now() - i * 3600000 * 3).toISOString(),
-        target_url: ''
-      }))
-    }
   }
 }
 </script>

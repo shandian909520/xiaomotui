@@ -135,10 +135,9 @@ const fetchData = async () => {
   loading.value = true
   try {
     const res = await systemApi.getOperationLogs(queryParams)
-    if (res.code === 200) {
-      tableData.value = res.data?.list || []
-      total.value = res.data?.total || 0
-    }
+    const list = res?.list || res?.data || []
+    tableData.value = Array.isArray(list) ? list : []
+    total.value = res?.total || res?.pagination?.total || 0
   } catch (e) {
     ElMessage.error('获取操作日志失败')
   } finally {

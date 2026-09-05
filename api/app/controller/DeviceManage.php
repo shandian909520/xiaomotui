@@ -181,6 +181,7 @@ class DeviceManage extends BaseController
                 'device_code|设备编码' => 'require|max:32',
                 'device_name|设备名称' => 'require|max:100',
                 'type|设备类型' => 'require|in:TABLE,WALL,COUNTER,ENTRANCE',
+                'device_type|设备形态' => 'in:PASSIVE,ACTIVE',
                 'trigger_mode|触发模式' => 'require|in:VIDEO,COUPON,WIFI,CONTACT,MENU,GROUP_BUY,PROMO',
                 'location|设备位置' => 'max:100',
                 'template_id|模板ID' => 'integer',
@@ -197,6 +198,11 @@ class DeviceManage extends BaseController
 
             // 添加商家ID
             $data['merchant_id'] = $merchantId;
+
+            // 默认设备形态：被动贴片（PASSIVE）—— 无心跳能力
+            if (!isset($data['device_type']) || $data['device_type'] === '') {
+                $data['device_type'] = NfcDevice::DEVICE_TYPE_PASSIVE;
+            }
 
             // 设置默认状态
             if (!isset($data['status'])) {
@@ -254,6 +260,9 @@ class DeviceManage extends BaseController
             }
             if (isset($data['type'])) {
                 $this->validate($data, ['type|设备类型' => 'in:TABLE,WALL,COUNTER,ENTRANCE']);
+            }
+            if (isset($data['device_type'])) {
+                $this->validate($data, ['device_type|设备形态' => 'in:PASSIVE,ACTIVE']);
             }
             if (isset($data['trigger_mode'])) {
                 $this->validate($data, ['trigger_mode|触发模式' => 'in:VIDEO,COUPON,WIFI,CONTACT,MENU,GROUP_BUY,PROMO']);

@@ -88,18 +88,22 @@ class Nfc extends BaseController
                 ], 404);
             }
 
-            // 3. 检查设备状态（PROMO模式跳过在线检查，NFC贴片是被动硬件不发心跳）
+            // 3. 检查设备状态
+            // 仅"主动设备（ACTIVE）"才检查在线心跳；"被动贴片（PASSIVE）"无心跳能力，直接放行
             $triggerMode = $device->trigger_mode;
-            if ($triggerMode !== \app\model\NfcDevice::TRIGGER_PROMO && !$device->isOnline()) {
-                Log::warning('NFC设备离线', [
+            if ($device->isActive() && !$device->isOnline()) {
+                Log::warning('NFC主动设备离线', [
                     'device_code' => $deviceCode,
                     'device_id' => $device->id,
-                    'status' => $device->status
+                    'device_type' => $device->device_type,
+                    'status' => $device->status,
+                    'last_heartbeat' => $device->last_heartbeat
                 ]);
 
                 return $this->platformError('NFC_DEVICE_OFFLINE', [
                     'device_code' => $deviceCode,
                     'device_name' => $device->device_name,
+                    'device_type' => $device->device_type,
                     'last_heartbeat' => $device->last_heartbeat
                 ], 503);
             }
@@ -113,11 +117,18 @@ class Nfc extends BaseController
                 $userOpenid = 'anonymous_' . md5($this->request->ip() . date('Y-m-d'));
             }
 
-            // 5. 更新设备心跳（PROMO模式也更新，用于统计活跃度）
+            // 5. 记录触发时间 / 更新心跳（PASSIVE 仅记录，ACTIVE 会改 status）
             $device->updateHeartbeat();
 
-            // 6. 根据触发模式处理请求
-            $response = $this->handleTriggerMode($device, $triggerMode, $userId, $userOpenid, $userLocation, $extraData);
+            // 6. 双轨分发：任务引擎轨 —— 设备/商家命中启用的 TaskBundle 则走新引擎
+            $taskBundleHit = \app\model\TaskBundle::findActiveForDevice($device->id, (int)$device->merchant_id);
+            if ($taskBundleHit) {
+                $taskEngine = new \app\service\TaskEngineService();
+                $response = $taskEngine->handleNfcTrigger($taskBundleHit, $device, $userId, $userOpenid, (array)$userLocation);
+            } else {
+                // 原轨：按触发模式处理请求
+                $response = $this->handleTriggerMode($device, $triggerMode, $userId, $userOpenid, $userLocation, $extraData);
+            }
 
             // 7. 计算响应时间
             $responseTime = (int)((microtime(true) - $startTime) * 1000);
@@ -139,6 +150,13 @@ class Nfc extends BaseController
 
             // 9. 添加trigger_id到响应
             $response['trigger_id'] = $trigger->id;
+
+            // 9.1 任务引擎轨：将 bundle_id/task_instance_id 写入触发记录（便于归因统计）
+            if (!empty($taskBundleHit)) {
+                $trigger->bundle_id = (int)$taskBundleHit->id;
+                $trigger->task_instance_id = (int)($response['task_instance_id'] ?? 0) ?: null;
+                $trigger->save();
+            }
 
             // 10. 记录成功日志
             Log::info('NFC设备触发成功', [
@@ -653,8 +671,7 @@ class Nfc extends BaseController
     {
         try {
             // 获取商家ID（从JWT中间件解析）
-            $merchantId = $this->request->merchant_id ?? null;
-
+            $merchantId = $this->resolveMerchantId();
             if (!$merchantId) {
                 return $this->error('缺少商家认证信息', 401, 'merchant_auth_required');
             }
@@ -779,8 +796,7 @@ class Nfc extends BaseController
     {
         try {
             // 获取商家ID（从JWT中间件解析）
-            $merchantId = $this->request->merchant_id ?? null;
-
+            $merchantId = $this->resolveMerchantId();
             if (!$merchantId) {
                 return $this->error('缺少商家认证信息', 401, 'merchant_auth_required');
             }
@@ -855,8 +871,7 @@ class Nfc extends BaseController
             $data = $this->request->post();
 
             // 获取商家ID（从JWT中间件解析）
-            $merchantId = $this->request->merchant_id ?? null;
-
+            $merchantId = $this->resolveMerchantId();
             if (!$merchantId) {
                 return $this->error('缺少商家认证信息', 401, 'merchant_auth_required');
             }
@@ -954,8 +969,7 @@ class Nfc extends BaseController
             $deviceId = (int)$this->request->param('device_id', 0);
 
             // 获取商家ID（从JWT中间件解析）
-            $merchantId = $this->request->merchant_id ?? null;
-
+            $merchantId = $this->resolveMerchantId();
             if (!$merchantId) {
                 return $this->error('缺少商家认证信息', 401, 'merchant_auth_required');
             }
@@ -1017,8 +1031,7 @@ class Nfc extends BaseController
     {
         try {
             // 获取商家ID（从JWT中间件解析）
-            $merchantId = $this->request->merchant_id ?? null;
-
+            $merchantId = $this->resolveMerchantId();
             if (!$merchantId) {
                 return $this->error('缺少商家认证信息', 401, 'merchant_auth_required');
             }
@@ -1053,6 +1066,157 @@ class Nfc extends BaseController
     }
 
     /**
+     * ========== 模块1:聚合页接口 ==========
+     *
+     * GET /api/nfc/aggregation-page?device_code=xxx
+     *
+     * 一次返回 Wi-Fi/发布任务/团购/点评/私域/活动全部区块配置
+     * 数据来源: SceneConfig + 各 Service(WifiService/ContactService/GroupBuyService 等)
+     */
+    public function getAggregationPage($deviceCode = null)
+    {
+        $startTime = microtime(true);
+        try {
+            $deviceCode = $deviceCode ?: (string)$this->request->param('device_code', '');
+            if ($deviceCode === '') {
+                return $this->validationError(['device_code' => '设备编码不能为空']);
+            }
+
+            $device = \app\model\NfcDevice::findByCode($deviceCode);
+            if (!$device) {
+                return $this->platformError('NFC_DEVICE_NOT_FOUND', ['device_code' => $deviceCode], 404);
+            }
+
+            $service = new \app\service\AggregationPageService();
+            $payload = $service->getByDeviceCode($deviceCode);
+
+            $latency = (int)((microtime(true) - $startTime) * 1000);
+            Log::info('聚合页接口返回', [
+                'device_id' => $device->id,
+                'device_code' => $deviceCode,
+                'latency_ms' => $latency,
+            ]);
+
+            return $this->success($payload, '获取聚合页成功');
+        } catch (\think\exception\ValidateException $e) {
+            return $this->validationError(['aggregation' => $e->getMessage()]);
+        } catch (\Exception $e) {
+            Log::error('获取聚合页失败', [
+                'device_code' => $deviceCode,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+            return $this->error($e->getMessage(), 400, 'get_aggregation_page_failed');
+        }
+    }
+
+    /**
+     * ========== 模块5:团购商品列表(顾客端) ==========
+     *
+     * GET /api/nfc/group-buy-items?device_code=xxx
+     */
+    public function getGroupBuyItems($deviceCode = null)
+    {
+        try {
+            $deviceCode = $deviceCode ?: (string)$this->request->param('device_code', '');
+            if ($deviceCode === '') {
+                return $this->validationError(['device_code' => '设备编码不能为空']);
+            }
+            $device = \app\model\NfcDevice::findByCode($deviceCode);
+            if (!$device) {
+                return $this->platformError('NFC_DEVICE_NOT_FOUND', ['device_code' => $deviceCode], 404);
+            }
+            $service = new \app\service\GroupBuyService();
+            $items = method_exists($service, 'getItemsByDevice')
+                ? $service->getItemsByDevice((int)$device->id)
+                : [];
+
+            return $this->success([
+                'device_id' => (int)$device->id,
+                'list'      => $items,
+                'total'     => count($items),
+            ], '获取团购商品成功');
+        } catch (\Exception $e) {
+            Log::error('获取团购商品失败', [
+                'device_code' => $deviceCode,
+                'error' => $e->getMessage(),
+            ]);
+            return $this->error($e->getMessage(), 400, 'get_group_buy_items_failed');
+        }
+    }
+
+    /**
+     * ========== H5 聚合页「换一批」文案(顾客端) ==========
+     *
+     * GET /api/publish/copywriting?device_id=xxx&rotate_token=xxx
+     * 转发到 CopywritingPool@rotate(H5 页面历史调用路径,保持兼容)
+     */
+    public function getPublishCopywriting()
+    {
+        try {
+            $deviceId    = (int)$this->request->param('device_id', 0);
+            $rotateToken = (string)$this->request->param('rotate_token', '');
+            if ($deviceId <= 0) {
+                return $this->validationError(['device_id' => '设备ID不能为空']);
+            }
+            $device = \app\model\NfcDevice::find($deviceId);
+            if (!$device) {
+                return $this->platformError('NFC_DEVICE_NOT_FOUND', ['device_id' => $deviceId], 404);
+            }
+            $service = new \app\service\CopywritingPoolService();
+            $data = $service->rotateCopywriting($deviceId, $rotateToken);
+            $data['scene'] = \app\model\CopywritingPool::SCENE_PUBLISH;
+            return $this->success($data, '获取文案成功');
+        } catch (\think\exception\ValidateException $e) {
+            return $this->validationError(['copywriting' => $e->getMessage()]);
+        } catch (\Exception $e) {
+            Log::error('获取发布文案失败', ['error' => $e->getMessage()]);
+            return $this->error($e->getMessage(), 400, 'get_publish_copywriting_failed');
+        }
+    }
+
+    /**
+     * ========== H5 聚合页「Wi-Fi 一键连」iOS 描述文件(顾客端) ==========
+     *
+     * GET /api/wifi/mobileconfig?device_code=xxx
+     * 生成 iOS .mobileconfig 并 302 到文件下载地址
+     */
+    public function getWifiMobileconfig()
+    {
+        try {
+            $deviceCode = (string)$this->request->param('device_code', '');
+            if ($deviceCode === '') {
+                return $this->validationError(['device_code' => '设备编码不能为空']);
+            }
+            $device = \app\model\NfcDevice::findByCode($deviceCode);
+            if (!$device) {
+                return $this->platformError('NFC_DEVICE_NOT_FOUND', ['device_code' => $deviceCode], 404);
+            }
+            if (empty($device->wifi_ssid)) {
+                return $this->error('设备未配置 Wi-Fi', 400, 'wifi_not_configured');
+            }
+
+            $wifiService = new \app\service\WifiService();
+            $config = $wifiService->generateWifiConfig($device, 'ios');
+
+            $url = (string)($config['download_url'] ?? $config['config_url'] ?? '');
+            if ($url === '') {
+                return $this->error('Wi-Fi 配置生成失败', 500, 'wifi_config_generate_failed');
+            }
+            // 302 跳转到静态文件,让 iOS 直接弹出描述文件安装
+            return redirect($url);
+        } catch (\think\exception\ValidateException $e) {
+            return $this->validationError(['wifi' => $e->getMessage()]);
+        } catch (\Exception $e) {
+            Log::error('生成 Wi-Fi mobileconfig 失败', [
+                'device_code' => $deviceCode ?? '',
+                'error' => $e->getMessage(),
+            ]);
+            return $this->error($e->getMessage(), 400, 'get_wifi_mobileconfig_failed');
+        }
+    }
+
+    /**
      * 频率限制检查（三级限流）
      * 防止恶意刷量和DDoS攻击
      *
@@ -1065,10 +1229,9 @@ class Nfc extends BaseController
         $deviceCode = $this->request->post('device_code', '');
 
         // 1. IP级限流（最严格）- 防止匿名攻击
-        $ipKey = 'nfc_rate:ip:' . $ip;
-        $ipCount = \think\facade\Cache::get($ipKey, 0);
+        $ipCount = $this->rateHit('ip:' . $ip, 60);
 
-        if ($ipCount >= 10) {  // 每分钟最多10次
+        if ($ipCount > 10) {
             Log::warning('NFC触发IP频率超限', [
                 'ip' => $ip,
                 'count' => $ipCount
@@ -1076,39 +1239,99 @@ class Nfc extends BaseController
             throw new \Exception('触发过于频繁，请稍后再试（每分钟最多10次）');
         }
 
-        \think\facade\Cache::set($ipKey, $ipCount + 1, 60);  // 1分钟过期
-
         // 2. 用户级限流（已登录用户）
         if ($userId) {
-            $userKey = 'nfc_rate:user:' . $userId;
-            $userCount = \think\facade\Cache::get($userKey, 0);
+            $userCount = $this->rateHit('user:' . $userId, 60);
 
-            if ($userCount >= 30) {  // 每分钟最多30次
+            if ($userCount > 30) {
                 Log::warning('NFC触发用户频率超限', [
                     'user_id' => $userId,
                     'count' => $userCount
                 ]);
                 throw new \Exception('触发过于频繁，请稍后再试（每分钟最多30次）');
             }
-
-            \think\facade\Cache::set($userKey, $userCount + 1, 60);
         }
 
         // 3. 设备级限流（防止单个设备被刷）
         if ($deviceCode) {
-            $deviceKey = 'nfc_rate:device:' . $deviceCode;
-            $deviceCount = \think\facade\Cache::get($deviceKey, 0);
+            $deviceCount = $this->rateHit('device:' . $deviceCode, 60);
 
-            if ($deviceCount >= 100) {  // 每分钟最多100次
+            if ($deviceCount > 100) {
                 Log::warning('NFC触发设备频率超限', [
                     'device_code' => $deviceCode,
                     'count' => $deviceCount
                 ]);
                 throw new \Exception('设备触发过于频繁，请稍后再试');
             }
-
-            \think\facade\Cache::set($deviceKey, $deviceCount + 1, 60);
         }
+    }
+
+    /**
+     * 限流计数（固定窗口）
+     * 优先原生 Redis set(nx+ex)+incr；file driver 走文件计数器（规避 Cache::inc/expire 在部分环境崩溃）
+     */
+    protected function rateHit(string $key, int $window): int
+    {
+        try {
+            $handler = \think\facade\Cache::store()->handler();
+            if ($handler instanceof \Redis) {
+                $full = 'xmt_rl:' . $key;
+                $handler->set($full, 0, ['nx', 'ex' => $window]);
+                return (int)$handler->incr($full);
+            }
+        } catch (\Throwable $e) {
+            // Redis 不可用，落到文件计数器
+        }
+        return $this->fileRateHit($key, $window);
+    }
+
+    /**
+     * 文件计数器（flock + 计数文件 + 过期文件），与 ApiThrottle::fileRateHit 同款实现
+     */
+    protected function fileRateHit(string $key, int $ttlSeconds): int
+    {
+        $dir = runtime_path() . 'ratelimit';
+        if (!is_dir($dir)) {
+            @mkdir($dir, 0755, true);
+        }
+        $file = $dir . '/' . md5($key) . '.cnt';
+        $expireFile = $dir . '/' . md5($key) . '.exp';
+        $now = time();
+        $expireAt = (int)@file_get_contents($expireFile);
+        if ($expireAt === 0 || $expireAt < $now) {
+            @file_put_contents($file, '0');
+            @file_put_contents($expireFile, (string)($now + $ttlSeconds));
+        }
+        $fp = @fopen($file, 'r+');
+        if (!$fp) {
+            return 0;
+        }
+        flock($fp, LOCK_EX);
+        $count = (int)stream_get_contents($fp);
+        $count++;
+        ftruncate($fp, 0);
+        rewind($fp);
+        fwrite($fp, (string)$count);
+        fflush($fp);
+        flock($fp, LOCK_UN);
+        fclose($fp);
+        return $count;
+    }
+
+    /**
+     * 解析商家ID，admin用户回退到默认商家
+     */
+    protected function resolveMerchantId(): ?int
+    {
+        $merchantId = $this->request->merchant_id ?? null;
+        if (!$merchantId) {
+            $userRole = $this->request->user_role ?? '';
+            $userId   = $this->request->user_id ?? null;
+            if ($userRole === 'admin' || $userId === 0) {
+                $merchantId = (int)env('admin.default_merchant_id', 1);
+            }
+        }
+        return $merchantId;
     }
 
     /**

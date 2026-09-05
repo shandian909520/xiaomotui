@@ -104,3 +104,46 @@ export function batchDisableDevice(ids) {
     data: { ids }
   })
 }
+
+// 获取告警列表
+export function getAlerts(params) {
+  return request({
+    url: '/merchant/device/alerts',
+    method: 'get',
+    params
+  })
+}
+
+// 解决告警
+export function resolveAlert(id) {
+  return request({
+    url: `/merchant/device/alerts/${id}/resolve`,
+    method: 'put'
+  })
+}
+
+// 忽略告警
+export function ignoreAlert(id) {
+  return request({
+    url: `/merchant/device/alerts/${id}/ignore`,
+    method: 'put'
+  })
+}
+
+// 批量解决告警
+export function batchResolveAlerts(ids) {
+  return request({
+    url: '/merchant/device/alerts/batch/resolve',
+    method: 'post',
+    data: { ids }
+  })
+}
+
+// 批量忽略告警
+export function batchIgnoreAlerts(ids) {
+  return request({
+    url: '/merchant/device/alerts/batch/ignore',
+    method: 'post',
+    data: { ids }
+  })
+}

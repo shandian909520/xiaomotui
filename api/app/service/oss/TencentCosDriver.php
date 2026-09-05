@@ -127,7 +127,7 @@ class TencentCosDriver extends AbstractOssDriver
             if (!empty($options['content_type'])) {
                 $params['ContentType'] = $options['content_type'];
             } else {
-                $params['ContentType'] = mime_content_type($localFilePath);
+                $params['ContentType'] = xmt_mime_type($localFilePath);
             }
 
             // 执行上传

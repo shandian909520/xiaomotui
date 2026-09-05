@@ -948,6 +948,21 @@ class DouyinService
     }
 
     /**
+     * 为发布流程预先缓存访问令牌（供PublishService调用）
+     *
+     * @param string $openId 用户openId
+     * @param string $accessToken 访问令牌
+     * @return void
+     */
+    public function cacheAccessTokenForPublish(string $openId, string $accessToken, int $expiresIn = 7200): void
+    {
+        $cacheKey = $this->config['token_cache']['access_token_prefix'] . $openId;
+        $expireMargin = $this->config['token_cache']['expire_margin'] ?? 300;
+
+        Cache::set($cacheKey, $accessToken, max(60, $expiresIn - $expireMargin));
+    }
+
+    /**
      * 缓存访问令牌
      *
      * @param string $openId 用户openId

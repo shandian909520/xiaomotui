@@ -227,13 +227,40 @@ class MerchantNotificationService
     public function notifyAdminNewAppeal(int $appealId, int $merchantId): void
     {
         try {
-            // 这里可以通过企业微信、钉钉等方式通知管理员
+            $appeal = Db::name('violation_appeals')->where('id', $appealId)->find();
+            $merchant = Db::name('merchants')->where('id', $merchantId)->find();
+
+            $adminMessage = sprintf(
+                '新申诉待处理：商家%s（ID:%d）提交了申诉#%d，请及时处理。',
+                $merchant['name'] ?? '未知',
+                $merchantId,
+                $appealId
+            );
+
+            // 批量插入站内消息通知所有管理员
+            $admins = Db::name('admins')->where('status', 1)->select()->toArray();
+            $notifications = array_map(function ($admin) use ($appealId, $adminMessage) {
+                return [
+                    'admin_id' => $admin['id'],
+                    'type' => 'appeal',
+                    'title' => '新申诉待处理',
+                    'content' => $adminMessage,
+                    'related_id' => $appealId,
+                    'related_type' => 'appeal',
+                    'is_read' => 0,
+                    'create_time' => date('Y-m-d H:i:s')
+                ];
+            }, $admins);
+
+            if (!empty($notifications)) {
+                Db::name('admin_notifications')->insertAll($notifications);
+            }
+
             Log::info('新申诉待处理', [
                 'appeal_id' => $appealId,
-                'merchant_id' => $merchantId
+                'merchant_id' => $merchantId,
+                'notified_admins' => count($admins)
             ]);
-
-            // TODO: 实现管理员通知逻辑
         } catch (\Exception $e) {
             Log::error('通知管理员失败', [
                 'appeal_id' => $appealId,
@@ -410,16 +437,25 @@ class MerchantNotificationService
                 return ['success' => false, 'message' => '商家未设置手机号'];
             }
 
-            // TODO: 调用短信发送服务
-            // 可以集成阿里云短信、腾讯云短信等
+            $smsService = new SmsService();
+            $smsService->sendNotify($merchant['mobile'], [
+                'template_type' => 'merchant_notification',
+                'title' => $notification['title'],
+                'content' => mb_substr(strip_tags($notification['content']), 0, 100),
+                'notification_type' => $notification['type'],
+            ]);
 
-            Log::info('短信通知模拟发送', [
+            Log::info('短信通知已发送', [
                 'to' => $merchant['mobile'],
-                'content' => $notification['content']
+                'notification_id' => $notification['id']
             ]);
 
             return ['success' => true, 'message' => '短信已发送'];
         } catch (\Exception $e) {
+            Log::error('短信通知发送失败', [
+                'notification_id' => $notification['id'],
+                'error' => $e->getMessage()
+            ]);
             return ['success' => false, 'message' => $e->getMessage()];
         }
     }

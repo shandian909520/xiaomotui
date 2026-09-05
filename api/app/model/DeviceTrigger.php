@@ -35,6 +35,8 @@ class DeviceTrigger extends Model
         'user_id'        => 'int',
         'user_openid'    => 'string',
         'trigger_mode'   => 'string',
+        'bundle_id'      => 'int',
+        'task_instance_id' => 'int',
         'response_type'  => 'string',
         'response_data'  => 'json',
         'response_time'  => 'int',
@@ -55,6 +57,8 @@ class DeviceTrigger extends Model
         'id'           => 'integer',
         'device_id'    => 'integer',
         'merchant_id'  => 'integer',
+        'bundle_id'    => 'integer',
+        'task_instance_id' => 'integer',
         'user_id'      => 'integer',
         'response_data'=> 'array',
         'response_time'=> 'integer',
@@ -67,6 +71,7 @@ class DeviceTrigger extends Model
     // 允许批量赋值的字段
     protected $field = [
         'device_id', 'device_code', 'merchant_id', 'user_id', 'user_openid', 'trigger_mode',
+        'bundle_id', 'task_instance_id',
         'response_type', 'response_data', 'response_time', 'client_ip',
         'user_agent', 'success', 'error_message', 'trigger_time'
     ];

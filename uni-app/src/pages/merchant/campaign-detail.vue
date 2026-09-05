@@ -186,6 +186,33 @@
         </view>
       </view>
     </view>
+
+    <!-- 所有变体列表弹窗 -->
+    <view class="confirm-modal" v-if="showAllVariants" @tap="showAllVariants = false">
+      <view class="variants-modal-content" @tap.stop>
+        <view class="modal-title-row">
+          <text class="modal-title">全部视频变体 ({{ variants.length }})</text>
+          <text class="variants-close" @tap="showAllVariants = false">x</text>
+        </view>
+        <scroll-view class="variants-modal-list" scroll-y>
+          <view
+            v-for="(item, index) in variants"
+            :key="item.id"
+            class="variants-modal-item"
+            @tap="previewVariant(item)"
+          >
+            <view class="variants-modal-cover">
+              <text class="variant-play-icon">&#9654;</text>
+            </view>
+            <view class="variants-modal-info">
+              <text class="variants-modal-name">{{ item.name || '变体 ' + (index + 1) }}</text>
+              <text class="variants-modal-duration" v-if="item.duration">{{ item.duration }}秒</text>
+            </view>
+            <text class="variants-modal-arrow">></text>
+          </view>
+        </scroll-view>
+      </view>
+    </view>
   </view>
 </template>
 
@@ -235,6 +262,9 @@ export default {
     const confirmTitle = ref('')
     const confirmDesc = ref('')
     const confirmCallback = ref(null)
+
+    // 所有变体弹窗
+    const showAllVariants = ref(false)
 
     /**
      * 加载活动详情
@@ -389,14 +419,26 @@ export default {
      * 查看所有变体
      */
     const viewAllVariants = () => {
-      uni.showToast({ title: '查看所有变体功能开发中', icon: 'none' })
+      if (variants.value.length === 0) {
+        uni.showToast({ title: '暂无变体数据', icon: 'none' })
+        return
+      }
+      showAllVariants.value = true
     }
 
     /**
      * 预览变体
      */
     const previewVariant = (item) => {
-      uni.showToast({ title: `预览变体 ${item.id}`, icon: 'none' })
+      showAllVariants.value = false
+      if (item.url) {
+        uni.previewMedia({
+          sources: [{ url: item.url, type: 'video' }],
+          current: 0
+        })
+      } else {
+        uni.showToast({ title: '该变体暂无视频', icon: 'none' })
+      }
     }
 
     /**
@@ -508,6 +550,7 @@ export default {
       showConfirmModal,
       confirmTitle,
       confirmDesc,
+      showAllVariants,
       getStatusText,
       formatTimeRange,
       getPlatformIcon,
@@ -1022,5 +1065,83 @@ export default {
     background: #ef4444;
     color: #ffffff;
   }
+}
+
+/* 变体列表弹窗 */
+.variants-modal-content {
+  width: 640rpx;
+  max-height: 70vh;
+  background: #ffffff;
+  border-radius: 16rpx;
+  padding: 30rpx;
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20rpx;
+}
+
+.variants-close {
+  font-size: 20px;
+  color: #9ca3af;
+  padding: 8rpx;
+}
+
+.variants-modal-list {
+  max-height: 55vh;
+}
+
+.variants-modal-item {
+  display: flex;
+  align-items: center;
+  padding: 20rpx;
+  background: #f8fafc;
+  border-radius: 12rpx;
+  margin-bottom: 16rpx;
+}
+
+.variants-modal-cover {
+  width: 100rpx;
+  height: 100rpx;
+  background: linear-gradient(135deg, #1f2937 0%, #374151 100%);
+  border-radius: 8rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-right: 20rpx;
+}
+
+.variant-play-icon {
+  font-size: 32rpx;
+  color: #ffffff;
+}
+
+.variants-modal-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.variants-modal-name {
+  font-size: 15px;
+  font-weight: 500;
+  color: #1f2937;
+  margin-bottom: 6rpx;
+}
+
+.variants-modal-duration {
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+.variants-modal-arrow {
+  font-size: 16px;
+  color: #d1d5db;
+  flex-shrink: 0;
 }
 </style>

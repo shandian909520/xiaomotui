@@ -59,12 +59,6 @@ class ApiThrottle
         }
 
         // 跳过短信接口的限流
-        $path = $request->path();
-        if (str_starts_with($path, 'api/common/sms')) {
-            return $next($request);
-        }
-
-        // 跳过短信接口的限流
         $url = $request->url();
         if (str_contains($url, '/api/common/sms')) {
             return $next($request);
@@ -152,7 +146,7 @@ class ApiThrottle
         }
 
         // 根据路由自动匹配
-        $route = $request->rule()->getName();
+        $route = $request->rule() ? $request->rule()->getName() : '';
         $url = $request->url();
 
         // 检查路由映射
@@ -178,14 +172,8 @@ class ApiThrottle
      */
     protected function getThrottleKey(Request $request): string
     {
-        // 跳过短信接口的限流
-        $path = $request->path();
-        if (str_starts_with($path, 'api/common/sms')) {
-            return $next($request);
-        }
-
         $ip = $request->ip();
-        $route = $request->rule()->getName();
+        $route = $request->rule() ? $request->rule()->getName() : $request->pathinfo();
         $method = $request->method();
 
         // 使用IP + 路由 + 方法作为限流键
@@ -206,6 +194,7 @@ class ApiThrottle
 
     /**
      * 增加请求次数
+     * 复用 Nfc::rateHit() 的策略：Redis 优先；file 驱动走文件计数器（避免 Cache::expire 不生效问题）
      *
      * @param string $key
      * @param int $minutes
@@ -213,13 +202,53 @@ class ApiThrottle
      */
     protected function incrementAttempts(string $key, int $minutes): void
     {
-        // 使用Redis的原子操作
-        $attempts = Cache::inc($key);
-
-        // 首次设置过期时间
-        if ($attempts === 1) {
-            Cache::expire($key, $minutes * 60);
+        try {
+            $store = Cache::store();
+            $handler = method_exists($store, 'handler') ? $store->handler() : null;
+            if ($handler instanceof \Redis) {
+                $full = 'xmt_rl:' . $key;
+                $handler->set($full, 0, ['nx', 'ex' => $minutes * 60]);
+                $handler->incr($full);
+                return;
+            }
+        } catch (\Throwable $e) {
+            // Redis 不可用，落到文件计数器
         }
+        $this->fileRateHit($key, $minutes * 60);
+    }
+
+    /**
+     * 文件计数器（兼容 file driver；用文件 mtime 作为过期标记）
+     */
+    protected function fileRateHit(string $key, int $ttlSeconds): int
+    {
+        $dir = runtime_path() . 'ratelimit';
+        if (!is_dir($dir)) {
+            @mkdir($dir, 0755, true);
+        }
+        $file = $dir . '/' . md5($key) . '.cnt';
+        $expireFile = $dir . '/' . md5($key) . '.exp';
+        $now = time();
+        $expireAt = (int)@file_get_contents($expireFile);
+        if ($expireAt === 0 || $expireAt < $now) {
+            // 窗口已过期，重置
+            @file_put_contents($file, '0');
+            @file_put_contents($expireFile, (string)($now + $ttlSeconds));
+        }
+        $fp = @fopen($file, 'r+');
+        if (!$fp) {
+            return 0;
+        }
+        flock($fp, LOCK_EX);
+        $count = (int)stream_get_contents($fp);
+        $count++;
+        ftruncate($fp, 0);
+        rewind($fp);
+        fwrite($fp, (string)$count);
+        fflush($fp);
+        flock($fp, LOCK_UN);
+        fclose($fp);
+        return $count;
     }
 
     /**

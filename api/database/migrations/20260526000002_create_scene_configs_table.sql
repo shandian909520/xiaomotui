@@ -1,0 +1,27 @@
+-- 场景配置表
+CREATE TABLE IF NOT EXISTS `xmt_scene_configs` (
+  `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
+  `merchant_id` int(11) unsigned NOT NULL COMMENT '商家ID',
+  `store_id` int(11) unsigned NOT NULL COMMENT '门店ID',
+  `store_name` varchar(100) DEFAULT '' COMMENT '门店名称',
+  `scan_enabled` tinyint(1) NOT NULL DEFAULT 0 COMMENT '扫码体验开关',
+  `platform_config` json DEFAULT NULL COMMENT '短视频平台配置 {"douyin":{...},"kuaishou":{...}}',
+  `graphic_config` json DEFAULT NULL COMMENT '图文发布配置',
+  `review_config` json DEFAULT NULL COMMENT '评价文案配置',
+  `checkin_config` json DEFAULT NULL COMMENT '打卡配置',
+  `follow_config` json DEFAULT NULL COMMENT '关注配置',
+  `like_share_config` json DEFAULT NULL COMMENT '点赞分享配置',
+  `groupbuy_config` json DEFAULT NULL COMMENT '优惠团购配置',
+  `wifi_config` json DEFAULT NULL COMMENT 'Wi-Fi配置 {"ssid":"xx","password":"xx"}',
+  `wechat_card_config` json DEFAULT NULL COMMENT '微信名片配置',
+  `custom_link_config` json DEFAULT NULL COMMENT '自定义链接配置 {"url":"xx","title":"xx"}',
+  `edaijia_config` json DEFAULT NULL COMMENT 'e代驾配置',
+  `touch_config` json DEFAULT NULL COMMENT '碰一碰配置 {"enabled":true}',
+  `status` tinyint(1) NOT NULL DEFAULT 1 COMMENT '状态 0禁用 1启用',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_store` (`store_id`),
+  KEY `idx_merchant` (`merchant_id`),
+  KEY `idx_status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='门店场景配置表';

@@ -23,16 +23,83 @@
 
       <!-- AI服务配置 -->
       <el-tab-pane label="AI服务" name="ai">
+        <!-- 文本模型配置 -->
+        <el-card shadow="never" style="margin-bottom: 16px">
+          <template #header>
+            <div style="display: flex; justify-content: space-between; align-items: center">
+              <span>文本生成模型</span>
+              <el-button size="small" @click="handleTestProvider(aiForm.default_provider)" :loading="testing">
+                测试连接
+              </el-button>
+            </div>
+          </template>
+          <el-form :model="aiForm" label-width="140px" style="max-width: 600px">
+            <el-form-item label="默认文本模型">
+              <el-select v-model="aiForm.default_provider" style="width: 100%">
+                <el-option label="MiniMax 大模型" value="minimax" />
+                <el-option label="百度文心一言" value="wenxin" />
+              </el-select>
+            </el-form-item>
+
+            <el-divider content-position="left">MiniMax 配置</el-divider>
+            <el-form-item label="Auth Token">
+              <el-input v-model="aiForm.minimax_auth_token" placeholder="MiniMax Auth Token" show-password />
+            </el-form-item>
+            <el-form-item label="模型">
+              <el-select v-model="aiForm.minimax_model" style="width: 100%">
+                <el-option label="MiniMax-M2.7-highspeed (高速)" value="MiniMax-M2.7-highspeed" />
+                <el-option label="MiniMax-M2.7 (标准)" value="MiniMax-M2.7" />
+              </el-select>
+            </el-form-item>
+
+            <el-divider content-position="left">百度文心一言 配置</el-divider>
+            <el-form-item label="API Key">
+              <el-input v-model="aiForm.wenxin_api_key" placeholder="百度 API Key" show-password />
+            </el-form-item>
+            <el-form-item label="Secret Key">
+              <el-input v-model="aiForm.wenxin_secret_key" placeholder="百度 Secret Key" show-password />
+            </el-form-item>
+            <el-form-item label="模型">
+              <el-select v-model="aiForm.wenxin_model" style="width: 100%">
+                <el-option label="ERNIE-Bot-turbo (推荐)" value="ernie-bot-turbo" />
+                <el-option label="ERNIE-Bot" value="ernie-bot" />
+                <el-option label="ERNIE-Bot 4.0" value="ernie-bot-4" />
+                <el-option label="ERNIE Speed" value="ernie-speed" />
+              </el-select>
+            </el-form-item>
+          </el-form>
+        </el-card>
+
+        <!-- 图像/视频模型配置 -->
         <el-card shadow="never">
-          <el-descriptions :column="1" border>
-            <el-descriptions-item label="AI服务商">{{ settings.ai?.provider || '-' }}</el-descriptions-item>
-            <el-descriptions-item label="模型">{{ settings.ai?.model || '默认' }}</el-descriptions-item>
-            <el-descriptions-item label="API Key状态">
-              <el-tag :type="settings.ai?.status === 'configured' ? 'success' : 'danger'" size="small">
-                {{ settings.ai?.status === 'configured' ? '已配置' : '未配置' }}
-              </el-tag>
-            </el-descriptions-item>
-          </el-descriptions>
+          <template #header>
+            <div style="display: flex; justify-content: space-between; align-items: center">
+              <span>图像/视频生成模型（智谱AI）</span>
+              <el-button size="small" @click="handleTestProvider('zhipu')" :loading="testing">
+                测试连接
+              </el-button>
+            </div>
+          </template>
+          <el-form :model="aiForm" label-width="140px" style="max-width: 600px">
+            <el-form-item label="API Key">
+              <el-input v-model="aiForm.zhipu_api_key" placeholder="智谱AI API Key" show-password />
+            </el-form-item>
+            <el-form-item label="图像生成模型">
+              <el-select v-model="aiForm.zhipu_image_model" style="width: 100%">
+                <el-option label="CogView-3-Flash (图像生成-快速)" value="CogView-3-Flash" />
+                <el-option label="CogView-3-Plus (图像生成-增强)" value="CogView-3-Plus" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="视频生成模型">
+              <el-select v-model="aiForm.zhipu_video_model" style="width: 100%">
+                <el-option label="CogVideoX-Flash (视频生成-快速)" value="CogVideoX-Flash" />
+                <el-option label="CogVideoX-2 (视频生成-标准)" value="CogVideoX-2" />
+              </el-select>
+            </el-form-item>
+            <el-form-item>
+              <el-button type="primary" @click="handleSaveAi" :loading="saving">保存AI配置</el-button>
+            </el-form-item>
+          </el-form>
         </el-card>
       </el-tab-pane>
 
@@ -75,10 +142,13 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { systemApi } from '@/api/system'
+import { getAiConfig, updateAiConfig, testAiConnection } from '@/api/ai'
 import { ElMessage } from 'element-plus'
 
 const activeTab = ref('site')
 const settings = ref({})
+const saving = ref(false)
+const testing = ref(false)
 
 const siteForm = reactive({
   name: '',
@@ -91,39 +161,101 @@ const notificationForm = reactive({
   sms_enabled: false
 })
 
+const aiForm = reactive({
+  default_provider: 'minimax',
+  minimax_auth_token: '',
+  minimax_model: 'MiniMax-M2.7-highspeed',
+  wenxin_api_key: '',
+  wenxin_secret_key: '',
+  wenxin_model: 'ernie-bot-turbo',
+  zhipu_api_key: '',
+  zhipu_image_model: 'CogView-3-Flash',
+  zhipu_video_model: 'CogVideoX-Flash',
+})
+
 const fetchSettings = async () => {
   try {
     const res = await systemApi.getSettings()
-    if (res.code === 200) {
-      settings.value = res.data || {}
-      const site = res.data?.site || {}
-      siteForm.name = site.name || ''
-      siteForm.description = site.description || ''
-      siteForm.version = site.version || ''
-      const notif = res.data?.notification || {}
-      notificationForm.email_enabled = notif.email_enabled || false
-      notificationForm.sms_enabled = notif.sms_enabled || false
-    }
+    const data = res || {}
+    settings.value = data
+    const site = data.site || {}
+    siteForm.name = site.name || ''
+    siteForm.description = site.description || ''
+    siteForm.version = site.version || ''
+    const notif = data.notification || {}
+    notificationForm.email_enabled = notif.email_enabled || false
+    notificationForm.sms_enabled = notif.sms_enabled || false
   } catch (e) {
     ElMessage.error('获取系统设置失败')
   }
 }
 
+const fetchAiConfig = async () => {
+  try {
+    const res = await getAiConfig()
+    const data = res || {}
+    aiForm.default_provider = data.default_provider || 'minimax'
+
+    const providers = data.providers || {}
+    if (providers.minimax) {
+      aiForm.minimax_auth_token = providers.minimax.auth_token || ''
+      aiForm.minimax_model = providers.minimax.model || 'MiniMax-M2.7-highspeed'
+    }
+    if (providers.wenxin) {
+      aiForm.wenxin_api_key = providers.wenxin.api_key || ''
+      aiForm.wenxin_secret_key = providers.wenxin.secret_key || ''
+      aiForm.wenxin_model = providers.wenxin.model || 'ernie-bot-turbo'
+    }
+    if (providers.zhipu) {
+      aiForm.zhipu_api_key = providers.zhipu.api_key || ''
+      aiForm.zhipu_image_model = providers.zhipu.image_model || 'CogView-3-Flash'
+      aiForm.zhipu_video_model = providers.zhipu.video_model || 'CogVideoX-Flash'
+    }
+  } catch (e) {
+    console.error('获取AI配置失败', e)
+  }
+}
+
 const handleSave = async () => {
   try {
-    const res = await systemApi.updateSettings({
+    await systemApi.updateSettings({
       site: { ...siteForm },
       notification: { ...notificationForm }
     })
-    if (res.code === 200) {
-      ElMessage.success('设置已保存')
-    }
+    ElMessage.success('设置已保存')
   } catch (e) {
     ElMessage.error('保存设置失败')
   }
 }
 
-onMounted(() => fetchSettings())
+const handleSaveAi = async () => {
+  saving.value = true
+  try {
+    await updateAiConfig({ ...aiForm })
+    ElMessage.success('AI配置已保存')
+  } catch (e) {
+    ElMessage.error('保存AI配置失败')
+  } finally {
+    saving.value = false
+  }
+}
+
+const handleTestProvider = async (provider) => {
+  testing.value = true
+  try {
+    const res = await testAiConnection(provider)
+    ElMessage.success(`连接测试成功 (${res.duration || ''})`)
+  } catch (e) {
+    ElMessage.error('连接测试失败：' + (e.message || '未知错误'))
+  } finally {
+    testing.value = false
+  }
+}
+
+onMounted(() => {
+  fetchSettings()
+  fetchAiConfig()
+})
 </script>
 
 <style scoped>

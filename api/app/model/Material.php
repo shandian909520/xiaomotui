@@ -8,9 +8,15 @@ use think\Model;
 /**
  * 素材模型
  * @property int $id 素材ID
+ * @property int $merchant_id 商家ID
  * @property string $type 素材类型
  * @property string $name 素材名称
  * @property int $category_id 分类ID
+ * @property int $folder_id 文件夹ID
+ * @property string $material_type 素材分类
+ * @property bool $is_ai 是否AI生成
+ * @property bool $is_deleted 是否在回收站
+ * @property string $delete_time 删除时间
  * @property string $file_url 文件URL
  * @property string $thumbnail_url 缩略图URL
  * @property int $file_size 文件大小
@@ -33,9 +39,15 @@ class Material extends Model
     // 设置字段信息
     protected $schema = [
         'id' => 'int',
+        'merchant_id' => 'int',
         'type' => 'string',
         'name' => 'string',
         'category_id' => 'int',
+        'folder_id' => 'int',
+        'material_type' => 'string',
+        'is_ai' => 'int',
+        'is_deleted' => 'int',
+        'delete_time' => 'datetime',
         'file_url' => 'string',
         'thumbnail_url' => 'string',
         'file_size' => 'int',
@@ -58,7 +70,12 @@ class Material extends Model
     // 字段类型转换
     protected $type = [
         'id' => 'integer',
+        'merchant_id' => 'integer',
         'category_id' => 'integer',
+        'folder_id' => 'integer',
+        'material_type' => 'string',
+        'is_ai' => 'integer',
+        'is_deleted' => 'integer',
         'file_size' => 'integer',
         'duration' => 'integer',
         'metadata' => 'array',
@@ -70,6 +87,7 @@ class Material extends Model
         'creator_id' => 'integer',
         'create_time' => 'timestamp',
         'update_time' => 'timestamp',
+        'delete_time' => 'timestamp',
     ];
 
     // JSON 字段
@@ -77,7 +95,8 @@ class Material extends Model
 
     // 允许批量赋值的字段
     protected $field = [
-        'type', 'name', 'category_id', 'file_url', 'thumbnail_url',
+        'merchant_id', 'type', 'name', 'category_id', 'folder_id', 'material_type',
+        'is_ai', 'is_deleted', 'delete_time', 'file_url', 'thumbnail_url',
         'file_size', 'duration', 'metadata', 'tags', 'usage_count',
         'weight', 'status', 'audit_status', 'audit_message', 'creator_id'
     ];
@@ -91,6 +110,12 @@ class Material extends Model
     const TYPE_TEXT_TEMPLATE = 'TEXT_TEMPLATE';
     const TYPE_IMAGE = 'IMAGE';
     const TYPE_MUSIC = 'MUSIC';
+
+    const MATERIAL_TYPE_VIDEO = 'video';
+    const MATERIAL_TYPE_IMAGE = 'image';
+    const MATERIAL_TYPE_AUDIO = 'audio';
+    const MATERIAL_TYPE_VOICEOVER = 'voiceover';
+    const MATERIAL_TYPE_GUIDE = 'guide';
 
     /**
      * 状态常量
@@ -269,6 +294,11 @@ class Material extends Model
     public function category()
     {
         return $this->belongsTo(MaterialCategory::class, 'category_id');
+    }
+
+    public function folder()
+    {
+        return $this->belongsTo(MaterialFolder::class, 'folder_id');
     }
 
     /**

@@ -180,8 +180,8 @@ export default {
       try {
         // 并行请求多个接口
         const [statsRes, materialsRes] = await Promise.allSettled([
-          api.statistics.getOverview?.({ type: 'today' }) || Promise.resolve(generateMockStats()),
-          api.promoMaterial.getList?.({ page: 1, pageSize: 6 }) || Promise.resolve({ data: generateMockMaterials() })
+          api.promoStats.getTodayStats(),
+          api.promoMaterial.getList({ page: 1, pageSize: 6 })
         ])
 
         // 处理统计数据
@@ -190,54 +190,23 @@ export default {
           todayData.triggerCount = stats.trigger_count || stats.triggerCount || 0
           todayData.publishCount = stats.publish_count || stats.publishCount || 0
           todayData.rewardCount = stats.reward_count || stats.rewardCount || 0
-        } else {
-          Object.assign(todayData, generateMockStats())
         }
 
         // 处理素材数据
-        if (materialsRes.status === 'fulfilled') {
+        if (materialsRes.status === 'fulfilled' && materialsRes.value) {
           recentMaterials.value = materialsRes.value.data || materialsRes.value.list || []
-        } else {
-          recentMaterials.value = generateMockMaterials()
         }
 
         // 获取商户信息
-        if (userStore.userInfo.merchant_id) {
+        if (userStore.userInfo?.merchant_id) {
           merchantInfo.value = userStore.userInfo
-        } else {
-          merchantInfo.value = { name: '小魔推示范店' }
         }
 
       } catch (error) {
         console.error('加载首页数据失败:', error)
-        // 使用模拟数据
-        Object.assign(todayData, generateMockStats())
-        recentMaterials.value = generateMockMaterials()
-        merchantInfo.value = { name: '小魔推示范店' }
       } finally {
         loading.value = false
       }
-    }
-
-    /**
-     * 生成模拟统计数据
-     */
-    const generateMockStats = () => ({
-      triggerCount: Math.floor(Math.random() * 100),
-      publishCount: Math.floor(Math.random() * 50),
-      rewardCount: Math.floor(Math.random() * 30)
-    })
-
-    /**
-     * 生成模拟素材数据
-     */
-    const generateMockMaterials = () => {
-      return Array.from({ length: 5 }, (_, i) => ({
-        id: i + 1,
-        type: i % 2 === 0 ? 'image' : 'video',
-        url: `https://via.placeholder.com/200x200?text=Material${i + 1}`,
-        created_at: new Date().toISOString()
-      }))
     }
 
     // 页面跳转方法
@@ -306,8 +275,13 @@ export default {
           urls: [item.url],
           current: item.url
         })
+      } else if (item.url) {
+        uni.previewMedia({
+          sources: [{ url: item.url, type: 'video' }],
+          current: 0
+        })
       } else {
-        uni.showToast({ title: '视频预览功能开发中', icon: 'none' })
+        uni.showToast({ title: '该视频暂不可预览', icon: 'none' })
       }
     }
 

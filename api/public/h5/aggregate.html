@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#FF6B35">
+<title>人气好店 · 小魔推</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none}
+html,body{overflow-x:hidden}
+body{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Helvetica Neue","Microsoft YaHei",sans-serif;background:#F5F6F8;color:#222;min-height:100vh;padding-bottom:env(safe-area-inset-bottom)}
+img{display:block;max-width:100%}
+button{font-family:inherit;border:none;background:none;cursor:pointer}
+a{color:inherit;text-decoration:none}
+
+/* 顶部渐变背景 */
+.header-bg{background:linear-gradient(135deg,#FF6B35 0%,#FF8E53 60%,#FFB088 100%);padding:24px 16px 60px;color:#fff;position:relative}
+.header-bg::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:24px;background:linear-gradient(to bottom,rgba(245,246,248,0),#F5F6F8)}
+
+/* 店招 */
+.shop-card{display:flex;align-items:center;gap:14px}
+.shop-avatar{width:64px;height:64px;border-radius:50%;background:rgba(255,255,255,.25);display:flex;align-items:center;justify-content:center;font-size:30px;border:2px solid rgba(255,255,255,.6);flex-shrink:0;overflow:hidden;color:#fff;font-weight:600}
+.shop-info{flex:1;min-width:0}
+.shop-name{font-size:20px;font-weight:700;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.shop-meta{display:flex;align-items:center;gap:8px;margin-top:4px;font-size:12px;opacity:.92}
+.shop-rating{display:inline-flex;align-items:center;gap:3px;background:rgba(0,0,0,.18);padding:2px 8px;border-radius:10px;font-weight:600}
+.shop-rating .star{color:#FFE066}
+
+/* 主推横幅(嵌入 header) */
+.highlight-banner{margin-top:16px;background:rgba(255,255,255,.18);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);border-radius:10px;padding:10px 12px;display:flex;align-items:center;gap:10px;font-size:13px}
+.highlight-banner img{width:36px;height:36px;border-radius:6px;object-fit:cover}
+.highlight-banner .h-title{flex:1;font-weight:600;line-height:1.3}
+.highlight-banner .h-arrow{opacity:.6}
+
+/* 容器 */
+.page{padding:0 16px;margin-top:-40px;position:relative;z-index:1}
+.card{background:#fff;border-radius:12px;padding:16px;box-shadow:0 2px 8px rgba(0,0,0,.06);margin-bottom:12px}
+.card-title{font-size:15px;font-weight:700;display:flex;align-items:center;gap:6px;margin-bottom:12px}
+.card-title .icon{font-size:18px}
+.card-title .sub{font-size:11px;color:#999;font-weight:400;margin-left:auto}
+
+/* Wi-Fi 卡片 */
+.wifi-card{display:flex;align-items:center;gap:12px}
+.wifi-icon{width:44px;height:44px;border-radius:10px;background:linear-gradient(135deg,#FF6B35,#FF8E53);color:#fff;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0}
+.wifi-info{flex:1;min-width:0}
+.wifi-ssid{font-size:15px;font-weight:600;color:#222}
+.wifi-tip{font-size:11px;color:#999;margin-top:2px}
+.btn-pri{padding:10px 18px;background:linear-gradient(135deg,#FF6B35,#FF8E53);color:#fff;border-radius:20px;font-size:13px;font-weight:600;flex-shrink:0}
+.btn-pri:active{transform:scale(.96);opacity:.9}
+
+/* 发布卡片 */
+.publish-card .cover{width:100%;aspect-ratio:16/9;border-radius:8px;background:#eee;overflow:hidden;position:relative;display:flex;align-items:center;justify-content:center;color:#999;font-size:12px}
+.publish-card .cover img{width:100%;height:100%;object-fit:cover}
+.publish-card .title{font-size:15px;font-weight:600;margin-top:10px;line-height:1.4}
+.publish-card .meta{font-size:12px;color:#999;margin-top:4px}
+.publish-card .copy{background:#FFF5EE;border-radius:8px;padding:10px 12px;font-size:13px;color:#555;line-height:1.6;margin-top:10px;position:relative;white-space:pre-wrap;word-break:break-word}
+.publish-card .copy-tools{display:flex;gap:8px;margin-top:10px}
+.btn-mini{flex:1;padding:9px 0;border-radius:18px;font-size:13px;font-weight:600;text-align:center;display:flex;align-items:center;justify-content:center;gap:4px}
+.btn-mini.outline{background:#FFF5EE;color:#FF6B35;border:1px solid #FFD0B5}
+.btn-mini.primary{background:linear-gradient(135deg,#FF6B35,#FF8E53);color:#fff}
+.btn-mini:active{transform:scale(.96)}
+.tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.tag{font-size:11px;padding:3px 9px;border-radius:10px;background:#FFF5EE;color:#FF6B35;font-weight:500}
+.reward-tip{margin-top:8px;font-size:12px;color:#FF6B35;background:#FFF5EE;border-radius:6px;padding:6px 10px;display:flex;align-items:center;gap:4px}
+
+/* 二维码卡(自定义小程序/链接) */
+.mp-card{display:flex;align-items:center;gap:12px}
+.mp-card .qr{width:72px;height:72px;border-radius:8px;background:#f5f5f5;overflow:hidden;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+.mp-card .qr img{width:100%;height:100%;object-fit:contain}
+.mp-card .txt{flex:1;min-width:0}
+.mp-card .ttl{font-size:14px;font-weight:600}
+.mp-card .desc{font-size:12px;color:#999;margin-top:3px}
+
+/* 私域入口 */
+.contact-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.contact-item{display:flex;flex-direction:column;align-items:center;gap:6px;padding:14px 6px;border-radius:10px;background:#FAFAFA;text-align:center}
+.contact-item .ico{width:42px;height:42px;border-radius:50%;background:#FFF5EE;color:#FF6B35;display:flex;align-items:center;justify-content:center;font-size:20px}
+.contact-item .name{font-size:12px;color:#333;font-weight:500}
+.contact-item:active{transform:scale(.96);background:#FFF5EE}
+
+/* 团购商品 */
+.gb-list{display:flex;flex-direction:column;gap:10px}
+.gb-item{display:flex;gap:10px;background:#FAFAFA;border-radius:10px;padding:10px;align-items:center}
+.gb-item .pic{width:72px;height:72px;border-radius:8px;background:#eee;flex-shrink:0;overflow:hidden;display:flex;align-items:center;justify-content:center;color:#bbb;font-size:22px}
+.gb-item .pic img{width:100%;height:100%;object-fit:cover}
+.gb-item .info{flex:1;min-width:0}
+.gb-item .ttl{font-size:13px;font-weight:600;line-height:1.3;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.gb-item .price-row{display:flex;align-items:baseline;gap:6px;margin-top:4px}
+.gb-item .price{color:#FF6B35;font-weight:700;font-size:16px}
+.gb-item .ori{color:#999;text-decoration:line-through;font-size:11px}
+.gb-item .sales{font-size:11px;color:#999}
+.gb-item .btn-go{padding:7px 14px;background:linear-gradient(135deg,#FF6B35,#FF8E53);color:#fff;border-radius:14px;font-size:12px;font-weight:600;flex-shrink:0}
+.gb-item .btn-go:active{transform:scale(.96)}
+
+/* 点评平台 */
+.review-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+.rev-item{display:flex;flex-direction:column;align-items:center;gap:5px;padding:8px 4px;border-radius:8px;background:#FAFAFA}
+.rev-item .ico{width:38px;height:38px;border-radius:8px;background:#FFF5EE;color:#FF6B35;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700}
+.rev-item .name{font-size:11px;color:#333}
+.rev-item:active{transform:scale(.96);background:#FFF5EE}
+.review-tip{font-size:11px;color:#999;margin-top:10px;text-align:center}
+
+/* 抽奖入口 */
+.lottery-card{display:flex;align-items:center;gap:12px;background:linear-gradient(135deg,#FF6B35,#FF8E53);color:#fff;border-radius:12px;padding:14px}
+.lottery-card .l-ico{font-size:32px}
+.lottery-card .l-info{flex:1}
+.lottery-card .l-ttl{font-size:15px;font-weight:700}
+.lottery-card .l-desc{font-size:12px;opacity:.85;margin-top:2px}
+.lottery-card .l-btn{background:#fff;color:#FF6B35;padding:8px 16px;border-radius:18px;font-size:13px;font-weight:700;flex-shrink:0}
+.lottery-card .l-btn:active{transform:scale(.96)}
+
+/* 弹窗 */
+.modal-mask{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:99;padding:24px}
+.modal-mask.show{display:flex}
+.modal-box{background:#fff;border-radius:14px;width:100%;max-width:320px;padding:20px;max-height:80vh;overflow-y:auto}
+.modal-title{font-size:16px;font-weight:700;text-align:center;margin-bottom:12px}
+.modal-close{position:absolute;top:14px;right:14px;font-size:18px;color:#999;width:24px;height:24px;display:flex;align-items:center;justify-content:center}
+.modal-mask .close-x{position:absolute;top:14px;right:14px;color:#999;font-size:20px;width:28px;height:28px;display:flex;align-items:center;justify-content:center}
+
+/* 今日主推弹窗 */
+.promo-pop{background:linear-gradient(135deg,#FF6B35,#FF8E53);color:#fff;border-radius:14px;width:100%;max-width:320px;padding:20px;position:relative}
+.promo-pop .pt{font-size:18px;font-weight:700;text-align:center}
+.promo-pop .pb{text-align:center;font-size:32px;font-weight:800;margin:12px 0}
+.promo-pop .ptxt{text-align:center;font-size:13px;opacity:.92;line-height:1.5;margin-bottom:14px}
+.promo-pop .pbtn{display:block;background:#fff;color:#FF6B35;border-radius:20px;padding:12px;text-align:center;font-weight:700;font-size:14px}
+.promo-pop .pbtn:active{transform:scale(.97)}
+.promo-pop .close-x{position:absolute;top:8px;right:10px;color:rgba(255,255,255,.85);font-size:22px;width:28px;height:28px;display:flex;align-items:center;justify-content:center}
+
+/* 评价草稿 */
+.draft-list{display:flex;flex-direction:column;gap:10px;margin-bottom:12px}
+.draft-item{background:#FAFAFA;border-radius:8px;padding:10px 12px;font-size:13px;line-height:1.6;color:#333;white-space:pre-wrap;word-break:break-word;position:relative}
+.draft-item .copy-c{position:absolute;top:8px;right:8px;font-size:11px;color:#FF6B35;padding:2px 8px;border-radius:10px;background:#FFF5EE}
+.draft-item .copy-c:active{transform:scale(.96)}
+.compliance{font-size:11px;color:#999;background:#FFF8EE;padding:8px 10px;border-radius:6px;margin-bottom:10px;line-height:1.5}
+
+/* Toast */
+.toast{position:fixed;top:40%;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.82);color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;display:none;z-index:999;max-width:80%;text-align:center}
+.toast.show{display:block;animation:fadeIn .15s}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+
+/* Loading & Error */
+.loading{padding:60px 20px;text-align:center;color:#999;font-size:13px}
+.loading .spin{display:inline-block;width:18px;height:18px;border:2px solid #FF6B35;border-top-color:transparent;border-radius:50%;animation:spin .8s linear infinite;margin-bottom:8px;vertical-align:middle}
+@keyframes spin{to{transform:rotate(360deg)}}
+.error{padding:60px 20px;text-align:center;color:#999;font-size:13px}
+.error .ico{font-size:36px;margin-bottom:8px}
+
+/* 二维码弹窗 */
+.qr-modal{padding:10px}
+.qr-modal img{width:100%;border-radius:8px}
+.qr-modal .qr-name{text-align:center;margin-top:8px;font-weight:600;font-size:14px}
+.qr-modal .qr-tip{text-align:center;font-size:12px;color:#999;margin-top:4px}
+
+/* 底部 */
+.footer{text-align:center;color:#bbb;font-size:11px;padding:20px 16px 30px}
+
+/* 兼容 iPhone 安全区 */
+@supports(padding:max(0px)){.header-bg{padding-top:max(24px,env(safe-area-inset-top))}}
+</style>
+</head>
+<body>
+
+<div id="app" v-cloak>
+  <!-- 加载/错误态 -->
+  <div v-if="loading" class="loading">
+    <div class="spin"></div>
+    <div style="margin-top:6px">加载中...</div>
+  </div>
+  <div v-else-if="errorMsg" class="error">
+    <div class="ico">😢</div>
+    <div>{{ errorMsg }}</div>
+    <button class="btn-mini primary" style="margin:16px auto 0;width:auto;padding:9px 28px" @click="load">重新加载</button>
+  </div>
+
+  <template v-else>
+    <!-- 顶部店招 -->
+    <div class="header-bg">
+      <div class="shop-card">
+        <div class="shop-avatar">{{ shopEmoji }}</div>
+        <div class="shop-info">
+          <div class="shop-name">{{ data.device.device_name || '人气好店' }}</div>
+          <div class="shop-meta">
+            <span class="shop-rating"><span class="star">★</span>5.0</span>
+            <span>{{ data.device.location || '门店位置待完善' }}</span>
+          </div>
+        </div>
+      </div>
+      <div v-if="data.highlight && data.highlight.title" class="highlight-banner" @click="onJump(data.highlight.jump)">
+        <img v-if="data.highlight.image" :src="data.highlight.image" alt="">
+        <div v-else style="width:36px;height:36px;background:rgba(255,255,255,.2);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:18px">🎉</div>
+        <div class="h-title">{{ data.highlight.title }}</div>
+        <div class="h-arrow">›</div>
+      </div>
+    </div>
+
+    <div class="page">
+      <!-- Wi-Fi -->
+      <div v-if="data.blocks.wifi && data.blocks.wifi.enabled" class="card">
+        <div class="wifi-card">
+          <div class="wifi-icon">📶</div>
+          <div class="wifi-info">
+            <div class="wifi-ssid">{{ data.blocks.wifi.ssid_masked }}</div>
+            <div class="wifi-tip">点击一键连接,密码不直接展示更安全</div>
+          </div>
+          <button class="btn-pri" @click="connectWifi">一键连接</button>
+        </div>
+      </div>
+
+      <!-- 视频发布 -->
+      <div v-if="data.blocks.publish && data.blocks.publish.enabled" class="card publish-card">
+        <div class="card-title"><span class="icon">📹</span>视频发布<span class="sub">抖音/快手</span></div>
+        <div class="cover">
+          <img v-if="publishCover" :src="publishCover" alt="">
+          <span v-else>封面图占位</span>
+        </div>
+        <div class="title">{{ publishTitle }}</div>
+        <div class="meta">{{ publishLocation }}</div>
+        <div v-if="data.blocks.publish.tags && data.blocks.publish.tags.length" class="tags">
+          <span v-for="(t,i) in data.blocks.publish.tags" :key="i" class="tag">#{{ t }}</span>
+        </div>
+        <div class="copy">{{ currentCopy }}</div>
+        <div v-if="data.blocks.publish.reward && data.blocks.publish.reward.enabled" class="reward-tip">
+          🎁 发布后可领取:{{ data.blocks.publish.reward.title }}
+        </div>
+        <div class="copy-tools">
+          <button class="btn-mini outline" @click="rotateCopy">🔄 换一批</button>
+          <button class="btn-mini primary" @click="goPublish">去发布</button>
+        </div>
+      </div>
+
+      <!-- 自定义小程序/链接 -->
+      <div v-if="qrItem" class="card">
+        <div class="card-title"><span class="icon">🔗</span>小程序入口</div>
+        <div class="mp-card">
+          <div class="qr"><img :src="qrItem" alt="qr"></div>
+          <div class="txt">
+            <div class="ttl">扫码进入小程序</div>
+            <div class="desc">微信扫一扫,体验更多服务</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 私域 -->
+      <div v-if="contactEnabled" class="card">
+        <div class="card-title"><span class="icon">💬</span>加好友领福利</div>
+        <div class="contact-row">
+          <div v-for="c in contactItems" :key="c.type" class="contact-item" @click="openContact(c)">
+            <div class="ico">{{ c.emoji }}</div>
+            <div class="name">{{ c.name }}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 团购 -->
+      <div v-if="data.blocks.groupbuy && data.blocks.groupbuy.enabled && data.blocks.groupbuy.list.length" class="card">
+        <div class="card-title"><span class="icon">🛒</span>优惠团购<span class="sub">超值套餐</span></div>
+        <div class="gb-list">
+          <div v-for="(g,i) in data.blocks.groupbuy.list" :key="i" class="gb-item">
+            <div class="pic">
+              <img v-if="g.image || g.cover_url" :src="g.image || g.cover_url" alt="" @error="$event.target.style.display='none'">
+              <span v-else>🍱</span>
+            </div>
+            <div class="info">
+              <div class="ttl">{{ g.title || g.deal_name || '优惠套餐' }}</div>
+              <div class="price-row">
+                <span class="price">¥{{ g.group_price || g.price || '?' }}</span>
+                <span v-if="g.original_price && g.original_price > (g.group_price||g.price||0)" class="ori">¥{{ g.original_price }}</span>
+                <span class="sales">已售{{ g.sales || g.sold || 0 }}+</span>
+              </div>
+            </div>
+            <button class="btn-go" @click="goGroupBuy(g)">抢购</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 点评 -->
+      <div v-if="data.blocks.review && data.blocks.review.enabled && data.blocks.review.platforms.length" class="card">
+        <div class="card-title"><span class="icon">⭐</span>打卡点评</div>
+        <div class="review-grid">
+          <div v-for="p in data.blocks.review.platforms" :key="p.key" class="rev-item" @click="openReview(p)">
+            <div class="ico">{{ platformEmoji(p.key) }}</div>
+            <div class="name">{{ p.name }}</div>
+          </div>
+        </div>
+        <div class="review-tip">点击查看 AI 评价灵感草稿,仅供参考</div>
+      </div>
+
+      <!-- 抽奖入口 -->
+      <div v-if="data.blocks.lottery && data.blocks.lottery.enabled" class="lottery-card" @click="goLottery">
+        <div class="l-ico">🎰</div>
+        <div class="l-info">
+          <div class="l-ttl">{{ data.blocks.lottery.name || '幸运大转盘' }}</div>
+          <div class="l-desc">{{ data.blocks.lottery.description || '点击抽奖,100% 中奖' }}</div>
+        </div>
+        <div class="l-btn">去抽奖</div>
+      </div>
+
+      <!-- 底部版权 -->
+      <div class="footer">由 小魔推 提供技术支持</div>
+    </div>
+
+    <!-- 今日主推弹窗 -->
+    <div class="modal-mask" :class="{show: showPromoModal}" @click.self="showPromoModal=false">
+      <div class="promo-pop">
+        <div class="close-x" @click="showPromoModal=false">×</div>
+        <div class="pt">🎁 您有抽奖机会</div>
+        <div class="pb">{{ promoChances }} 次</div>
+        <div class="ptxt">完成下方任务可获得更多抽奖机会,100% 中奖!</div>
+        <div class="pbtn" @click="gotoLotteryFromPromo">立即抽奖</div>
+      </div>
+    </div>
+
+    <!-- 联系二维码弹窗 -->
+    <div class="modal-mask" :class="{show: showQrModal}" @click.self="showQrModal=false">
+      <div class="modal-box qr-modal" style="position:relative">
+        <div class="close-x" @click="showQrModal=false" style="color:#999;top:10px;right:10px;position:absolute;font-size:22px;width:28px;height:28px;display:flex;align-items:center;justify-content:center">×</div>
+        <div class="modal-title">{{ qrModalTitle }}</div>
+        <img v-if="qrModalSrc" :src="qrModalSrc" alt="qr">
+        <div v-else style="width:100%;aspect-ratio:1;background:#f5f5f5;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#999">二维码未配置</div>
+        <div v-if="qrModalTip" class="qr-tip">{{ qrModalTip }}</div>
+      </div>
+    </div>
+
+    <!-- 点评弹窗 -->
+    <div class="modal-mask" :class="{show: showReviewModal}" @click.self="showReviewModal=false">
+      <div class="modal-box" style="position:relative">
+        <div class="close-x" @click="showReviewModal=false" style="color:#999;top:10px;right:10px;position:absolute;font-size:22px;width:28px;height:28px;display:flex;align-items:center;justify-content:center">×</div>
+        <div class="modal-title">⭐ {{ reviewPlatformName }} · 评价灵感</div>
+        <div class="compliance">⚠️ 以下内容为 AI 生成,仅供参考,请根据您的真实体验修改后再发布</div>
+        <div v-if="reviewLoading" class="loading" style="padding:20px"><div class="spin"></div><div style="margin-top:6px">生成中...</div></div>
+        <div v-else-if="reviewDrafts.length" class="draft-list">
+          <div v-for="(d,i) in reviewDrafts" :key="i" class="draft-item">
+            <button class="copy-c" @click="copyText(d)">复制</button>
+            {{ d }}
+          </div>
+        </div>
+        <div v-else style="text-align:center;color:#999;font-size:13px;padding:20px 0">暂无草稿</div>
+        <button v-if="reviewPlatformJump" class="btn-mini primary" style="width:100%" @click="goReviewPlatform">前往平台评价</button>
+      </div>
+    </div>
+  </template>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+<script>
+(function(){
+  const { createApp, ref, computed, onMounted } = Vue;
+  const API = '';
+  const params = new URLSearchParams(location.search);
+  const DEVICE_CODE = params.get('device_code') || '';
+
+  function showToast(msg, ms=1800) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(t._tid);
+    t._tid = setTimeout(()=>t.classList.remove('show'), ms);
+  }
+
+  function detectUA() {
+    const ua = navigator.userAgent;
+    return {
+      isIOS: /iPhone|iPad|iPod/i.test(ua),
+      isAndroid: /Android/i.test(ua),
+      isWechat: /MicroMessenger/i.test(ua),
+      isDouyin: /Aweme|BytedanceWebview/i.test(ua),
+      isKuaishou: /Kuaishou/i.test(ua),
+    };
+  }
+
+  function copyText(t) {
+    if (!t) return;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(t).then(()=>showToast('已复制'), ()=>fallbackCopy(t));
+    } else {
+      fallbackCopy(t);
+    }
+  }
+  function fallbackCopy(t) {
+    const ta = document.createElement('textarea');
+    ta.value = t;
+    ta.style.cssText='position:fixed;top:-9999px;left:-9999px';
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand('copy'); showToast('已复制'); } catch(e) { showToast('复制失败,请手动复制'); }
+    document.body.removeChild(ta);
+  }
+
+  createApp({
+    setup() {
+      const loading = ref(true);
+      const errorMsg = ref('');
+      const data = ref({ device:{}, blocks:{}, highlight:null });
+      const currentCopy = ref('');
+      const copyToken = ref('');
+      const copySource = ref('');
+      const showPromoModal = ref(false);
+      const promoChances = ref(0);
+      const showQrModal = ref(false);
+      const qrModalSrc = ref('');
+      const qrModalTitle = ref('');
+      const qrModalTip = ref('');
+      const showReviewModal = ref(false);
+      const reviewLoading = ref(false);
+      const reviewDrafts = ref([]);
+      const reviewPlatformName = ref('');
+      const reviewPlatformJump = ref('');
+      const reviewPlatformKey = ref('');
+
+      const shopEmoji = computed(()=> {
+        const n = (data.value.device.device_name || '').slice(0,1) || '店';
+        return n;
+      });
+
+      const publishTitle = computed(()=> {
+        // publish 区块只有文案和 tags,无独立标题,使用默认
+        return '上传您的精彩瞬间,帮门店扩散口碑';
+      });
+      const publishCover = computed(()=> '');
+      const publishLocation = computed(()=> data.value.device.location || '门店定位');
+
+      const contactEnabled = computed(()=> {
+        const c = data.value.blocks.contact;
+        if (!c || !c.enabled) return false;
+        return (c.items && c.items.length) || (c.qq && (c.qq.qq_qrcode || c.qq.qq_number));
+      });
+
+      const contactItems = computed(()=> {
+        const arr = [];
+        const c = data.value.blocks.contact || {};
+        (c.items || []).forEach(it => {
+          const map = {
+            wework: { name: '加企微', emoji: '🏢' },
+            wechat: { name: '加微信', emoji: '💚' },
+            phone:  { name: '拨电话', emoji: '📞' },
+          };
+          const m = map[it.type] || { name: it.type_name || it.type, emoji: '💬' };
+          arr.push({ ...m, type: it.type, data: it.preview || {} });
+        });
+        if (c.qq && (c.qq.qq_qrcode || c.qq.qq_number)) {
+          arr.push({ name: '加QQ', emoji: '🐧', type: 'qq', data: c.qq });
+        }
+        return arr;
+      });
+
+      const qrItem = computed(()=> {
+        // promo.mini_program_qr 在文档中提及,聚合页没有,暂时给空(占位)
+        return '';
+      });
+
+      async function load() {
+        loading.value = true;
+        errorMsg.value = '';
+        if (!DEVICE_CODE) {
+          loading.value = false;
+          errorMsg.value = '缺少 device_code 参数';
+          return;
+        }
+        try {
+          const r = await fetch(API + '/api/nfc/aggregation-page?device_code=' + encodeURIComponent(DEVICE_CODE));
+          const j = await r.json();
+          if (j.code !== 200) throw new Error(j.msg || '加载失败');
+          data.value = j.data || { device:{}, blocks:{}, highlight:null };
+          // 初始文案
+          if (data.value.blocks.publish && data.value.blocks.publish.default) {
+            currentCopy.value = data.value.blocks.publish.default;
+          } else if (data.value.blocks.publish && data.value.blocks.publish.candidates && data.value.blocks.publish.candidates.length) {
+            currentCopy.value = data.value.blocks.publish.candidates[0].content;
+          } else {
+            currentCopy.value = '打卡分享一家超赞的店!';
+          }
+          // 主推弹窗:抽奖剩余次数>0 时
+          if (data.value.blocks.lottery && data.value.blocks.lottery.enabled && (data.value.blocks.lottery.daily_limit || 0) > 0) {
+            // 没有 remaining_chances 字段,默认展示 daily_limit(后端未提供剩余次数,提示"您有 X 次")
+            promoChances.value = data.value.blocks.lottery.daily_limit;
+            showPromoModal.value = true;
+          }
+        } catch (e) {
+          errorMsg.value = e.message || '网络错误';
+        } finally {
+          loading.value = false;
+        }
+      }
+
+      // 文案池"换一批"
+      async function rotateCopy() {
+        const did = data.value.device && data.value.device.id;
+        if (!did) {
+          // 兜底:本地候选
+          const cs = (data.value.blocks.publish && data.value.blocks.publish.candidates) || [];
+          if (cs.length > 1) {
+            const idx = (cs.findIndex(c => c.content === currentCopy.value) + 1) % cs.length;
+            currentCopy.value = cs[idx].content;
+          } else {
+            showToast('已是唯一文案');
+          }
+          return;
+        }
+        try {
+          const u = new URLSearchParams({ device_id: String(did) });
+          if (copyToken.value) u.set('rotate_token', copyToken.value);
+          const r = await fetch(API + '/api/publish/copywriting?' + u.toString());
+          const j = await r.json();
+          if (j.code === 200 && j.data && j.data.content) {
+            currentCopy.value = j.data.content;
+            copyToken.value = j.data.rotate_token || '';
+            copySource.value = j.data.source || '';
+          } else {
+            throw new Error(j.msg || '换一批失败');
+          }
+        } catch (e) {
+          // 失败时本地候选兜底
+          const cs = (data.value.blocks.publish && data.value.blocks.publish.candidates) || [];
+          if (cs.length > 1) {
+            const idx = (cs.findIndex(c => c.content === currentCopy.value) + 1) % cs.length;
+            currentCopy.value = cs[idx].content;
+          } else {
+            showToast(e.message || '换一批失败');
+          }
+        }
+      }
+
+      // 一键连接 Wi-Fi
+      function connectWifi() {
+        const ua = detectUA();
+        if (ua.isIOS) {
+          // iOS 用 mobileconfig(后端未提供,跳转到包含 device_code 的 mobileconfig 路径)
+          const url = API + '/api/wifi/mobileconfig?device_code=' + encodeURIComponent(DEVICE_CODE);
+          window.location.href = url;
+        } else if (ua.isAndroid) {
+          // Android 用 WIFI:URI;聚合页接口返回的是加密 token,无法直接拼 URI
+          // 降级:提示用户扫码或询问服务员
+          showToast('Android 请扫码或向店员询问密码');
+        } else {
+          showToast('请用手机扫码连接');
+        }
+      }
+
+      // 去发布(唤起 App)
+      function goPublish() {
+        const ua = detectUA();
+        const tags = (data.value.blocks.publish && data.value.blocks.publish.tags || []).map(t => '#'+t).join(' ');
+        const copy = (currentCopy.value || '') + (tags ? '\n' + tags : '');
+        // 复制到剪贴板
+        copyText(copy);
+        // 唤起抖音
+        if (ua.isIOS) {
+          location.href = 'snssdk1128://';
+        } else if (ua.isAndroid) {
+          location.href = 'snssdk1128://';
+        } else {
+          showToast('文案已复制,请到抖音/快手发布');
+        }
+        // 失败 fallback 由 toast 提示
+        setTimeout(()=>{ if (!document.hidden) showToast('未唤起抖音,请粘贴发布'); }, 2500);
+      }
+
+      function goGroupBuy(g) {
+        const url = g.jump_url || g.url || g.deal_url || '';
+        if (url) {
+          window.location.href = url;
+        } else {
+          showToast('暂无团购链接');
+        }
+      }
+
+      function goLottery() {
+        const lid = data.value.blocks.lottery && data.value.blocks.lottery.activity_id;
+        if (!lid) { showToast('活动未配置'); return; }
+        const did = (data.value.device && data.value.device.id) || 0;
+        location.href = './lottery.html?device_code=' + encodeURIComponent(DEVICE_CODE) + '&activity_id=' + lid + '&device_id=' + did;
+      }
+
+      function gotoLotteryFromPromo() {
+        showPromoModal.value = false;
+        goLottery();
+      }
+
+      function openContact(c) {
+        if (c.type === 'phone') {
+          const phone = c.data && (c.data.phone || c.data.phone_number);
+          if (phone) {
+            window.location.href = 'tel:' + phone;
+          } else {
+            showToast('电话未配置');
+          }
+          return;
+        }
+        // wechat / wework / qq -> 显示二维码弹窗
+        let src = '', title = c.name, tip = '长按或截图识别二维码';
+        if (c.type === 'wechat') {
+          src = (c.data && (c.data.qrcode_url || c.data.wechat_qrcode)) || '';
+          title = '加微信';
+        } else if (c.type === 'wework') {
+          src = (c.data && (c.data.qrcode_url || c.data.wework_qrcode || c.data.link_qrcode)) || '';
+          title = '加企微';
+          if (!src && c.data && c.data.link) {
+            // 链接型:跳转
+            window.location.href = c.data.link;
+            return;
+          }
+        } else if (c.type === 'qq') {
+          src = c.data && (c.data.qq_qrcode || c.data.kefu_qrcode) || '';
+          const num = c.data && c.data.qq_number;
+          if (!src && num) {
+            // 复制 QQ 号
+            copyText(String(num));
+            showToast('QQ号已复制:' + num);
+            return;
+          }
+          title = '加QQ';
+        }
+        qrModalSrc.value = src;
+        qrModalTitle.value = title;
+        qrModalTip.value = tip;
+        showQrModal.value = true;
+      }
+
+      function platformEmoji(key) {
+        const map = {
+          douyin: '抖', dianping: '评', meituan: '美',
+          gaode: '高', baidu: '百', xiaohongshu: '红',
+        };
+        return map[(key||'').toLowerCase()] || '★';
+      }
+
+      async function openReview(p) {
+        reviewPlatformName.value = p.name || '点评';
+        reviewPlatformJump.value = p.jump_url || '';
+        reviewPlatformKey.value = p.key || '';
+        reviewDrafts.value = [];
+        showReviewModal.value = true;
+        reviewLoading.value = true;
+        // 埋点:查看
+        try {
+          fetch(API + '/api/review/action', {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({
+              device_id: data.value.device.id || 0,
+              platform: p.key || 'ALL',
+              action: 'view',
+            }),
+            keepalive: true,
+          }).catch(()=>{});
+        } catch(e){}
+        try {
+          const did = data.value.device.id || 0;
+          const u = new URLSearchParams({ device_id: String(did), platform: p.key || '', count: '3' });
+          const r = await fetch(API + '/api/review/draft?' + u.toString());
+          const j = await r.json();
+          if (j.code === 200 && j.data) {
+            const list = j.data.drafts || j.data.list || [];
+            reviewDrafts.value = list.map(x => typeof x === 'string' ? x : (x.content || x.text || ''));
+          } else {
+            reviewDrafts.value = ['环境不错,服务热情,值得推荐。','味道好,份量足,会再来。','位置便利,体验满意。'];
+          }
+        } catch(e) {
+          reviewDrafts.value = ['环境不错,服务热情,值得推荐。','味道好,份量足,会再来。','位置便利,体验满意。'];
+        } finally {
+          reviewLoading.value = false;
+        }
+      }
+
+      function goReviewPlatform() {
+        if (!reviewPlatformJump.value) { showToast('暂无平台链接'); return; }
+        // 埋点:跳转
+        try {
+          fetch(API + '/api/review/action', {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({
+              device_id: data.value.device.id || 0,
+              platform: reviewPlatformKey.value || 'ALL',
+              action: 'jump',
+            }),
+            keepalive: true,
+          }).catch(()=>{});
+        } catch(e){}
+        window.location.href = reviewPlatformJump.value;
+      }
+
+      function onJump(url) {
+        if (url) window.location.href = url;
+      }
+
+      onMounted(load);
+
+      return {
+        loading, errorMsg, data, currentCopy,
+        showPromoModal, promoChances,
+        showQrModal, qrModalSrc, qrModalTitle, qrModalTip,
+        showReviewModal, reviewLoading, reviewDrafts, reviewPlatformName, reviewPlatformJump,
+        shopEmoji, publishTitle, publishCover, publishLocation,
+        contactEnabled, contactItems, qrItem,
+        load, rotateCopy, connectWifi, goPublish, goGroupBuy, goLottery, gotoLotteryFromPromo,
+        openContact, openReview, goReviewPlatform, onJump, platformEmoji, copyText,
+      };
+    }
+  }).mount('#app');
+})();
+</script>
+</body>
+</html>

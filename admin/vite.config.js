@@ -22,16 +22,24 @@ export default defineConfig({
     proxy: {
       '/api': {
         target: 'http://localhost:8000',
-        changeOrigin: true,
-        rewrite: (path) => path
+        changeOrigin: true
       }
     }
   },
 
   build: {
     outDir: 'dist',
-    assetsDir: 'assets',
+    assetsDir: 'assets_new',
     sourcemap: false,
     chunkSizeWarningLimit: 1500
+  },
+
+  preview: {
+    proxy: {
+      '/api': {
+        target: 'http://localhost:8000',
+        changeOrigin: true
+      }
+    }
   }
 })

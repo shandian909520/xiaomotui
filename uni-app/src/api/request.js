@@ -521,12 +521,17 @@ class Request {
 				this.showLoading(options.loadingText || '上传中...')
 			}
 
+			// multipart 的 Content-Type（含 boundary）须由运行时自动生成，沿用默认 json 头会导致服务端解析不到文件
+			const header = this.getHeaders(options.header)
+			delete header['Content-Type']
+			delete header['content-type']
+
 			uni.uploadFile({
 				url: this.getFullUrl(url),
 				filePath,
 				name: options.name || 'file',
 				formData: data,
-				header: this.getHeaders(options.header),
+				header,
 				success: (res) => {
 					try {
 						const data = typeof res.data === 'string' ? JSON.parse(res.data) : res.data

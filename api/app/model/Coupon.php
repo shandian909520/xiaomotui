@@ -194,8 +194,10 @@ class Coupon extends Model
             return false;
         }
 
-        $this->used_count += 1;
-        return $this->save();
+        return self::where('id', $this->id)
+            ->where('used_count', '<', $this->total_count)
+            ->inc('used_count')
+            ->update() > 0;
     }
 
     /**

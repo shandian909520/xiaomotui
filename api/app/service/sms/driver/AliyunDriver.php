@@ -221,4 +221,60 @@ class AliyunDriver implements SmsDriverInterface
         $scheme = 'https';
         return "{$scheme}://{$endpoint}/";
     }
+
+    /**
+     * 发送模板短信（通知类）
+     *
+     * @param string $phone 手机号码
+     * @param string $templateType 模板类型
+     * @param array $data 模板参数
+     * @return array
+     * @throws \Exception
+     */
+    public function sendTemplate(string $phone, string $templateType, array $data = []): array
+    {
+        $templateMap = $this->config['notify_templates'] ?? [];
+        $templateCode = $templateMap[$templateType] ?? $templateMap['default'] ?? $this->config['template_code'] ?? '';
+
+        if (empty($templateCode)) {
+            throw new \Exception("未找到短信模板: {$templateType}");
+        }
+
+        try {
+            if (!$this->checkConfig()) {
+                throw new \Exception('阿里云短信配置不完整');
+            }
+
+            $params = [
+                'PhoneNumbers' => $phone,
+                'SignName' => $this->config['sign_name'],
+                'TemplateCode' => $templateCode,
+                'TemplateParam' => json_encode($data, JSON_UNESCAPED_UNICODE),
+            ];
+
+            $params = array_merge($params, $this->getCommonParams());
+            $params['Action'] = 'SendSms';
+            $params['Signature'] = $this->calculateSignature($params);
+
+            $response = $this->httpClient->post($this->buildUrl(), [
+                'form_params' => $params,
+                'headers' => ['Content-Type' => 'application/x-www-form-urlencoded'],
+            ]);
+
+            $result = json_decode($response->getBody()->getContents(), true);
+
+            if (!isset($result['Code']) || $result['Code'] !== 'OK') {
+                throw new \Exception("阿里云短信发送失败: " . ($result['Message'] ?? '未知错误'));
+            }
+
+            return [
+                'driver' => 'aliyun',
+                'success' => true,
+                'request_id' => $result['RequestId'] ?? '',
+                'message' => '发送成功',
+            ];
+        } catch (RequestException $e) {
+            throw new \Exception('阿里云短信请求失败: ' . $e->getMessage());
+        }
+    }
 }

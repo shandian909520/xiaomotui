@@ -278,15 +278,42 @@ class JwtService
      */
     private static function getWechatOpenId(string $code): ?string
     {
-        // 这里应该调用微信API
-        // 示例代码，实际需要使用微信SDK
         try {
-            // $app = app('wechat.mini_program');
-            // $result = $app->auth->session($code);
-            // return $result['openid'] ?? null;
+            $config = config('wechat.mini_program');
+            if (empty($config['appid']) || empty($config['secret'])) {
+                Log::error('微信小程序配置缺失');
+                return null;
+            }
 
-            // 临时返回示例数据
-            return 'wx_openid_' . md5($code . time());
+            $url = sprintf(
+                'https://api.weixin.qq.com/sns/jscode2session?appid=%s&secret=%s&js_code=%s&grant_type=authorization_code',
+                $config['appid'],
+                $config['secret'],
+                $code
+            );
+
+            $response = file_get_contents($url);
+            if ($response === false) {
+                Log::error('微信API请求失败', ['code' => $code]);
+                return null;
+            }
+
+            $result = json_decode($response, true);
+            if (isset($result['errcode']) && $result['errcode'] !== 0) {
+                Log::error('微信登录接口返回错误', [
+                    'code' => $code,
+                    'errcode' => $result['errcode'],
+                    'errmsg' => $result['errmsg'] ?? ''
+                ]);
+                return null;
+            }
+
+            if (empty($result['openid'])) {
+                Log::error('微信登录未获取到openid', ['code' => $code]);
+                return null;
+            }
+
+            return $result['openid'];
 
         } catch (\Exception $e) {
             Log::error('获取微信OpenId失败', [
@@ -305,36 +332,24 @@ class JwtService
      */
     private static function findOrCreateUserByOpenId(string $openid, array $userInfo = []): array
     {
-        // 这里应该查询数据库
-        // 示例代码，实际需要连接数据库
+        $user = \app\model\User::where('openid', $openid)->find();
 
-        // 查找用户
-        // $user = User::where('openid', $openid)->find();
+        if (!$user) {
+            $user = \app\model\User::create([
+                'openid' => $openid,
+                'nickname' => $userInfo['nickName'] ?? $userInfo['nickname'] ?? '微信用户',
+                'avatar' => $userInfo['avatarUrl'] ?? $userInfo['avatar'] ?? '',
+                'gender' => $userInfo['gender'] ?? 0,
+                'status' => 1,
+            ]);
 
-        // 如果用户不存在，创建新用户
-        // if (!$user) {
-        //     $user = User::create([
-        //         'openid' => $openid,
-        //         'nickname' => $userInfo['nickName'] ?? '',
-        //         'avatar' => $userInfo['avatarUrl'] ?? '',
-        //         'gender' => $userInfo['gender'] ?? 0,
-        //         'city' => $userInfo['city'] ?? '',
-        //         'province' => $userInfo['province'] ?? '',
-        //         'country' => $userInfo['country'] ?? '',
-        //         'created_at' => time(),
-        //         'updated_at' => time(),
-        //     ]);
-        // }
+            Log::info('微信登录自动创建用户', [
+                'user_id' => $user->id,
+                'openid' => $openid
+            ]);
+        }
 
-        // 临时返回示例数据
-        return [
-            'id' => crc32($openid) % 1000000, // 临时生成ID
-            'openid' => $openid,
-            'nickname' => $userInfo['nickName'] ?? '小磨推用户',
-            'avatar' => $userInfo['avatarUrl'] ?? '',
-            'created_at' => time(),
-            'updated_at' => time(),
-        ];
+        return $user->toArray();
     }
 
     /**

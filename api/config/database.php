@@ -37,8 +37,8 @@ return [
             'params'          => [
                 // 连接超时时间(秒)
                 \PDO::ATTR_TIMEOUT => env('database.timeout', 30),
-                // 设置字符集
-                \PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES " . env('database.charset', 'utf8mb4') . " COLLATE " . env('database.collation', 'utf8mb4_unicode_ci'),
+                // 连接时执行的SQL：设置字符集、排序规则和sql_mode
+                \PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES " . env('database.charset', 'utf8mb4') . " COLLATE " . env('database.collation', 'utf8mb4_unicode_ci') . ', sql_mode="STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION"',
                 // 错误处理模式
                 \PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION,
                 // 禁用预处理语句的模拟
@@ -47,8 +47,6 @@ return [
                 \PDO::ATTR_DEFAULT_FETCH_MODE => \PDO::FETCH_ASSOC,
                 // 启用持久连接
                 \PDO::ATTR_PERSISTENT => env('database.persistent', false),
-                // 连接时执行的SQL
-                \PDO::MYSQL_ATTR_INIT_COMMAND => 'SET sql_mode="STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION"',
             ],
             // 数据库编码默认采用utf8mb4
             'charset'         => env('database.charset', 'utf8mb4'),

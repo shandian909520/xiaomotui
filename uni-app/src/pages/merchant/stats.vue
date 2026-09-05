@@ -291,35 +291,26 @@ export default {
         // 处理概览数据
         if (overviewRes.status === 'fulfilled' && overviewRes.value) {
           handleOverviewData(overviewRes.value)
-        } else {
-          setMockOverviewData()
         }
 
         // 处理趋势数据
         if (trendRes.status === 'fulfilled' && trendRes.value) {
           trendData.value = trendRes.value
-        } else {
-          setMockTrendData()
         }
 
         // 处理平台分布
         if (platformRes.status === 'fulfilled' && platformRes.value) {
           platformData.value = platformRes.value
-        } else {
-          setMockPlatformData()
         }
 
         // 处理设备排行
         if (rankingRes.status === 'fulfilled' && rankingRes.value) {
           deviceRanking.value = rankingRes.value
-        } else {
-          setMockDeviceRanking()
         }
 
       } catch (error) {
         console.error('加载数据失败:', error)
-        // 设置所有模拟数据
-        setAllMockData()
+        uni.showToast({ title: '数据加载失败，请下拉刷新重试', icon: 'none' })
       } finally {
         loading.value = false
       }
@@ -402,86 +393,6 @@ export default {
       funnelData.rewardRate = funnelData.triggerCount > 0
         ? Math.round((funnelData.rewardCount / funnelData.triggerCount) * 100)
         : 0
-    }
-
-    /**
-     * 设置模拟概览数据
-     */
-    const setMockOverviewData = () => {
-      overviewData.campaignCount = 3
-      overviewData.triggerCount = 256
-      overviewData.publishCount = 128
-      overviewData.rewardCount = 96
-
-      funnelData.triggerCount = 256
-      funnelData.downloadCount = 200
-      funnelData.downloadRate = 78
-      funnelData.publishCount = 128
-      funnelData.publishRate = 50
-      funnelData.rewardCount = 96
-      funnelData.rewardRate = 38
-    }
-
-    /**
-     * 设置模拟趋势数据
-     */
-    const setMockTrendData = () => {
-      const days = activeDateRange.value === '7d' ? 7 : activeDateRange.value === '30d' ? 30 : 14
-      trendData.value = Array.from({ length: Math.min(days, 14) }, (_, i) => {
-        const date = new Date()
-        date.setDate(date.getDate() - (days - 1 - i))
-        return {
-          date: date.toISOString().split('T')[0],
-          dateLabel: `${date.getMonth() + 1}/${date.getDate()}`,
-          triggerCount: Math.floor(Math.random() * 50) + 10,
-          publishCount: Math.floor(Math.random() * 25) + 5
-        }
-      })
-    }
-
-    /**
-     * 设置模拟平台数据
-     */
-    const setMockPlatformData = () => {
-      const douyinCount = Math.floor(Math.random() * 200) + 100
-      const kuaishouCount = Math.floor(Math.random() * 100) + 50
-      const total = douyinCount + kuaishouCount
-
-      platformData.value = [
-        {
-          name: '抖音',
-          count: douyinCount,
-          percent: Math.round((douyinCount / total) * 100),
-          color: 'linear-gradient(90deg, #FF2C55 0%, #FF6B8A 100%)'
-        },
-        {
-          name: '快手',
-          count: kuaishouCount,
-          percent: Math.round((kuaishouCount / total) * 100),
-          color: 'linear-gradient(90deg, #FF7E00 0%, #FFB347 100%)'
-        }
-      ]
-    }
-
-    /**
-     * 设置模拟设备排行
-     */
-    const setMockDeviceRanking = () => {
-      deviceRanking.value = Array.from({ length: 5 }, (_, i) => ({
-        id: i + 1,
-        name: `NFC设备-${1000 + i}`,
-        triggerCount: Math.floor(Math.random() * 100) + (50 - i * 10)
-      })).sort((a, b) => b.triggerCount - a.triggerCount)
-    }
-
-    /**
-     * 设置所有模拟数据
-     */
-    const setAllMockData = () => {
-      setMockOverviewData()
-      setMockTrendData()
-      setMockPlatformData()
-      setMockDeviceRanking()
     }
 
     onMounted(() => {

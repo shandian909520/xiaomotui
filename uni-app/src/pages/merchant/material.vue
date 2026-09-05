@@ -358,7 +358,18 @@ export default {
             current: item.url
           })
         } else {
-          uni.showToast({ title: '视频预览开发中', icon: 'none' })
+          // 视频预览
+          const videoItems = materialList.value.filter(m => m.type === 'video')
+          const videoUrls = videoItems.map(m => m.url).filter(Boolean)
+
+          if (item.url) {
+            uni.previewMedia({
+              sources: [{ url: item.url, type: 'video' }],
+              current: 0
+            })
+          } else {
+            uni.showToast({ title: '该视频暂不可预览', icon: 'none' })
+          }
         }
       }
     }

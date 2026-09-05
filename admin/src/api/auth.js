@@ -10,7 +10,7 @@ import request from '@/utils/request'
  */
 export function login(data) {
   return request({
-    url: '/api/auth/login',
+    url: '/auth/login',
     method: 'post',
     data
   })
@@ -22,7 +22,7 @@ export function login(data) {
  */
 export function getUserInfo() {
   return request({
-    url: '/api/auth/userinfo',
+    url: '/auth/userinfo',
     method: 'get'
   })
 }
@@ -33,7 +33,7 @@ export function getUserInfo() {
  */
 export function logout() {
   return request({
-    url: '/api/auth/logout',
+    url: '/auth/logout',
     method: 'post'
   })
 }
@@ -44,7 +44,18 @@ export function logout() {
  */
 export function refreshToken() {
   return request({
-    url: '/api/auth/refresh',
+    url: '/auth/refresh',
     method: 'post'
+  })
+}
+
+/**
+ * 获取当前用户权限列表
+ * @returns {Promise}
+ */
+export function getUserPermissions() {
+  return request({
+    url: '/auth/permissions',
+    method: 'get'
   })
 }

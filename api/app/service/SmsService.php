@@ -378,4 +378,57 @@ class SmsService
 
         Log::channel($channel)->$level($message, $context);
     }
+
+    /**
+     * 发送通知类短信（非验证码）
+     *
+     * @param string $phone 手机号码
+     * @param array $data 通知参数
+     * @return array
+     */
+    public function sendNotify(string $phone, array $data = []): array
+    {
+        try {
+            if (!$this->validatePhone($phone)) {
+                throw new \Exception('手机号码格式不正确');
+            }
+
+            if ($this->isDebugMode()) {
+                $this->log('info', '调试模式：通知短信未发送', [
+                    'phone' => $phone,
+                    'data' => $data,
+                ]);
+                return [
+                    'success' => true,
+                    'driver' => 'debug',
+                    'message' => '通知短信已发送（调试模式）',
+                ];
+            }
+
+            $templateType = $data['template_type'] ?? 'general_notify';
+            $result = $this->driver->sendTemplate($phone, $templateType, $data);
+
+            $this->log('info', '通知短信发送成功', [
+                'phone' => $phone,
+                'template_type' => $templateType,
+                'result' => $result,
+            ]);
+
+            return [
+                'success' => true,
+                'driver' => get_class($this->driver),
+                'result' => $result,
+            ];
+        } catch (\Exception $e) {
+            $this->log('error', '通知短信发送失败', [
+                'phone' => $phone,
+                'error' => $e->getMessage(),
+            ]);
+
+            return [
+                'success' => false,
+                'message' => $e->getMessage(),
+            ];
+        }
+    }
 }

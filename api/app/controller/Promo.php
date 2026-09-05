@@ -120,10 +120,10 @@ class Promo extends BaseController
             if ($rewardCouponId) {
                 // 使用分布式锁防止并发
                 $lockKey = 'promo_coupon_lock:' . $triggerId . ':' . $platform;
-                $lock = Cache::lock($lockKey, 10);
 
                 try {
-                    if (!$lock->get(3)) {
+                    $lockToken = \app\common\Lock::acquire($lockKey, 10, 3);
+                    if ($lockToken === null) {
                         return $this->error('正在处理中，请稍后再试', 429);
                     }
 
@@ -168,9 +168,9 @@ class Promo extends BaseController
                         }
                     }
 
-                    $lock->release();
+                    \app\common\Lock::release($lockKey, $lockToken);
                 } catch (\Exception $e) {
-                    $lock->release();
+                    \app\common\Lock::release($lockKey, $lockToken ?? '');
                     Log::error('推广优惠券发放失败', [
                         'trigger_id' => $triggerId,
                         'error' => $e->getMessage(),

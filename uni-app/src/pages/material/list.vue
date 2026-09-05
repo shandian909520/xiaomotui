@@ -45,6 +45,7 @@
           v-for="item in materialList"
           :key="item.id"
           class="material-card"
+          :class="{ 'batch-selected': batchMode && selectedItems.includes(item.id) }"
           @tap="viewDetail(item.id)"
         >
           <!-- 封面 -->
@@ -114,14 +115,27 @@
 
     <!-- 底部操作栏 -->
     <view class="bottom-bar">
-      <button class="action-btn secondary" @tap="handleUpload">
-        <text class="btn-icon">📤</text>
-        <text>上传</text>
-      </button>
-      <button class="action-btn primary" @tap="handleBatchManage">
-        <text class="btn-icon">✏️</text>
-        <text>管理</text>
-      </button>
+      <template v-if="!batchMode">
+        <button class="action-btn secondary" @tap="handleUpload">
+          <text class="btn-icon">📤</text>
+          <text>上传</text>
+        </button>
+        <button class="action-btn primary" @tap="handleBatchManage">
+          <text class="btn-icon">✏️</text>
+          <text>管理</text>
+        </button>
+      </template>
+      <template v-else>
+        <button class="action-btn secondary" @tap="exitBatchMode">
+          <text>取消</text>
+        </button>
+        <button class="action-btn secondary" @tap="selectAllItems">
+          <text>{{ selectedItems.length === materialList.length ? '取消全选' : '全选' }}</text>
+        </button>
+        <button class="action-btn danger" @tap="batchDeleteItems" :disabled="selectedItems.length === 0">
+          <text>删除({{ selectedItems.length }})</text>
+        </button>
+      </template>
     </view>
 
     <!-- 筛选弹窗 -->
@@ -222,7 +236,11 @@ export default {
       ],
 
       isLoading: false,
-      loadingText: '加载中...'
+      loadingText: '加载中...',
+
+      // 批量管理
+      batchMode: false,
+      selectedItems: []
     }
   },
 
@@ -256,7 +274,7 @@ export default {
           type: this.filterData.type === 'all' ? '' : this.filterData.type
         }
 
-        const res = await api.material.getList(params)
+        const res = await api.material.getMaterialList(params)
 
         const newList = res.data || []
 
@@ -367,6 +385,11 @@ export default {
      * 查看详情
      */
     viewDetail(id) {
+      if (this.batchMode) {
+        const item = this.materialList.find(m => m.id === id)
+        if (item) this.toggleSelectItem(item)
+        return
+      }
       uni.navigateTo({
         url: `/pages/material/detail?id=${id}`
       })
@@ -376,21 +399,144 @@ export default {
      * 上传素材
      */
     handleUpload() {
-      uni.showModal({
-        title: '提示',
-        content: '上传功能开发中',
-        showCancel: false
+      uni.showActionSheet({
+        itemList: ['选择图片', '选择视频'],
+        success: (res) => {
+          if (res.tapIndex === 0) {
+            this.chooseAndUpload('image')
+          } else if (res.tapIndex === 1) {
+            this.chooseAndUpload('video')
+          }
+        }
       })
+    },
+
+    /**
+     * 选择文件并上传
+     */
+    chooseAndUpload(type) {
+      if (type === 'image') {
+        uni.chooseImage({
+          count: 9,
+          sizeType: ['compressed'],
+          sourceType: ['album', 'camera'],
+          success: async (res) => {
+            uni.showLoading({ title: '上传中...', mask: true })
+            let successCount = 0
+            let failCount = 0
+
+            for (const filePath of res.tempFilePaths) {
+              try {
+                await api.material.uploadMaterial(filePath, { type: 'IMAGE' })
+                successCount++
+              } catch (error) {
+                console.error('上传素材失败:', error)
+                failCount++
+              }
+            }
+
+            uni.hideLoading()
+
+            if (successCount > 0) {
+              uni.showToast({ title: `成功上传${successCount}个素材`, icon: 'success' })
+              this.loadMaterialList(true)
+            } else {
+              uni.showToast({ title: '上传失败', icon: 'none' })
+            }
+          }
+        })
+      } else {
+        uni.chooseVideo({
+          sourceType: ['album', 'camera'],
+          maxDuration: 60,
+          success: async (res) => {
+            uni.showLoading({ title: '上传中...', mask: true })
+            try {
+              await api.material.uploadMaterial(res.tempFilePath, { type: 'VIDEO' })
+              uni.hideLoading()
+              uni.showToast({ title: '上传成功', icon: 'success' })
+              this.loadMaterialList(true)
+            } catch (error) {
+              uni.hideLoading()
+              console.error('上传视频失败:', error)
+              uni.showToast({ title: '上传失败', icon: 'none' })
+            }
+          }
+        })
+      }
     },
 
     /**
      * 批量管理
      */
     handleBatchManage() {
+      if (this.materialList.length === 0) {
+        uni.showToast({ title: '暂无素材可管理', icon: 'none' })
+        return
+      }
+      this.batchMode = true
+      this.selectedItems = []
+    },
+
+    /**
+     * 退出批量模式
+     */
+    exitBatchMode() {
+      this.batchMode = false
+      this.selectedItems = []
+    },
+
+    /**
+     * 切换选中状态
+     */
+    toggleSelectItem(item) {
+      const index = this.selectedItems.findIndex(id => id === item.id)
+      if (index > -1) {
+        this.selectedItems.splice(index, 1)
+      } else {
+        this.selectedItems.push(item.id)
+      }
+    },
+
+    /**
+     * 全选
+     */
+    selectAllItems() {
+      if (this.selectedItems.length === this.materialList.length) {
+        this.selectedItems = []
+      } else {
+        this.selectedItems = this.materialList.map(item => item.id)
+      }
+    },
+
+    /**
+     * 批量删除
+     */
+    batchDeleteItems() {
+      if (this.selectedItems.length === 0) {
+        uni.showToast({ title: '请先选择素材', icon: 'none' })
+        return
+      }
       uni.showModal({
-        title: '提示',
-        content: '批量管理功能开发中',
-        showCancel: false
+        title: '确认删除',
+        content: `确定要删除选中的 ${this.selectedItems.length} 个素材吗？`,
+        success: async (res) => {
+          if (res.confirm) {
+            uni.showLoading({ title: '删除中...', mask: true })
+            try {
+              await api.material.batchDeleteMaterials(this.selectedItems)
+              uni.hideLoading()
+              uni.showToast({ title: '删除成功', icon: 'success' })
+              this.batchMode = false
+              this.selectedItems = []
+              this.loadMaterialList(true)
+            } catch (error) {
+              uni.hideLoading()
+              console.error('批量删除失败:', error)
+              uni.showToast({ title: '删除失败', icon: 'none' })
+            }
+          }
+        }
       })
     },
 
@@ -516,6 +662,12 @@ export default {
   border-radius: 12rpx;
   overflow: hidden;
   box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);
+  position: relative;
+
+  &.batch-selected {
+    outline: 4rpx solid #6366f1;
+    outline-offset: -4rpx;
+  }
 }
 
 .material-cover {
@@ -680,6 +832,15 @@ export default {
     &.primary {
       background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
       color: #ffffff;
+    }
+
+    &.danger {
+      background: #ef4444;
+      color: #ffffff;
+    }
+
+    &[disabled] {
+      opacity: 0.5;
     }
   }
 }

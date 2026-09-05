@@ -13,7 +13,7 @@ export default {
    * @returns {Promise}
    */
   getOverview(params = {}) {
-    return request.get('/merchant/promo-stats/overview', {
+    return request.get('/api/merchant/promo-stats/overview', {
       date_range: params.dateRange || '7d'
     })
   },
@@ -25,7 +25,7 @@ export default {
    * @returns {Promise}
    */
   getTrendData(params = {}) {
-    return request.get('/merchant/promo-stats/trend', {
+    return request.get('/api/merchant/promo-stats/trend', {
       date_range: params.dateRange || '7d'
     })
   },
@@ -37,7 +37,7 @@ export default {
    * @returns {Promise}
    */
   getPlatformDistribution(params = {}) {
-    return request.get('/merchant/promo-stats/platform', {
+    return request.get('/api/merchant/promo-stats/platform', {
       date_range: params.dateRange || '7d'
     })
   },
@@ -50,7 +50,7 @@ export default {
    * @returns {Promise}
    */
   getDeviceRanking(params = {}) {
-    return request.get('/merchant/promo-stats/device-ranking', {
+    return request.get('/api/merchant/promo-stats/device-ranking', {
       date_range: params.dateRange || '7d',
       limit: params.limit || 5
     })
@@ -61,6 +61,6 @@ export default {
    * @returns {Promise}
    */
   getTodayStats() {
-    return request.get('/merchant/promo-stats/today')
+    return request.get('/api/merchant/promo-stats/today')
   }
 }

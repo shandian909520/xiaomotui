@@ -30,10 +30,34 @@ function wxLogin() {
 
 /**
  * 检查登录状态
+ * 先检查本地token是否存在且未过期
  */
 function checkLogin() {
   const token = wx.getStorageSync('token');
-  return !!token;
+  if (!token) return false;
+
+  // 简单检查JWT是否过期
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return false;
+
+    const payload = JSON.parse(
+      decodeURIComponent(
+        Array.from(atob(parts[1]), c =>
+          '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)
+        ).join('')
+      )
+    );
+
+    if (payload.exp && payload.exp * 1000 < Date.now()) {
+      return false;
+    }
+
+    return true;
+  } catch (e) {
+    // 解析失败，仍返回true，由后续API调用处理401
+    return true;
+  }
 }
 
 /**

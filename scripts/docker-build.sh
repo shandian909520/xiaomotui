@@ -18,6 +18,12 @@ NGINX_IMAGE="${REGISTRY}/${NAMESPACE}/nginx"
 MYSQL_IMAGE="${REGISTRY}/${NAMESPACE}/mysql"
 REDIS_IMAGE="${REGISTRY}/${NAMESPACE}/redis"
 
+echo ">>> Build admin frontend..."
+(cd admin && npm run build)
+
+echo ">>> Build H5 frontend..."
+(cd uni-app && npm run build:h5)
+
 echo "=========================================="
 echo "构建版本: ${VERSION}"
 echo "=========================================="
@@ -41,7 +47,7 @@ docker build \
     -t ${NGINX_IMAGE}:${VERSION} \
     -t ${NGINX_IMAGE}:latest \
     -f docker/nginx/Dockerfile \
-    ./docker/nginx
+    .
 
 # ============ 构建 MySQL 镜像 ============
 echo ">>> 构建 MySQL 镜像..."

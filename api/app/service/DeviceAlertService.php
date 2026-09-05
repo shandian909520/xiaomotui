@@ -407,8 +407,46 @@ class DeviceAlertService
                 ]);
             }
 
-            // 短信通知（TODO: 集成短信服务）
-            // 微信公众号通知（TODO: 集成微信服务）
+            // 短信通知（ERROR和CRITICAL级别发送）
+            if (in_array($alertData['level'], [self::LEVEL_ERROR, self::LEVEL_CRITICAL]) && !empty($merchant->phone)) {
+                try {
+                    $smsService = new SmsService();
+                    $smsService->sendNotify($merchant->phone, [
+                        'template_type' => 'device_alert',
+                        'device_name' => $alertData['device_info']['device_name'] ?? '未知设备',
+                        'alert_message' => $alertData['message'],
+                        'alert_level' => $alertData['level'],
+                    ]);
+                } catch (\Exception $smsEx) {
+                    Log::error('告警短信发送失败', [
+                        'merchant_id' => $merchant->id,
+                        'error' => $smsEx->getMessage()
+                    ]);
+                }
+            }
+
+            // 微信公众号/小程序模板消息通知
+            try {
+                $wechatTemplateService = new \app\service\WechatTemplateService('miniprogram');
+                $user = \app\model\User::where('id', $merchant->user_id ?? 0)->find();
+                if ($user && !empty($user->wechat_openid)) {
+                    $wechatTemplateService->sendDeviceAlertNotification(
+                        $merchant->id,
+                        $user->wechat_openid,
+                        [
+                            'alert_type' => $alertData['alert_type'],
+                            'device_name' => $alertData['device_info']['device_name'] ?? '',
+                            'alert_level' => $alertData['level'],
+                            'message' => $alertData['message'],
+                        ]
+                    );
+                }
+            } catch (\Exception $wxEx) {
+                Log::error('告警微信通知发送失败', [
+                    'merchant_id' => $merchant->id,
+                    'error' => $wxEx->getMessage()
+                ]);
+            }
 
             // 记录日志
             Log::info('告警通知已发送', [

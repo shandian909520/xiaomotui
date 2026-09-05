@@ -396,11 +396,10 @@ const loadAlerts = async () => {
     const params = getQueryParams()
     const res = await getAlerts(params)
 
-    if (res.code === 200) {
-      alerts.value = res.data.list || []
-      pagination.total = res.data.total || 0
-      pendingCount.value = res.data.pendingCount || 0
-    }
+    const data = res || {}
+    alerts.value = data.list || data.data || []
+    pagination.total = data.total || data.pagination?.total || 0
+    pendingCount.value = data.pendingCount || 0
   } catch (error) {
     console.error('加载告警列表失败:', error)
     ElMessage.error('加载失败')

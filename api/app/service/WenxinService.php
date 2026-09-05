@@ -6,6 +6,7 @@ namespace app\service;
 use think\facade\Cache;
 use think\facade\Log;
 use think\exception\HttpException;
+use app\model\SystemSetting;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\GuzzleException;
 
@@ -20,6 +21,7 @@ class WenxinService
      */
     const PROVIDER_WENXIN = 'wenxin';
     const PROVIDER_MINIMAX = 'minimax';
+    const PROVIDER_GLM = 'glm';
 
     /**
      * 配置信息
@@ -41,21 +43,38 @@ class WenxinService
      *
      * @param string $provider AI服务提供商，默认为wenxin，可选minimax
      */
-    public function __construct(string $provider = self::PROVIDER_WENXIN)
+    public function __construct(string $provider = '')
     {
+        // 优先使用数据库配置的默认provider，其次使用配置文件的
+        // SystemSetting 包了 try/catch，DB 不可用时 fallback 到 config
+        if (empty($provider)) {
+            try {
+                $provider = SystemSetting::getSetting('provider', 'ai', '') ?: config('ai.default', 'wenxin');
+            } catch (\Throwable $e) {
+                $provider = config('ai.default', 'wenxin');
+            }
+        }
         $this->provider = $provider;
 
         if ($provider === self::PROVIDER_MINIMAX) {
-            $this->config = config('ai.minimax', []);
+            $this->config = $this->loadMiniMaxConfig();
+        } elseif ($provider === self::PROVIDER_GLM) {
+            $this->config = $this->loadGLMConfig();
         } else {
-            $this->config = config('ai.wenxin', []);
+            $this->config = $this->loadWenxinConfig();
         }
 
         // 验证配置
         if ($provider === self::PROVIDER_MINIMAX) {
             if (empty($this->config['auth_token'])) {
                 throw new \RuntimeException(
-                    'MiniMax API密钥未配置,请在.env文件中设置ANTHROPIC_AUTH_TOKEN'
+                    'MiniMax API密钥未配置,请在后台系统配置中设置或修改.env文件中的ANTHROPIC_AUTH_TOKEN'
+                );
+            }
+        } elseif ($provider === self::PROVIDER_GLM) {
+            if (empty($this->config['api_key'])) {
+                throw new \RuntimeException(
+                    '智谱 GLM API密钥未配置,请在后台系统配置中设置或修改.env文件中的AI.ZHIPU_API_KEY'
                 );
             }
         } else {
@@ -64,26 +83,107 @@ class WenxinService
             if ($protocol === 'openai') {
                  if (empty($this->config['api_key'])) {
                      throw new \RuntimeException(
-                         '文心一言API密钥未配置,请在.env文件中设置BAIDU_WENXIN_API_KEY'
+                         '文心一言API密钥未配置,请在后台系统配置中设置或修改.env文件中的BAIDU_WENXIN_API_KEY'
                      );
                  }
             } else {
                  if (empty($this->config['api_key']) || empty($this->config['secret_key'])) {
                      throw new \RuntimeException(
-                         '文心一言API密钥未配置,请在.env文件中设置BAIDU_WENXIN_API_KEY和BAIDU_WENXIN_SECRET_KEY'
+                         '文心一言API密钥未配置,请在后台系统配置中设置或修改.env文件中的BAIDU_WENXIN_API_KEY和BAIDU_WENXIN_SECRET_KEY'
                      );
                  }
             }
         }
 
         // 初始化HTTP客户端
-        // 注意: 仅在本地开发环境禁用SSL验证,生产环境必须启用
         $this->httpClient = new Client([
             'timeout' => $this->config['timeout'] ?? 30,
             'connect_timeout' => 10,
             'verify' => false,
             'http_errors' => false,
         ]);
+    }
+
+    /**
+     * 加载MiniMax配置（数据库优先，其次配置文件）
+     * 注：SystemSetting 调用包了 try/catch，DB 不可用时直接用 .env 文件配置
+     */
+    private function loadMiniMaxConfig(): array
+    {
+        $fileConfig = config('ai.minimax', []);
+        $safeGet = function ($key, $default = '') {
+            try {
+                return SystemSetting::getSetting($key, 'ai', $default);
+            } catch (\Throwable $e) {
+                return $default;
+            }
+        };
+        return [
+            'auth_token' => $safeGet('minimax_auth_token', $fileConfig['auth_token'] ?? ''),
+            'base_url' => $safeGet('minimax_base_url', $fileConfig['base_url'] ?? 'https://api.minimaxi.com/anthropic'),
+            'model' => $safeGet('minimax_model', $fileConfig['model'] ?? 'MiniMax-M2.7-highspeed'),
+            'timeout' => (int)$safeGet('minimax_timeout', (string)($fileConfig['timeout'] ?? 30)),
+            'generation' => $fileConfig['generation'] ?? ['temperature' => 0.8, 'top_p' => 0.9, 'stream' => false],
+            'content' => $fileConfig['content'] ?? [],
+        ];
+    }
+
+    /**
+     * 加载 GLM 智谱配置（数据库优先，其次配置文件）
+     * 注：SystemSetting 调用包了 try/catch，DB 不可用时直接用 .env 文件配置
+     */
+    private function loadGLMConfig(): array
+    {
+        $fileConfig = config('ai.glm', []);
+        $safeGet = function ($key, $default = '') {
+            try {
+                return SystemSetting::getSetting($key, 'ai', $default);
+            } catch (\Throwable $e) {
+                return $default;
+            }
+        };
+        return [
+            'api_key'     => $safeGet('glm_api_key', $fileConfig['api_key'] ?? ''),
+            'base_url'    => $safeGet('glm_base_url', $fileConfig['base_url'] ?? 'https://open.bigmodel.cn/api/paas/v4'),
+            'model'       => $safeGet('glm_model', $fileConfig['model'] ?? 'glm-4-flash'),
+            'timeout'     => (int)$safeGet('glm_timeout', (string)($fileConfig['timeout'] ?? 30)),
+            'max_retries' => (int)($fileConfig['max_retries'] ?? 3),
+            'retry_delay' => (int)($fileConfig['retry_delay'] ?? 1),
+            'generation'  => $fileConfig['generation'] ?? ['temperature' => 0.8, 'top_p' => 0.9, 'stream' => false],
+            'content'     => $fileConfig['content'] ?? [],
+            'models'      => $fileConfig['models'] ?? [],
+        ];
+    }
+
+    /**
+     * 加载文心一言配置（数据库优先，其次配置文件）
+     * 注：SystemSetting 调用包了 try/catch，DB 不可用时直接用 .env 文件配置
+     */
+    private function loadWenxinConfig(): array
+    {
+        $fileConfig = config('ai.wenxin', []);
+        $safeGet = function ($key, $default = '') {
+            try {
+                return SystemSetting::getSetting($key, 'ai', $default);
+            } catch (\Throwable $e) {
+                return $default;
+            }
+        };
+        return [
+            'protocol' => $safeGet('wenxin_protocol', $fileConfig['protocol'] ?? 'openai'),
+            'api_key' => $safeGet('wenxin_api_key', $fileConfig['api_key'] ?? ''),
+            'secret_key' => $safeGet('wenxin_secret_key', $fileConfig['secret_key'] ?? ''),
+            'model' => $safeGet('wenxin_model', $fileConfig['model'] ?? 'ernie-bot-turbo'),
+            'timeout' => (int)$safeGet('wenxin_timeout', (string)($fileConfig['timeout'] ?? 30)),
+            'auth_url' => $fileConfig['auth_url'] ?? '',
+            'chat_url' => $fileConfig['chat_url'] ?? '',
+            'openai_base_url' => $fileConfig['openai_base_url'] ?? '',
+            'models' => $fileConfig['models'] ?? [],
+            'generation' => $fileConfig['generation'] ?? [],
+            'content' => $fileConfig['content'] ?? [],
+            'token_cache_key' => $fileConfig['token_cache_key'] ?? 'wenxin:access_token',
+            'token_expire_margin' => $fileConfig['token_expire_margin'] ?? 300,
+        ];
     }
 
     /**
@@ -118,8 +218,8 @@ class WenxinService
                 return $this->generateMockText($params, $startTime);
             }
 
-            // 构建提示词
-            $prompt = $this->buildPrompt($params);
+            // 构建提示词（支持直接传入prompt）
+            $prompt = $params['_direct_prompt'] ?? $this->buildPrompt($params);
 
             // 调用API生成内容
             $response = $this->chat($prompt, $params);
@@ -136,7 +236,7 @@ class WenxinService
 
             // 记录日志
             if ($this->config['monitoring']['log_requests'] ?? true) {
-                Log::info('文心一言内容生成成功', [
+                Log::info($this->provider === self::PROVIDER_GLM ? 'GLM内容生成成功' : '文心一言内容生成成功', [
                     'scene' => $params['scene'] ?? '',
                     'style' => $params['style'] ?? '',
                     'platform' => $params['platform'] ?? '',
@@ -210,6 +310,10 @@ class WenxinService
         // 根据 provider 选择不同的 API
         if ($this->provider === self::PROVIDER_MINIMAX) {
             return $this->chatMiniMax($prompt, $options);
+        }
+
+        if ($this->provider === self::PROVIDER_GLM) {
+            return $this->chatGLM($prompt, $options);
         }
 
         $protocol = $this->config['protocol'] ?? 'native';
@@ -365,14 +469,20 @@ class WenxinService
                 if ($statusCode === 200 && isset($body['choices'])) {
                     return $body;
                 }
-                
+
                 // 处理错误响应
                 if (isset($body['error'])) {
                      $errorMsg = is_array($body['error']) ? ($body['error']['message'] ?? json_encode($body['error'])) : $body['error'];
-                     throw new \Exception("OpenAI API错误: " . $errorMsg);
-                }
+                     $lastException = new \Exception("OpenAI API错误: " . $errorMsg);
 
-                throw new \Exception("OpenAI API响应格式未知");
+                     // 不可重试的错误（认证失败、参数错误等）直接抛出
+                     if (in_array($statusCode, [400, 401, 403, 404])) {
+                         throw $lastException;
+                     }
+                     // 可重试的错误（429限流、500/502/503服务器错误）继续重试
+                } else {
+                    $lastException = new \Exception("OpenAI API响应格式未知");
+                }
 
             } catch (\Exception $e) {
                 $lastException = $e;
@@ -415,7 +525,7 @@ class WenxinService
                 ]
             ],
             'temperature' => $options['temperature'] ?? $this->config['generation']['temperature'] ?? 0.8,
-            'max_tokens' => min($options['max_tokens'] ?? $this->config['content']['max_length'] ?? 800, 800),
+            'max_tokens' => $options['max_tokens'] ?? $this->config['content']['max_length'] ?? 2048,
         ];
 
         // 记录请求日志用于调试
@@ -531,6 +641,124 @@ class WenxinService
         }
 
         throw new \Exception('MiniMax API请求失败: ' . ($lastException ? $lastException->getMessage() : '未知错误'));
+    }
+
+    /**
+     * 调用智谱 GLM Chat API（OpenAI 兼容协议）
+     *
+     * @param string $prompt 提示词
+     * @param array $options 额外选项
+     * @return array API响应（已转 OpenAI 格式）
+     * @throws \Exception
+     */
+    private function chatGLM(string $prompt, array $options = []): array
+    {
+        $baseUrl = rtrim($this->config['base_url'] ?? 'https://open.bigmodel.cn/api/paas/v4', '/');
+        $url = $baseUrl . '/chat/completions';
+        $apiKey = $this->config['api_key'];
+        $model = $options['model'] ?? $this->config['model'] ?? 'glm-4-flash';
+
+        $messages = [];
+        if (!empty($this->config['content']['system_prompt'])) {
+            $messages[] = ['role' => 'system', 'content' => $this->config['content']['system_prompt']];
+        }
+        $messages[] = ['role' => 'user', 'content' => $prompt];
+
+        $requestBody = [
+            'model'       => $model,
+            'messages'    => $messages,
+            'temperature' => $options['temperature'] ?? $this->config['generation']['temperature'] ?? 0.8,
+            'top_p'       => $options['top_p'] ?? $this->config['generation']['top_p'] ?? 0.9,
+            'stream'      => false,
+        ];
+
+        Log::info('GLM API请求', [
+            'url'   => $url,
+            'model' => $model,
+        ]);
+
+        $maxRetries = $this->config['max_retries'] ?? 2;
+        $retryDelay = $this->config['retry_delay'] ?? 1;
+        $lastException = null;
+
+        // 模型降级链：主模型失败 → glm-4-flash（始终可用）
+        $modelFallbackChain = [$model];
+        if ($model !== 'glm-4-flash') {
+            $modelFallbackChain[] = 'glm-4-flash';
+        }
+
+        foreach ($modelFallbackChain as $tryModel) {
+            $requestBody['model'] = $tryModel;
+
+            for ($i = 0; $i < $maxRetries; $i++) {
+                try {
+                    $ch = curl_init();
+                    curl_setopt($ch, CURLOPT_URL, $url);
+                    curl_setopt($ch, CURLOPT_POST, true);
+                    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($requestBody, JSON_UNESCAPED_UNICODE));
+                    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                        'Content-Type: application/json',
+                        'Authorization: Bearer ' . $apiKey,
+                    ]);
+                    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                    curl_setopt($ch, CURLOPT_TIMEOUT, $this->config['timeout'] ?? 30);
+                    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
+                    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+                    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
+                    curl_setopt($ch, CURLOPT_SSL_OPTIONS, CURLSSLOPT_NO_REVOKE);
+
+                    $responseBody = curl_exec($ch);
+                    $statusCode   = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                    $error        = curl_error($ch);
+                    curl_close($ch);
+
+                    if ($responseBody === false) {
+                        throw new \Exception('cURL error: ' . $error);
+                    }
+
+                    $body = json_decode($responseBody, true);
+
+                    if ($statusCode === 200 && isset($body['choices'][0]['message']['content'])) {
+                        Log::info('GLM API响应成功', ['model' => $tryModel, 'fallback' => $tryModel !== $model]);
+                        return [
+                            'choices' => $body['choices'],
+                            'usage'   => $body['usage'] ?? ['total_tokens' => 0],
+                            'model'   => $tryModel,
+                        ];
+                    }
+
+                    if (isset($body['error'])) {
+                        $err = $body['error'];
+                        $msg = is_array($err) ? ($err['message'] ?? json_encode($err, JSON_UNESCAPED_UNICODE)) : $err;
+                        $code = is_array($err) ? ($err['code'] ?? '') : '';
+
+                        // 余额不足(1113)或权限错误，跳到下一个模型
+                        if (in_array($code, ['1113', '1001', '1002', '1200']) || $statusCode === 429) {
+                            Log::warning('GLM模型余额/权限不足，降级', ['model' => $tryModel, 'code' => $code, 'msg' => $msg]);
+                            $lastException = new \Exception('GLM API错误: ' . $msg);
+                            break 2; // 跳出到下一个降级模型
+                        }
+
+                        throw new \Exception('GLM API错误: ' . $msg);
+                    }
+
+                    throw new \Exception('GLM API响应格式未知, HTTP Code: ' . $statusCode . ' Body: ' . mb_substr((string)$responseBody, 0, 500));
+                } catch (\Exception $e) {
+                    $lastException = $e;
+                    Log::warning('GLM API请求失败', [
+                        'error' => $e->getMessage(),
+                        'model' => $tryModel,
+                        'retry' => $i + 1,
+                    ]);
+                }
+
+                if ($i < $maxRetries - 1) {
+                    sleep($retryDelay);
+                }
+            }
+        }
+
+        throw new \Exception('GLM API请求失败: ' . ($lastException ? $lastException->getMessage() : '未知错误'));
     }
 
     /**

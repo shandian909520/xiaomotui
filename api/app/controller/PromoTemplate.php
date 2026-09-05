@@ -6,10 +6,12 @@ namespace app\controller;
 use think\App;
 use think\Request;
 use think\facade\Log;
+use think\facade\Cache;
 use app\model\PromoTemplate as PromoTemplateModel;
 use app\model\PromoVariant as PromoVariantModel;
 use app\model\PromoMaterial as PromoMaterialModel;
 use app\service\VideoDedupService;
+use app\job\PromoVariantJob;
 use app\controller\traits\AdminAccessibleTrait;
 
 /**
@@ -380,29 +382,70 @@ class PromoTemplate extends BaseController
                 'merchant_id' => $template->merchant_id,
             ]);
 
-            // TODO: 应该使用队列异步处理，这里先同步执行
-            try {
-                $result = $this->dedupService->generateVariants($id, $count);
+            $taskId = 'variant_gen_' . $id . '_' . uniqid();
 
-                Log::info('视频变体生成完成', [
+            $this->updatePromoTaskCache($taskId, 'pending', [
+                'template_id' => $id, 'count' => $count,
+            ]);
+
+            try {
+                \think\facade\Queue::push(
+                    PromoVariantJob::class,
+                    [
+                        'task_id' => $taskId,
+                        'template_id' => $id,
+                        'count' => $count,
+                        'merchant_id' => $template->merchant_id,
+                    ],
+                    'promo_variant'
+                );
+
+                Log::info('视频变体生成任务已加入队列', [
+                    'task_id' => $taskId,
                     'template_id' => $id,
-                    'success' => $result['success'],
-                    'failed' => $result['failed'],
+                    'count' => $count,
                 ]);
 
                 return $this->success([
+                    'task_id' => $taskId,
                     'template_id' => $id,
                     'requested_count' => $count,
-                    'success_count' => $result['success'],
-                    'failed_count' => $result['failed'],
-                    'variants' => $result['variants'],
-                ], "成功生成 {$result['success']} 个变体");
+                    'status' => 'pending',
+                ], '变体生成任务已提交，请通过任务ID查询进度');
             } catch (\Exception $e) {
-                Log::error('视频变体生成失败', [
+                Log::warning('队列推送失败，降级为同步执行', [
                     'template_id' => $id,
                     'error' => $e->getMessage(),
                 ]);
-                return $this->error('生成变体失败: ' . $e->getMessage(), 500);
+
+                $this->updatePromoTaskCache($taskId, 'processing', [
+                    'template_id' => $id, 'count' => $count, 'progress' => 0,
+                ]);
+
+                try {
+                    $result = $this->dedupService->generateVariants($id, $count);
+
+                    $this->updatePromoTaskCache($taskId, 'completed', [
+                        'template_id' => $id, 'count' => $count, 'progress' => 100,
+                        'result' => $result, 'complete_time' => date('Y-m-d H:i:s'),
+                    ]);
+
+                    return $this->success([
+                        'task_id' => $taskId,
+                        'template_id' => $id,
+                        'requested_count' => $count,
+                        'success_count' => $result['success'],
+                        'failed_count' => $result['failed'],
+                        'variants' => $result['variants'],
+                        'status' => 'completed',
+                    ], "成功生成 {$result['success']} 个变体");
+                } catch (\Exception $syncEx) {
+                    $this->updatePromoTaskCache($taskId, 'failed', [
+                        'template_id' => $id, 'error' => $syncEx->getMessage(),
+                    ]);
+
+                    return $this->error('生成变体失败: ' . $syncEx->getMessage(), 500);
+                }
             }
         } catch (\Exception $e) {
             Log::error('生成变体异常', [
@@ -471,5 +514,47 @@ class PromoTemplate extends BaseController
             ]);
             return $this->error('更新状态失败: ' . $e->getMessage(), 500);
         }
+    }
+
+    /**
+     * 查询变体生成任务状态
+     * GET /api/merchant/promo-template/task-status
+     */
+    public function taskStatus(Request $request)
+    {
+        try {
+            $taskId = $request->get('task_id', '');
+
+            if (empty($taskId)) {
+                return $this->error('任务ID不能为空', 400);
+            }
+
+            $taskData = Cache::get("promo_task:{$taskId}");
+
+            if (!$taskData) {
+                return $this->error('任务不存在或已过期', 404);
+            }
+
+            return $this->success($taskData);
+        } catch (\Exception $e) {
+            Log::error('查询任务状态失败', [
+                'error' => $e->getMessage(),
+            ]);
+            return $this->error('查询任务状态失败: ' . $e->getMessage(), 500);
+        }
+    }
+
+    /**
+     * 更新推广任务缓存（统一写入）
+     */
+    private function updatePromoTaskCache(string $taskId, string $status, array $extra = []): void
+    {
+        $data = array_merge([
+            'task_id' => $taskId,
+            'status' => $status,
+            'create_time' => date('Y-m-d H:i:s'),
+        ], $extra);
+
+        Cache::set("promo_task:{$taskId}", $data, 3600);
     }
 }

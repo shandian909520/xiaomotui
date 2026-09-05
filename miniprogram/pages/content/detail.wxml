@@ -1,0 +1,101 @@
+<view class="container">
+  <!-- 列表模式 -->
+  <block wx:if="{{mode === 'list'}}">
+    <view class="list-header">
+      <text class="list-title">历史内容</text>
+    </view>
+
+    <view wx:if="{{isLoading}}" class="loading-box">
+      <text class="loading-text">加载中...</text>
+    </view>
+
+    <view wx:elif="{{contentList.length === 0}}" class="empty-box">
+      <text class="empty-text">暂无内容记录</text>
+    </view>
+
+    <view wx:else class="content-list">
+      <view
+        class="content-card"
+        wx:for="{{contentList}}"
+        wx:key="id"
+        data-id="{{item.id || item.task_id}}"
+        bindtap="goToListItem"
+      >
+        <view class="card-header">
+          <text class="card-title">{{item.title}}</text>
+          <text class="card-status status-{{item.status}}">{{statusText[item.status] || item.status}}</text>
+        </view>
+        <text class="card-type">{{item.type === 'video' ? '视频' : '图文'}}</text>
+        <text class="card-time">{{item.created_at || item.createTime}}</text>
+      </view>
+    </view>
+  </block>
+
+  <!-- 详情模式 -->
+  <block wx:else>
+    <view wx:if="{{isLoading}}" class="loading-box">
+      <text class="loading-text">加载中...</text>
+    </view>
+
+    <view wx:elif="{{contentDetail}}" class="detail-wrapper">
+      <!-- 状态条 -->
+      <view class="status-bar status-{{contentDetail.status}}">
+        <text>{{statusText[contentDetail.status] || contentDetail.status}}</text>
+        <text wx:if="{{contentDetail.status === 'processing'}}">生成中，请稍候...</text>
+      </view>
+
+      <!-- 内容标题 -->
+      <view class="detail-card">
+        <text class="detail-title">{{contentDetail.title}}</text>
+        <view class="detail-meta">
+          <text class="meta-item">{{contentDetail.type === 'video' ? '视频' : '图文'}}</text>
+          <text class="meta-item">{{contentDetail.created_at || ''}}</text>
+        </view>
+      </view>
+
+      <!-- 文本内容 -->
+      <view class="detail-card" wx:if="{{contentDetail.content && contentDetail.content.text}}">
+        <text class="card-label">文案内容</text>
+        <text class="detail-text">{{contentDetail.content.text}}</text>
+      </view>
+
+      <!-- 视频内容 -->
+      <view class="detail-card" wx:if="{{contentDetail.content && contentDetail.content.video_url}}">
+        <text class="card-label">视频内容</text>
+        <video
+          class="detail-video"
+          src="{{contentDetail.content.video_url}}"
+          controls
+          show-center-play-btn
+        ></video>
+      </view>
+
+      <!-- 图片内容 -->
+      <view class="detail-card" wx:if="{{contentDetail.content && contentDetail.content.images}}">
+        <text class="card-label">图片内容</text>
+        <view class="image-grid">
+          <image
+            class="detail-image"
+            wx:for="{{contentDetail.content.images}}"
+            wx:key="index"
+            src="{{item}}"
+            mode="aspectFill"
+            bindtap="previewImage"
+            data-src="{{item}}"
+          ></image>
+        </view>
+      </view>
+
+      <!-- 操作按钮 -->
+      <view class="action-btns" wx:if="{{contentDetail.status === 'completed'}}">
+        <button class="action-btn copy-btn" bindtap="handleCopyText">复制文案</button>
+        <button class="action-btn share-btn" open-type="share">分享</button>
+        <button class="action-btn publish-btn" bindtap="handlePublish">发布</button>
+      </view>
+    </view>
+
+    <view wx:else class="empty-box">
+      <text class="empty-text">内容不存在</text>
+    </view>
+  </block>
+</view>

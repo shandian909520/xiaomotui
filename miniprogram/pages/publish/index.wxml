@@ -1,0 +1,123 @@
+<view class="container">
+  <!-- 顶部标签切换 -->
+  <view class="tab-bar">
+    <view class="tab-item {{activeTab === 'publish' ? 'active' : ''}}" data-tab="publish" bindtap="switchTab">
+      <text>发布内容</text>
+    </view>
+    <view class="tab-item {{activeTab === 'records' ? 'active' : ''}}" data-tab="records" bindtap="switchTab">
+      <text>发布记录</text>
+    </view>
+  </view>
+
+  <!-- 发布内容 -->
+  <view wx:if="{{activeTab === 'publish'}}">
+    <!-- 平台选择 -->
+    <view class="section">
+      <view class="section-header">
+        <text class="section-title">选择发布平台</text>
+      </view>
+
+      <view wx:if="{{isLoading}}" class="loading-box">
+        <text class="loading-text">加载中...</text>
+      </view>
+
+      <view wx:elif="{{platforms.length === 0}}" class="empty-box">
+        <text class="empty-text">暂无绑定平台</text>
+      </view>
+
+      <view wx:else class="platform-list">
+        <view
+          class="platform-item {{selectedPlatforms.indexOf(item.id) > -1 ? 'selected' : ''}} {{!item.is_bound ? 'disabled' : ''}}"
+          wx:for="{{platforms}}"
+          wx:key="id"
+          data-id="{{item.id}}"
+          bindtap="{{item.is_bound ? 'togglePlatform' : ''}}"
+        >
+          <image class="platform-icon" src="{{item.icon || '/images/platform-default.png'}}" mode="aspectFit"></image>
+          <view class="platform-info">
+            <text class="platform-name">{{item.name}}</text>
+            <text class="platform-status">{{item.is_bound ? '已绑定' : '未绑定'}}</text>
+          </view>
+          <view wx:if="{{!item.is_bound}}" class="auth-btn" data-platform="{{item.platform}}" catchtap="handleAuthorize">
+            <text>授权</text>
+          </view>
+          <view wx:elif="{{selectedPlatforms.indexOf(item.id) > -1}}" class="check-icon">
+            <text>✓</text>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 发布参数 -->
+    <view class="section">
+      <view class="section-header">
+        <text class="section-title">发布参数</text>
+      </view>
+
+      <view class="form-group">
+        <text class="form-label">标题</text>
+        <input
+          class="form-input"
+          placeholder="请输入发布标题（留空使用内容原标题）"
+          value="{{form.title}}"
+          data-field="title"
+          bindinput="handleInputChange"
+        />
+      </view>
+
+      <view class="form-group">
+        <text class="form-label">标签</text>
+        <input
+          class="form-input"
+          placeholder="多个标签用逗号分隔"
+          value="{{form.tags}}"
+          data-field="tags"
+          bindinput="handleInputChange"
+        />
+      </view>
+
+      <view class="form-group">
+        <text class="form-label">定时发布</text>
+        <picker mode="time" value="{{form.scheduled_time}}" bindchange="bindTimeChange">
+          <view class="form-input picker-input">
+            <text>{{form.scheduled_time || '选择发布时间（可选）'}}</text>
+          </view>
+        </picker>
+      </view>
+    </view>
+
+    <!-- 发布按钮 -->
+    <view class="publish-bar">
+      <button class="publish-btn" bindtap="handlePublish" loading="{{isPublishing}}" disabled="{{isPublishing || selectedPlatforms.length === 0}}">
+        发布到 {{selectedPlatforms.length}} 个平台
+      </button>
+    </view>
+  </view>
+
+  <!-- 发布记录 -->
+  <view wx:if="{{activeTab === 'records'}}">
+    <view wx:if="{{publishList.length === 0}}" class="empty-box">
+      <text class="empty-text">暂无发布记录</text>
+    </view>
+
+    <view wx:else class="record-list">
+      <view class="record-card" wx:for="{{publishList}}" wx:key="id">
+        <view class="record-header">
+          <text class="record-title">{{item.title || '无标题'}}</text>
+          <text class="record-status status-{{item.status}}">{{item.status_text || item.status}}</text>
+        </view>
+        <view class="record-info">
+          <text class="record-platform">{{item.platform_name || ''}}</text>
+          <text class="record-time">{{item.created_at || ''}}</text>
+        </view>
+        <view class="record-actions" wx:if="{{item.status === 'pending' || item.status === 'scheduled'}}">
+          <text class="record-cancel" data-id="{{item.id}}" catchtap="handleCancel">取消发布</text>
+        </view>
+      </view>
+    </view>
+
+    <view class="load-more" wx:if="{{hasMore}}" bindtap="loadMore">
+      <text class="load-more-text">加载更多</text>
+    </view>
+  </view>
+</view>

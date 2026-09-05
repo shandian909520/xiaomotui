@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<title>碰一碰 · 小魔推</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  body{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Helvetica Neue",sans-serif;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);min-height:100vh;color:#fff;padding:20px}
+  .container{max-width:480px;margin:0 auto}
+  .card{background:rgba(255,255,255,0.95);border-radius:20px;padding:30px 24px;color:#333;box-shadow:0 10px 40px rgba(0,0,0,0.15);margin-bottom:20px}
+  .title{font-size:22px;font-weight:700;text-align:center;margin-bottom:6px;color:#5a4fcf}
+  .subtitle{font-size:13px;color:#888;text-align:center;margin-bottom:24px}
+  .device-list{display:grid;gap:10px;margin-bottom:20px}
+  .device-btn{padding:14px 16px;border:2px solid #e8e8f8;border-radius:12px;background:#fff;cursor:pointer;transition:all .2s;font-size:15px;display:flex;justify-content:space-between;align-items:center}
+  .device-btn:active{transform:scale(0.98)}
+  .device-btn.selected{border-color:#5a4fcf;background:#f4f3ff}
+  .device-info{display:flex;flex-direction:column;gap:2px}
+  .device-code{font-weight:600;color:#333}
+  .device-meta{font-size:12px;color:#999}
+  .device-status{font-size:11px;padding:2px 8px;border-radius:10px}
+  .status-on{background:#e8f7ec;color:#2c9b4f}
+  .status-off{background:#ffe8e8;color:#c0392b}
+  .tap-btn{width:100%;padding:18px;background:linear-gradient(135deg,#5a4fcf,#764ba2);color:#fff;border:none;border-radius:30px;font-size:18px;font-weight:700;cursor:pointer;box-shadow:0 8px 24px rgba(90,79,207,0.4);transition:transform .1s}
+  .tap-btn:active{transform:scale(0.96)}
+  .tap-btn:disabled{opacity:.5;cursor:not-allowed}
+  .result{margin-top:20px;padding:16px;border-radius:12px;background:#f8f8fc;font-size:14px;display:none}
+  .result.show{display:block}
+  .result-title{font-weight:600;color:#5a4fcf;margin-bottom:8px}
+  .result-row{margin:4px 0;font-size:13px;color:#555;display:flex;justify-content:space-between}
+  .result-row span:first-child{color:#999}
+  .next-btn{display:block;width:100%;padding:14px;margin-top:14px;background:#fff;border:2px solid #5a4fcf;border-radius:24px;color:#5a4fcf;text-align:center;text-decoration:none;font-weight:600;font-size:15px}
+  .next-btn:active{background:#f4f3ff}
+  .footer{text-align:center;color:rgba(255,255,255,0.7);font-size:11px;margin-top:20px}
+  .spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,0.3);border-top-color:#fff;border-radius:50%;animation:spin .8s linear infinite;margin-right:6px;vertical-align:middle}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .toast{position:fixed;top:30%;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.85);color:#fff;padding:14px 24px;border-radius:10px;font-size:14px;display:none;z-index:99;max-width:80%;text-align:center}
+  .toast.show{display:block;animation:fadeIn .2s}
+  @keyframes fadeIn{from{opacity:0;transform:translate(-50%,-10px)}to{opacity:1;transform:translate(-50%,0)}}
+  .openid-row{margin:10px 0 6px;font-size:12px;color:#888;display:flex;gap:6px;align-items:center}
+  .openid-row input{flex:1;padding:8px 10px;border:1px solid #e0e0f0;border-radius:8px;font-size:12px;color:#333;background:#fafaff}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="card">
+    <div class="title">📱 碰一碰</div>
+    <div class="subtitle">模拟 NFC 标签触发 · 真实业务流程</div>
+
+    <div class="device-list" id="deviceList">
+      <div style="color:#999;text-align:center;padding:20px">加载设备中...</div>
+    </div>
+
+    <div class="openid-row">
+      <span style="color:#888">openid:</span>
+      <input id="openidInput" placeholder="留空用匿名用户" />
+    </div>
+
+    <button class="tap-btn" id="tapBtn" disabled>👆 碰一碰</button>
+
+    <div class="result" id="result">
+      <div class="result-title" id="rTitle"></div>
+      <div class="result-row"><span>任务实例</span><span id="rInstance"></span></div>
+      <div class="result-row"><span>任务包</span><span id="rBundle"></span></div>
+      <div class="result-row"><span>奖励类型</span><span id="rReward"></span></div>
+      <div class="result-row"><span>提示</span><span id="rMessage"></span></div>
+      <a class="next-btn" id="hubLink" href="#" target="_blank">🎁 去完成任务领奖励</a>
+    </div>
+  </div>
+  <div class="footer">小魔推 · 商家自助碰一碰 · 测试环境</div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const API = '';  // 同源
+const list = document.getElementById('deviceList');
+const tapBtn = document.getElementById('tapBtn');
+const result = document.getElementById('result');
+const toast = document.getElementById('toast');
+
+let selectedDevice = null;
+
+function showToast(msg) {
+  toast.textContent = msg;
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 2000);
+}
+
+// 读 URL 参数里的 device_code
+const params = new URLSearchParams(location.search);
+const presetCode = params.get('device_code') || '';
+
+// 拉设备列表（通过 nfc trigger 同源查询 — 后端没列表接口，先写死演示数据）
+// 实际 device 列表来自 xmt_nfc_devices，简单通过 trigger 反查
+const seedDevices = [
+  { code: 'NFC-TABLE-001', name: '1号桌贴', type: 'PASSIVE', status: 1 },
+  { code: 'NFC-TALL-001',  name: '入口墙贴', type: 'PASSIVE', status: 1 },
+  { code: 'NFC-COUNTER-001', name: '前台台面', type: 'PASSIVE', status: 1 },
+  { code: 'NFC-TABLE-002', name: '2号桌贴', type: 'PASSIVE', status: 2 },
+  { code: 'NFC-TEST-A01',  name: 'TestMerchantA-001', type: 'PASSIVE', status: 1 },
+];
+
+function renderDevices() {
+  list.innerHTML = '';
+  seedDevices.forEach(d => {
+    const div = document.createElement('div');
+    div.className = 'device-btn';
+    if (d.code === presetCode) div.classList.add('selected');
+    div.innerHTML = `
+      <div class="device-info">
+        <div class="device-code">${d.code}</div>
+        <div class="device-meta">${d.name} · ${d.type}</div>
+      </div>
+      <div class="device-status ${d.status === 1 ? 'status-on' : 'status-off'}">
+        ${d.status === 1 ? '在线' : '已禁用'}
+      </div>
+    `;
+    div.onclick = () => {
+      document.querySelectorAll('.device-btn').forEach(x => x.classList.remove('selected'));
+      div.classList.add('selected');
+      selectedDevice = d;
+      tapBtn.disabled = d.status !== 1;
+      history.replaceState(null, '', '?device_code=' + d.code);
+    };
+    list.appendChild(div);
+    if (d.code === presetCode && d.status === 1) {
+      selectedDevice = d;
+      tapBtn.disabled = false;
+    }
+  });
+  if (!selectedDevice && seedDevices.length) {
+    // 默认选第一个在线的
+    const def = seedDevices.find(d => d.status === 1);
+    if (def) {
+      const idx = seedDevices.indexOf(def);
+      list.children[idx].classList.add('selected');
+      selectedDevice = def;
+      tapBtn.disabled = false;
+      history.replaceState(null, '', '?device_code=' + def.code);
+    }
+  }
+}
+
+tapBtn.onclick = async () => {
+  if (!selectedDevice) return;
+  tapBtn.disabled = true;
+  tapBtn.innerHTML = '<span class="spinner"></span>触发中...';
+  result.classList.remove('show');
+
+  const openid = document.getElementById('openidInput').value.trim();
+  const body = { device_code: selectedDevice.code };
+  if (openid) body.openid = openid;
+
+  try {
+    const r = await fetch(API + '/api/nfc/trigger', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    const json = await r.json();
+
+    if (json.code === 200) {
+      const d = json.data;
+      document.getElementById('rTitle').textContent = d.title || '触发成功';
+      document.getElementById('rInstance').textContent = '#' + d.task_instance_id;
+      document.getElementById('rBundle').textContent = '#' + d.bundle_id;
+      document.getElementById('rReward').textContent = d.reward_type || '-';
+      document.getElementById('rMessage').textContent = d.message || '';
+      const hub = document.getElementById('hubLink');
+      // 拼一个 task_instance URL（Hub 真实路径）
+      hub.href = './hub.html?ti=' + d.task_instance_id + '&device=' + encodeURIComponent(selectedDevice.code);
+      hub.style.display = 'block';
+      result.classList.add('show');
+    } else {
+      showToast('❌ ' + (json.msg || '触发失败') + (json.error ? ' [' + json.error + ']' : ''));
+    }
+  } catch (e) {
+    showToast('网络错误：' + e.message);
+  } finally {
+    tapBtn.disabled = false;
+    tapBtn.innerHTML = '👆 碰一碰';
+  }
+};
+
+renderDevices();
+</script>
+</body>
+</html>

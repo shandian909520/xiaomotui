@@ -25,31 +25,36 @@ class OperationLog extends Model
     protected $table = 'xmt_operation_logs';
 
     protected $schema = [
-        'id'          => 'int',
-        'user_id'     => 'int',
-        'username'    => 'string',
-        'module'      => 'string',
-        'action'      => 'string',
-        'description' => 'string',
-        'method'      => 'string',
-        'url'         => 'string',
-        'params'      => 'string',
-        'ip'          => 'string',
-        'user_agent'  => 'string',
-        'create_time' => 'datetime',
+        'id'              => 'int',
+        'user_id'         => 'int',
+        'username'        => 'string',
+        'role'            => 'string',
+        'module'          => 'string',
+        'action'          => 'string',
+        'description'     => 'string',
+        'request_method'  => 'string',
+        'request_url'     => 'string',
+        'request_params'  => 'json',
+        'response_code'   => 'int',
+        'ip'              => 'string',
+        'user_agent'      => 'string',
+        'execution_time'  => 'int',
+        'create_time'     => 'datetime',
     ];
 
     protected $autoWriteTimestamp = 'datetime';
     protected $updateTime = false;
 
     protected $type = [
-        'id'      => 'integer',
-        'user_id' => 'integer',
+        'id'             => 'integer',
+        'user_id'        => 'integer',
+        'response_code'  => 'integer',
+        'execution_time' => 'integer',
     ];
 
     protected $field = [
-        'user_id', 'username', 'module', 'action',
-        'description', 'method', 'url', 'params',
-        'ip', 'user_agent',
+        'user_id', 'username', 'role', 'module', 'action',
+        'description', 'request_method', 'request_url', 'request_params',
+        'response_code', 'ip', 'user_agent', 'execution_time',
     ];
 }

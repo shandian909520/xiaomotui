@@ -10,7 +10,7 @@ const env = process.env.NODE_ENV || 'development'
 const baseUrls = {
 	development: '',  // 开发环境通过vite代理转发
 	testing: 'http://test.xiaomotui.com',  // 测试环境
-	production: 'http://47.113.226.37:8080' // 生产环境
+	production: '' // 生产环境使用同源 API，由 Nginx 转发 /api
 }
 
 // 请求配置

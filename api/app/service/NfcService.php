@@ -7,6 +7,7 @@ use app\model\NfcDevice;
 use app\model\User;
 use app\model\ContentTask;
 use app\model\DeviceTrigger;
+use app\common\Lock;
 use app\model\Coupon;
 use app\model\CouponUser;
 use app\service\CacheService;
@@ -429,11 +430,11 @@ class NfcService
     {
         // 使用Redis分布式锁防止并发
         $lockKey = 'coupon_lock:merchant:' . $device->merchant_id;
-        $lock = Cache::lock($lockKey, 10);  // 10秒锁定时间
 
         try {
             // 获取锁，最多等待3秒
-            if (!$lock->get(3)) {
+            $lockToken = Lock::acquire($lockKey, 10, 3);
+            if ($lockToken === null) {
                 throw new ValidateException('优惠券正在发放中，请稍后再试');
             }
 
@@ -457,7 +458,7 @@ class NfcService
 
             if ($userCoupon) {
                 // 已领取，释放锁后返回
-                $lock->release();
+                Lock::release($lockKey, $lockToken);
 
                 return [
                     'type' => 'coupon',
@@ -502,7 +503,7 @@ class NfcService
             CacheService::clearUserCoupons($user->id, $device->merchant_id);
 
             // 释放锁
-            $lock->release();
+            Lock::release($lockKey, $lockToken);
 
             Log::info('用户领取优惠券成功', [
                 'user_id' => $user->id,
@@ -530,11 +531,11 @@ class NfcService
 
         } catch (ValidateException $e) {
             // 验证异常，释放锁后抛出
-            $lock->release();
+            Lock::release($lockKey, $lockToken ?? '');
             throw $e;
         } catch (\Exception $e) {
             // 其他异常，释放锁并记录日志
-            $lock->release();
+            Lock::release($lockKey, $lockToken ?? '');
 
             Log::error('优惠券领取失败', [
                 'user_id' => $user->id,

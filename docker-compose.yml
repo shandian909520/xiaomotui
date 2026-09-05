@@ -37,8 +37,8 @@ services:
   # PHP-FPM 后端 API
   api:
     build:
-      context: ./api
-      dockerfile: ../docker/api/Dockerfile
+      context: .
+      dockerfile: docker/api/Dockerfile
     container_name: xiaomotui-api
     restart: always
     working_dir: /var/www/html
@@ -76,6 +76,7 @@ services:
       - ./docker/nginx/ssl:/etc/nginx/ssl:ro
       - ./api:/var/www/html/api:ro
       - ./admin/dist:/var/www/html/admin:ro
+      - ./uni-app/dist/build/h5:/var/www/html/h5:ro
       - nginx_logs:/var/log/nginx
     depends_on:
       - api

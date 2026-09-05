@@ -266,4 +266,76 @@ class TencentDriver implements SmsDriverInterface
         $scheme = 'https';
         return "{$scheme}://{$endpoint}/";
     }
+
+    /**
+     * 发送模板短信（通知类）
+     *
+     * @param string $phone 手机号码
+     * @param string $templateType 模板类型
+     * @param array $data 模板参数
+     * @return array
+     * @throws \Exception
+     */
+    public function sendTemplate(string $phone, string $templateType, array $data = []): array
+    {
+        $templateMap = $this->config['notify_templates'] ?? [];
+        $templateId = $templateMap[$templateType] ?? $templateMap['default'] ?? $this->config['template_id'] ?? 0;
+
+        if (empty($templateId)) {
+            throw new \Exception("未找到短信模板: {$templateType}");
+        }
+
+        try {
+            if (!$this->checkConfig()) {
+                throw new \Exception('腾讯云短信配置不完整');
+            }
+
+            $templateParamSet = array_values($data);
+            if (empty($templateParamSet)) {
+                $templateParamSet = [''];
+            }
+
+            $params = [
+                'PhoneNumberSet' => [$this->formatPhone($phone)],
+                'SmsSdkAppId' => $this->config['app_id'],
+                'SignName' => $this->config['sign_name'],
+                'TemplateId' => (int)$templateId,
+                'TemplateParamSet' => $templateParamSet,
+            ];
+
+            $params = array_merge($params, $this->getCommonParams());
+            $authorization = $this->calculateAuthorization($params);
+
+            $response = $this->httpClient->post($this->buildUrl(), [
+                'json' => $params,
+                'headers' => [
+                    'Authorization' => $authorization,
+                    'Content-Type' => 'application/json',
+                    'Host' => $this->config['endpoint'] ?? 'sms.tencentcloudapi.com',
+                    'X-TC-Action' => 'SendSms',
+                    'X-TC-Timestamp' => (string)$this->getTimestamp(),
+                    'X-TC-Version' => $this->version,
+                    'X-TC-Region' => $this->config['region'] ?? 'ap-guangzhou',
+                ],
+            ]);
+
+            $result = json_decode($response->getBody()->getContents(), true);
+
+            if (isset($result['Response']['Error'])) {
+                $error = $result['Response']['Error'];
+                throw new \Exception("腾讯云短信发送失败: " . ($error['Message'] ?? '未知错误'));
+            }
+
+            $sendStatusSet = $result['Response']['SendStatusSet'][0] ?? [];
+
+            return [
+                'driver' => 'tencent',
+                'success' => true,
+                'serial_no' => $sendStatusSet['SerialNo'] ?? '',
+                'message' => '发送成功',
+            ];
+        } catch (RequestException $e) {
+            throw new \Exception('腾讯云短信请求失败: ' . $e->getMessage());
+        }
+    }
 }

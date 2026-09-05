@@ -53,10 +53,23 @@
             />
             <view class="material-index">{{ index + 1 }}</view>
             <view class="remove-btn" @tap.stop="removeMaterial(item)">
-              <text class="remove-icon">×</text>
+              <text class="remove-icon">x</text>
             </view>
-            <view class="drag-handle" @touchstart="onDragStart($event, index)">
-              <text class="drag-icon">⠿</text>
+            <view class="sort-btns">
+              <view
+                class="sort-btn up"
+                :class="{ disabled: index === 0 }"
+                @tap.stop="moveItem(index, -1)"
+              >
+                <text class="sort-arrow">^</text>
+              </view>
+              <view
+                class="sort-btn down"
+                :class="{ disabled: index === selectedMaterials.length - 1 }"
+                @tap.stop="moveItem(index, 1)"
+              >
+                <text class="sort-arrow">v</text>
+              </view>
             </view>
           </view>
 
@@ -73,7 +86,7 @@
 
         <!-- 操作提示 -->
         <view class="tips">
-          <text class="tip-text">提示: 长按素材可拖动排序</text>
+          <text class="tip-text">提示: 点击箭头按钮可调整素材顺序</text>
         </view>
       </view>
 
@@ -441,11 +454,16 @@ export default {
     }
 
     /**
-     * 拖动开始
+     * 上移/下移素材
      */
-    const onDragStart = (event, index) => {
-      // TODO: 实现拖动排序
-      console.log('开始拖动:', index)
+    const moveItem = (index, direction) => {
+      const newIndex = index + direction
+      if (newIndex < 0 || newIndex >= selectedMaterials.value.length) return
+      const temp = selectedMaterials.value[index]
+      selectedMaterials.value[index] = selectedMaterials.value[newIndex]
+      selectedMaterials.value[newIndex] = temp
+      // 触发响应式更新
+      selectedMaterials.value = [...selectedMaterials.value]
     }
 
     /**
@@ -620,7 +638,7 @@ export default {
       confirmMaterialSelection,
       removeMaterial,
       previewMaterial,
-      onDragStart,
+      moveItem,
       onDurationChange,
       onTransitionChange,
       onMusicChange,
@@ -795,22 +813,33 @@ export default {
   line-height: 1;
 }
 
-.drag-handle {
+.sort-btns {
   position: absolute;
   bottom: 8rpx;
   right: 8rpx;
-  width: 48rpx;
-  height: 48rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 4rpx;
+}
+
+.sort-btn {
+  width: 40rpx;
+  height: 32rpx;
   background: rgba(0, 0, 0, 0.5);
-  border-radius: 8rpx;
+  border-radius: 4rpx;
   display: flex;
   align-items: center;
   justify-content: center;
+
+  &.disabled {
+    opacity: 0.3;
+  }
 }
 
-.drag-icon {
+.sort-arrow {
   color: #ffffff;
-  font-size: 20rpx;
+  font-size: 18rpx;
+  line-height: 1;
 }
 
 .add-item {

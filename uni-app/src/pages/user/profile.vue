@@ -262,7 +262,7 @@ export default {
       try {
         // 尝试从localStorage获取用户信息
         const storedUser = uni.getStorageSync('userInfo')
-        const storedToken = uni.getStorageSync('token')
+        const storedToken = uni.getStorageSync('xiaomotui_token')
 
         if (storedUser) {
           this.userInfo = storedUser
@@ -450,7 +450,7 @@ export default {
         }
 
         // 清除localStorage
-        uni.removeStorageSync('token')
+        uni.removeStorageSync('xiaomotui_token')
         uni.removeStorageSync('userInfo')
         this.token = ''
         this.userInfo = {}

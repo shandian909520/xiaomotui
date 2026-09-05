@@ -291,8 +291,8 @@ class Merchant extends Model
                      ->where('latitude', '<=', $maxLat)
                      ->where('longitude', '>=', $minLon)
                      ->where('longitude', '<=', $maxLon)
-                     ->where('latitude', 'not null')
-                     ->where('longitude', 'not null');
+                     ->whereNotNull('latitude')
+                     ->whereNotNull('longitude');
     }
 
     /**

@@ -93,7 +93,7 @@ export default {
   },
   methods: {
     checkLogin() {
-      const token = uni.getStorageSync('token')
+      const token = uni.getStorageSync('xiaomotui_token')
       if (!token) {
         uni.showModal({
           title: '提示',
@@ -127,19 +127,18 @@ export default {
         }
       } catch (error) {
         console.error('加载统计数据失败:', error)
-        // 失败时使用模拟数据
         this.todayStats = {
-          triggers: 128,
-          contents: 45,
-          publishes: 23,
-          visitors: 567
+          triggers: 0,
+          contents: 0,
+          publishes: 0,
+          visitors: 0
         }
       }
     },
     async loadRecentActivities() {
       try {
-        const { nfcApi } = await import('@/api/index.js')
-        const res = await nfcApi.getTriggerRecords({ limit: 5 })
+        const { merchant } = await import('@/api/index.js')
+        const res = await merchant.getDeviceTriggerLogs({ page: 1, page_size: 5 })
 
         if (res && res.data && res.data.list) {
           this.recentActivities = res.data.list.map(item => ({
@@ -149,12 +148,7 @@ export default {
         }
       } catch (error) {
         console.error('加载活动记录失败:', error)
-        // 失败时使用模拟数据
-        this.recentActivities = [
-          { time: '10:30', desc: 'NFC设备001触发内容生成' },
-          { time: '09:15', desc: '成功发布内容到抖音平台' },
-          { time: '昨天', desc: '新增素材15个' }
-        ]
+        this.recentActivities = []
       }
     },
     formatTime(timestamp) {

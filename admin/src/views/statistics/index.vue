@@ -225,7 +225,7 @@ import {
   User,
   DataAnalysis,
   Warning,
-  Lamp,
+  ReadingLamp,
   DataLine,
   Edit,
   Share,
@@ -411,26 +411,24 @@ const loadOverviewData = async () => {
     const params = getQueryParams()
     const res = await getOverview(params)
 
-    if (res.code === 200) {
-      const data = res.data
+    const data = res
 
-      // 更新核心指标
-      metrics.value[0].value = data.trigger_count || 0
-      metrics.value[0].trend = data.trigger_trend || 'flat'
-      metrics.value[0].trendPercent = data.trigger_trend_percent || 0
+    // 更新核心指标
+    metrics.value[0].value = data.trigger_count || 0
+    metrics.value[0].trend = data.trigger_trend || 'flat'
+    metrics.value[0].trendPercent = data.trigger_trend_percent || 0
 
-      metrics.value[1].value = data.generate_count || 0
-      metrics.value[1].trend = data.generate_trend || 'flat'
-      metrics.value[1].trendPercent = data.generate_trend_percent || 0
+    metrics.value[1].value = data.generate_count || 0
+    metrics.value[1].trend = data.generate_trend || 'flat'
+    metrics.value[1].trendPercent = data.generate_trend_percent || 0
 
-      metrics.value[2].value = data.distribute_count || 0
-      metrics.value[2].trend = data.distribute_trend || 'flat'
-      metrics.value[2].trendPercent = data.distribute_trend_percent || 0
+    metrics.value[2].value = data.distribute_count || 0
+    metrics.value[2].trend = data.distribute_trend || 'flat'
+    metrics.value[2].trendPercent = data.distribute_trend_percent || 0
 
-      metrics.value[3].value = data.success_rate || 0
-      metrics.value[3].trend = data.success_rate_trend || 'flat'
-      metrics.value[3].trendPercent = data.success_rate_trend_percent || 0
-    }
+    metrics.value[3].value = data.success_rate || 0
+    metrics.value[3].trend = data.success_rate_trend || 'flat'
+    metrics.value[3].trendPercent = data.success_rate_trend_percent || 0
   } catch (error) {
     console.error('加载概览数据失败:', error)
   }
@@ -443,28 +441,24 @@ const loadTrendData = async () => {
     const params = getQueryParams()
     const res = await getTrend(params)
 
-    if (res.code === 200 && res.data) {
-      const data = res.data
-      isEmpty.trend = !data.dates || data.dates.length === 0
+    const data = res
+    isEmpty.trend = !data || !data.dates || data.dates.length === 0
 
-      if (!isEmpty.trend) {
-        const option = getLineChartOption(
-          data.dates,
-          [
-            { name: '触发量', data: data.trigger_data },
-            { name: '生成量', data: data.generate_data },
-            { name: '分发量', data: data.distribute_data }
-          ],
-          {
-            legend: {
-              data: ['触发量', '生成量', '分发量']
-            }
+    if (!isEmpty.trend) {
+      const option = getLineChartOption(
+        data.dates,
+        [
+          { name: '触发量', data: data.trigger_data },
+          { name: '生成量', data: data.generate_data },
+          { name: '分发量', data: data.distribute_data }
+        ],
+        {
+          legend: {
+            data: ['触发量', '生成量', '分发量']
           }
-        )
-        trendChart.setOption(option)
-      }
-    } else {
-      isEmpty.trend = true
+        }
+      )
+      trendChart.setOption(option)
     }
   } catch (error) {
     console.error('加载趋势数据失败:', error)
@@ -481,20 +475,16 @@ const loadConversionData = async () => {
     const params = getQueryParams()
     const res = await getConversionStats(params)
 
-    if (res.code === 200 && res.data) {
-      const data = res.data
-      isEmpty.conversion = !data.conversion_data || data.conversion_data.length === 0
+    const data = res
+    isEmpty.conversion = !data || !data.conversion_data || data.conversion_data.length === 0
 
-      if (!isEmpty.conversion) {
-        const option = getPieChartOption(data.conversion_data, {
-          series: [{
-            name: '转化分布'
-          }]
-        })
-        conversionChart.setOption(option)
-      }
-    } else {
-      isEmpty.conversion = true
+    if (!isEmpty.conversion) {
+      const option = getPieChartOption(data.conversion_data, {
+        series: [{
+          name: '转化分布'
+        }]
+      })
+      conversionChart.setOption(option)
     }
   } catch (error) {
     console.error('加载转化数据失败:', error)
@@ -511,23 +501,19 @@ const loadDeviceData = async () => {
     const params = { ...getQueryParams(), limit: 10 }
     const res = await getDeviceStats(params)
 
-    if (res.code === 200 && res.data) {
-      const data = res.data
-      isEmpty.device = !data.devices || data.devices.length === 0
+    const data = res
+    isEmpty.device = !data || !data.devices || data.devices.length === 0
 
-      if (!isEmpty.device) {
-        const option = getBarChartOption(
-          data.devices.map(item => item.name),
-          [{ name: '触发次数', data: data.devices.map(item => item.count) }],
-          {
-            xAxis: { type: 'value' },
-            yAxis: { type: 'category' }
-          }
-        )
-        deviceChart.setOption(option)
-      }
-    } else {
-      isEmpty.device = true
+    if (!isEmpty.device) {
+      const option = getBarChartOption(
+        data.devices.map(item => item.name),
+        [{ name: '触发次数', data: data.devices.map(item => item.count) }],
+        {
+          xAxis: { type: 'value' },
+          yAxis: { type: 'category' }
+        }
+      )
+      deviceChart.setOption(option)
     }
   } catch (error) {
     console.error('加载设备数据失败:', error)
@@ -544,24 +530,20 @@ const loadUserBehaviorData = async () => {
     const params = getQueryParams()
     const res = await getUserBehavior(params)
 
-    if (res.code === 200 && res.data) {
-      const data = res.data
-      isEmpty.userBehavior = !data.hours || data.hours.length === 0
+    const data = res
+    isEmpty.userBehavior = !data || !data.hours || data.hours.length === 0
 
-      if (!isEmpty.userBehavior) {
-        const option = getAreaChartOption(
-          data.hours.map(h => `${h}:00`),
-          [{ name: '活跃用户数', data: data.active_users }],
-          {
-            legend: {
-              data: ['活跃用户数']
-            }
+    if (!isEmpty.userBehavior) {
+      const option = getAreaChartOption(
+        data.hours.map(h => `${h}:00`),
+        [{ name: '活跃用户数', data: data.active_users }],
+        {
+          legend: {
+            data: ['活跃用户数']
           }
-        )
-        userBehaviorChart.setOption(option)
-      }
-    } else {
-      isEmpty.userBehavior = true
+        }
+      )
+      userBehaviorChart.setOption(option)
     }
   } catch (error) {
     console.error('加载用户行为数据失败:', error)
@@ -578,26 +560,22 @@ const loadFunnelData = async () => {
     const params = getQueryParams()
     const res = await getConversionStats(params)
 
-    if (res.code === 200 && res.data) {
-      const data = res.data
-      isEmpty.funnel = !data.funnel_data || data.funnel_data.length === 0
+    const data = res
+    isEmpty.funnel = !data || !data.funnel_data || data.funnel_data.length === 0
 
-      if (!isEmpty.funnel) {
-        const option = getFunnelChartOption(data.funnel_data)
-        funnelChart.setOption(option)
+    if (!isEmpty.funnel) {
+      const option = getFunnelChartOption(data.funnel_data)
+      funnelChart.setOption(option)
 
-        // 计算总体转化率
-        if (data.funnel_data.length > 0) {
-          const first = data.funnel_data[0].value
-          const last = data.funnel_data[data.funnel_data.length - 1].value
-          funnelConversionRate.value = first > 0 ? ((last / first) * 100).toFixed(2) : 0
-        }
-
-        // 计算最高流失环节
-        maxLossStage.value = data.max_loss_stage || '-'
+      // 计算总体转化率
+      if (data.funnel_data.length > 0) {
+        const first = data.funnel_data[0].value
+        const last = data.funnel_data[data.funnel_data.length - 1].value
+        funnelConversionRate.value = first > 0 ? ((last / first) * 100).toFixed(2) : 0
       }
-    } else {
-      isEmpty.funnel = true
+
+      // 计算最高流失环节
+      maxLossStage.value = data.max_loss_stage || '-'
     }
   } catch (error) {
     console.error('加载漏斗数据失败:', error)
@@ -614,15 +592,11 @@ const loadInsightsAndAlerts = async () => {
 
     // 加载预警
     const alertRes = await getAlerts(params)
-    if (alertRes.code === 200) {
-      alerts.value = alertRes.data || []
-    }
+    alerts.value = Array.isArray(alertRes) ? alertRes : (alertRes?.list || [])
 
     // 加载营销建议
     const insightRes = await getMarketingInsights(params)
-    if (insightRes.code === 200) {
-      insights.value = insightRes.data || []
-    }
+    insights.value = Array.isArray(insightRes) ? insightRes : (insightRes?.list || [])
   } catch (error) {
     console.error('加载洞察数据失败:', error)
   }

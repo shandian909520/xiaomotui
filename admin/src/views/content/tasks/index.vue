@@ -219,9 +219,8 @@ const textTemplates = ref([])
 const loadTextTemplates = async () => {
   try {
     const res = await getTemplateList({ type: 'TEXT', limit: 50 })
-    if (res.code === 200) {
-      textTemplates.value = res.data.data || []
-    }
+    const list = res?.data || res?.list || []
+    textTemplates.value = Array.isArray(list) ? list : []
   } catch (error) {
     console.error('获取文案模板失败', error)
   }
@@ -247,10 +246,9 @@ const getList = async () => {
   loading.value = true
   try {
     const response = await getPublishTasks(queryParams)
-    if (response.code === 200) {
-      taskList.value = response.data.list
-      total.value = response.data.total
-    }
+    const data = response || {}
+    taskList.value = data.list || data.data || []
+    total.value = data.total || data.pagination?.total || 0
   } catch (error) {
     console.error('获取任务列表失败:', error)
   } finally {
@@ -264,9 +262,8 @@ const searchContents = async (query) => {
     contentLoading.value = true
     try {
       const response = await getVideoLibraryList({ keyword: query, limit: 20 })
-      if (response.code === 200) {
-        contentOptions.value = response.data.list
-      }
+      const data = response || {}
+      contentOptions.value = data.list || data.data || []
     } catch (error) {
       console.error('搜索内容失败:', error)
     } finally {
@@ -321,12 +318,10 @@ const handleSubmit = async () => {
           scheduled_time: form.publish_type === 'schedule' ? form.scheduled_time : null
         }
         
-        const response = await createPublishTask(data)
-        if (response.code === 200) {
-          ElMessage.success('任务创建成功')
-          dialogVisible.value = false
-          getList()
-        }
+        await createPublishTask(data)
+        ElMessage.success('任务创建成功')
+        dialogVisible.value = false
+        getList()
       } catch (error) {
         ElMessage.error('任务创建失败')
       } finally {

@@ -75,12 +75,13 @@ class WifiService
         // 验证SSID格式
         $this->validateSSID($device->wifi_ssid);
 
-        // 确定加密类型
-        $encryptionType = $this->determineEncryptionType($device->wifi_password);
+        // 确定加密类型(注意: model 访问器 wifi_password 恒返回空串,必须显式解密)
+        $plainPassword = $device->getDecryptedWifiPassword();
+        $encryptionType = $this->determineEncryptionType($plainPassword);
 
         // 验证密码强度(如果有密码)
-        if (!empty($device->wifi_password)) {
-            $this->validatePassword($device->wifi_password, $encryptionType);
+        if (!empty($plainPassword)) {
+            $this->validatePassword($plainPassword, $encryptionType);
         }
 
         // 检查访问频率限制
@@ -146,7 +147,7 @@ class WifiService
                     'HIDDEN_NETWORK' => false,
                     'AutoJoin' => true,
                     'EncryptionType' => $this->mapEncryptionForIOS($encryptionType),
-                    'Password' => $device->wifi_password ?: '',
+                    'Password' => $device->getDecryptedWifiPassword(),
                 ]
             ]
         ]);
@@ -190,7 +191,7 @@ class WifiService
             'WIFI:T:%s;S:%s;P:%s;H:%s;;',
             $this->mapEncryptionForAndroid($encryptionType),
             $this->escapeWifiString($device->wifi_ssid),
-            $this->escapeWifiString($device->wifi_password ?: ''),
+            $this->escapeWifiString($device->getDecryptedWifiPassword()),
             'false'
         );
 
@@ -233,7 +234,7 @@ class WifiService
             'WIFI:T:%s;S:%s;P:%s;H:%s;;',
             $this->mapEncryptionForAndroid($encryptionType),
             $this->escapeWifiString($device->wifi_ssid),
-            $this->escapeWifiString($device->wifi_password ?: ''),
+            $this->escapeWifiString($device->getDecryptedWifiPassword()),
             'false'
         );
 
@@ -244,7 +245,7 @@ class WifiService
             'platform' => self::PLATFORM_WECHAT,
             'format' => 'mixed',
             'ssid' => $device->wifi_ssid,
-            'password' => $this->shouldShowPassword() ? $device->wifi_password : '******',
+            'password' => $this->shouldShowPassword() ? $device->getDecryptedWifiPassword() : '******',
             'encryption' => $encryptionType,
             'encryption_text' => $this->getEncryptionText($encryptionType),
             'hidden' => false,

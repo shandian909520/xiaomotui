@@ -41,10 +41,16 @@ class Merchant extends BaseController
         try {
             // 从JWT中间件获取商家ID
             $merchantId = $this->request->merchant_id ?? null;
+            $userRole   = $this->request->user_role ?? '';
+            $userId     = $this->request->user_id ?? null;
+
+            // admin用户默认使用merchant_id=1
+            if (!$merchantId && ($userRole === 'admin' || ($userId === 0))) {
+                $merchantId = 1;
+            }
 
             if (!$merchantId) {
                 // 如果没有merchant_id，尝试通过user_id获取
-                $userId = $this->request->user_id ?? null;
                 if ($userId === null) {
                     return $this->error('缺少商家认证信息', 401, 'merchant_auth_required');
                 }
@@ -335,12 +341,17 @@ class Merchant extends BaseController
         try {
             $merchantId = $this->request->merchant_id ?? null;
             $userId = $this->request->user_id ?? null;
+            $userRole = $this->request->user_role ?? '';
 
             if (!$merchantId && $userId !== null) {
                 $merchant = MerchantModel::where('user_id', $userId)->find();
                 if ($merchant) {
                     $merchantId = $merchant->id;
                 }
+            }
+
+            if (!$merchantId && ($userRole === 'admin' || ($userId === 0))) {
+                $merchantId = 1;
             }
 
             if (!$merchantId) {
@@ -445,12 +456,17 @@ class Merchant extends BaseController
         try {
             $merchantId = $this->request->merchant_id ?? null;
             $userId = $this->request->user_id ?? null;
+            $userRole = $this->request->user_role ?? '';
 
             if (!$merchantId && $userId !== null) {
                 $merchant = MerchantModel::where('user_id', $userId)->find();
                 if ($merchant) {
                     $merchantId = $merchant->id;
                 }
+            }
+
+            if (!$merchantId && ($userRole === 'admin' || ($userId === 0))) {
+                $merchantId = 1;
             }
 
             if (!$merchantId) {
@@ -534,12 +550,17 @@ class Merchant extends BaseController
         try {
             $merchantId = $this->request->merchant_id ?? null;
             $userId = $this->request->user_id ?? null;
+            $userRole = $this->request->user_role ?? '';
 
             if (!$merchantId && $userId) {
                 $merchant = MerchantModel::where('user_id', $userId)->find();
                 if ($merchant) {
                     $merchantId = $merchant->id;
                 }
+            }
+
+            if (!$merchantId && ($userRole === 'admin' || ($userId === 0))) {
+                $merchantId = 1;
             }
 
             if (!$merchantId) {
@@ -614,12 +635,17 @@ class Merchant extends BaseController
         try {
             $merchantId = $this->request->merchant_id ?? null;
             $userId = $this->request->user_id ?? null;
+            $userRole = $this->request->user_role ?? '';
 
             if (!$merchantId && $userId) {
                 $merchant = MerchantModel::where('user_id', $userId)->find();
                 if ($merchant) {
                     $merchantId = $merchant->id;
                 }
+            }
+
+            if (!$merchantId && ($userRole === 'admin' || ($userId === 0))) {
+                $merchantId = 1;
             }
 
             if (!$merchantId) {
@@ -691,12 +717,17 @@ class Merchant extends BaseController
         try {
             $merchantId = $this->request->merchant_id ?? null;
             $userId = $this->request->user_id ?? null;
+            $userRole = $this->request->user_role ?? '';
 
             if (!$merchantId && $userId) {
                 $merchant = MerchantModel::where('user_id', $userId)->find();
                 if ($merchant) {
                     $merchantId = $merchant->id;
                 }
+            }
+
+            if (!$merchantId && ($userRole === 'admin' || ($userId === 0))) {
+                $merchantId = 1;
             }
 
             if (!$merchantId) {
@@ -767,12 +798,17 @@ class Merchant extends BaseController
         try {
             $merchantId = $this->request->merchant_id ?? null;
             $userId = $this->request->user_id ?? null;
+            $userRole = $this->request->user_role ?? '';
 
             if (!$merchantId && $userId !== null) {
                 $merchant = MerchantModel::where('user_id', $userId)->find();
                 if ($merchant) {
                     $merchantId = $merchant->id;
                 }
+            }
+
+            if (!$merchantId && ($userRole === 'admin' || ($userId === 0))) {
+                $merchantId = 1;
             }
 
             if (!$merchantId) {
@@ -851,12 +887,17 @@ class Merchant extends BaseController
         try {
             $merchantId = $this->request->merchant_id ?? null;
             $userId = $this->request->user_id ?? null;
+            $userRole = $this->request->user_role ?? '';
 
             if (!$merchantId && $userId) {
                 $merchant = MerchantModel::where('user_id', $userId)->find();
                 if ($merchant) {
                     $merchantId = $merchant->id;
                 }
+            }
+
+            if (!$merchantId && ($userRole === 'admin' || ($userId === 0))) {
+                $merchantId = 1;
             }
 
             if (!$merchantId) {
@@ -932,12 +973,17 @@ class Merchant extends BaseController
         try {
             $merchantId = $this->request->merchant_id ?? null;
             $userId = $this->request->user_id ?? null;
+            $userRole = $this->request->user_role ?? '';
 
             if (!$merchantId && $userId) {
                 $merchant = MerchantModel::where('user_id', $userId)->find();
                 if ($merchant) {
                     $merchantId = $merchant->id;
                 }
+            }
+
+            if (!$merchantId && ($userRole === 'admin' || ($userId === 0))) {
+                $merchantId = 1;
             }
 
             if (!$merchantId) {
@@ -1009,12 +1055,17 @@ class Merchant extends BaseController
         try {
             $merchantId = $this->request->merchant_id ?? null;
             $userId = $this->request->user_id ?? null;
+            $userRole = $this->request->user_role ?? '';
 
             if (!$merchantId && $userId) {
                 $merchant = MerchantModel::where('user_id', $userId)->find();
                 if ($merchant) {
                     $merchantId = $merchant->id;
                 }
+            }
+
+            if (!$merchantId && ($userRole === 'admin' || ($userId === 0))) {
+                $merchantId = 1;
             }
 
             if (!$merchantId) {
@@ -1091,12 +1142,17 @@ class Merchant extends BaseController
         try {
             $merchantId = $this->request->merchant_id ?? null;
             $userId = $this->request->user_id ?? null;
+            $userRole = $this->request->user_role ?? '';
 
             if (!$merchantId && $userId) {
                 $merchant = MerchantModel::where('user_id', $userId)->find();
                 if ($merchant) {
                     $merchantId = $merchant->id;
                 }
+            }
+
+            if (!$merchantId && ($userRole === 'admin' || ($userId === 0))) {
+                $merchantId = 1;
             }
 
             if (!$merchantId) {
@@ -1185,12 +1241,17 @@ class Merchant extends BaseController
         try {
             $merchantId = $this->request->merchant_id ?? null;
             $userId = $this->request->user_id ?? null;
+            $userRole = $this->request->user_role ?? '';
 
             if (!$merchantId && $userId) {
                 $merchant = MerchantModel::where('user_id', $userId)->find();
                 if ($merchant) {
                     $merchantId = $merchant->id;
                 }
+            }
+
+            if (!$merchantId && ($userRole === 'admin' || ($userId === 0))) {
+                $merchantId = 1;
             }
 
             if (!$merchantId) {
@@ -1297,12 +1358,12 @@ class Merchant extends BaseController
                 });
             }
 
+            $total = (clone $query)->count();
+
             // 查询商家列表
             $merchants = $query->page($page, $limit)
                 ->order('create_time', 'desc')
                 ->select();
-
-            $total = $query->count();
 
             // 转换为数组格式
             $merchantList = [];
@@ -1322,7 +1383,13 @@ class Merchant extends BaseController
                 ];
             }
 
-            return $this->paginate($merchantList, $total, $page, $limit, '获取商家列表成功');
+            return $this->success([
+                'list' => $merchantList,
+                'total' => $total,
+                'page' => $page,
+                'limit' => $limit,
+                'total_pages' => (int)ceil($total / $limit),
+            ], '获取商家列表成功');
 
         } catch (\Exception $e) {
             Log::error('获取商家列表失败', [
@@ -1625,6 +1692,415 @@ class Merchant extends BaseController
             return $this->success($list, '获取触发记录成功');
         } catch (\Exception $e) {
             return $this->error('获取触发记录失败: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * 解析当前商户ID，失败时直接返回错误响应
+     */
+    private function resolveMerchantIdOrFail()
+    {
+        $merchantId = $this->request->merchant_id ?? null;
+        $userId = $this->request->user_id ?? null;
+        $userRole = $this->request->user_role ?? '';
+
+        if (!$merchantId && $userId) {
+            $merchant = MerchantModel::where('user_id', $userId)->find();
+            if ($merchant) {
+                $merchantId = $merchant->id;
+            }
+        }
+
+        if (!$merchantId && ($userRole === 'admin' || ($userId === 0))) {
+            $merchantId = 1;
+        }
+
+        if (!$merchantId) {
+            $this->error('缺少商家认证信息', 401, 'merchant_auth_required');
+            return null;
+        }
+
+        return $merchantId;
+    }
+
+    /**
+     * 商户模板列表
+     * GET /api/merchant/template/list
+     */
+    public function templateList()
+    {
+        try {
+            $merchantId = $this->resolveMerchantIdOrFail();
+            if (!$merchantId) return;
+
+            $page = (int)$this->request->param('page', 1);
+            $limit = (int)$this->request->param('limit', 20);
+            $type = $this->request->param('type', '');
+            $category = $this->request->param('category', '');
+            $keyword = $this->request->param('keyword', '');
+
+            $query = ContentTemplate::where('merchant_id', $merchantId);
+
+            if ($type !== '') {
+                $query->where('type', $type);
+            }
+            if ($category !== '') {
+                $query->where('category', $category);
+            }
+            if ($keyword !== '') {
+                $query->whereLike('name', '%' . addcslashes($keyword, '%_') . '%');
+            }
+
+            $total = $query->count();
+
+            $templates = $query->page($page, $limit)
+                ->order('create_time', 'desc')
+                ->select();
+
+            $list = [];
+            foreach ($templates as $tpl) {
+                $list[] = [
+                    'id' => $tpl->id,
+                    'name' => $tpl->name,
+                    'type' => $tpl->type,
+                    'type_text' => $tpl->type_text,
+                    'category' => $tpl->category,
+                    'style' => $tpl->style,
+                    'content' => $tpl->content,
+                    'preview_url' => $tpl->preview_url,
+                    'usage_count' => $tpl->usage_count,
+                    'is_public' => $tpl->is_public,
+                    'is_public_text' => $tpl->is_public_text,
+                    'status' => $tpl->status,
+                    'status_text' => $tpl->status_text,
+                    'create_time' => $tpl->create_time,
+                    'update_time' => $tpl->update_time,
+                ];
+            }
+
+            return $this->paginate($list, $total, $page, $limit, '获取模板列表成功');
+
+        } catch (\Exception $e) {
+            Log::error('获取商户模板列表失败', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return $this->error($e->getMessage(), 400, 'get_template_list_failed');
+        }
+    }
+
+    /**
+     * 创建模板
+     * POST /api/merchant/template/create
+     */
+    public function createTemplate()
+    {
+        try {
+            $merchantId = $this->resolveMerchantIdOrFail();
+            if (!$merchantId) return;
+
+            $data = $this->request->post();
+
+            $this->validate($data, [
+                'name' => 'require|max:100',
+                'type' => 'require|in:VIDEO,TEXT,IMAGE',
+                'content' => 'require',
+                'category' => 'max:50',
+                'style' => 'max:50',
+            ]);
+
+            Db::startTrans();
+            try {
+                $template = new ContentTemplate();
+                $template->merchant_id = $merchantId;
+                $template->name = $data['name'];
+                $template->type = $data['type'];
+                $template->category = $data['category'] ?? '';
+                $template->style = $data['style'] ?? '';
+                $template->content = is_array($data['content']) ? $data['content'] : json_decode($data['content'], true);
+                $template->preview_url = $data['preview_url'] ?? '';
+                $template->is_public = ContentTemplate::PUBLIC_NO;
+                $template->status = ContentTemplate::STATUS_ENABLED;
+                $template->usage_count = 0;
+                $template->save();
+
+                Db::commit();
+            } catch (\Exception $e) {
+                Db::rollback();
+                throw $e;
+            }
+
+            Log::info('商户创建模板成功', [
+                'merchant_id' => $merchantId,
+                'template_id' => $template->id,
+            ]);
+
+            return $this->success([
+                'id' => $template->id,
+                'name' => $template->name,
+            ], '创建模板成功');
+
+        } catch (ValidateException $e) {
+            return $this->validationError(['template' => $e->getMessage()]);
+        } catch (\Exception $e) {
+            Log::error('商户创建模板失败', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return $this->error($e->getMessage(), 400, 'create_template_failed');
+        }
+    }
+
+    /**
+     * 更新模板
+     * PUT /api/merchant/template/:id
+     */
+    public function updateTemplate($id)
+    {
+        try {
+            $merchantId = $this->resolveMerchantIdOrFail();
+            if (!$merchantId) return;
+
+            $template = ContentTemplate::where('id', $id)
+                ->where('merchant_id', $merchantId)
+                ->find();
+
+            if (!$template) {
+                return $this->error('模板不存在或无权操作', 404, 'template_not_found');
+            }
+
+            $data = $this->request->put();
+
+            $this->validate($data, [
+                'name' => 'max:100',
+                'type' => 'in:VIDEO,TEXT,IMAGE',
+                'category' => 'max:50',
+                'style' => 'max:50',
+            ]);
+
+            Db::startTrans();
+            try {
+                if (isset($data['name'])) $template->name = $data['name'];
+                if (isset($data['type'])) $template->type = $data['type'];
+                if (isset($data['category'])) $template->category = $data['category'];
+                if (isset($data['style'])) $template->style = $data['style'];
+                if (isset($data['content'])) {
+                    $template->content = is_array($data['content']) ? $data['content'] : json_decode($data['content'], true);
+                }
+                if (isset($data['preview_url'])) $template->preview_url = $data['preview_url'];
+                if (isset($data['is_public'])) $template->is_public = (int)$data['is_public'];
+                if (isset($data['status'])) $template->status = (int)$data['status'];
+
+                $template->save();
+                Db::commit();
+            } catch (\Exception $e) {
+                Db::rollback();
+                throw $e;
+            }
+
+            Log::info('商户更新模板成功', [
+                'merchant_id' => $merchantId,
+                'template_id' => $id,
+            ]);
+
+            return $this->success(['id' => $template->id], '更新模板成功');
+
+        } catch (ValidateException $e) {
+            return $this->validationError(['template' => $e->getMessage()]);
+        } catch (\Exception $e) {
+            Log::error('商户更新模板失败', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return $this->error($e->getMessage(), 400, 'update_template_failed');
+        }
+    }
+
+    /**
+     * 删除模板
+     * DELETE /api/merchant/template/:id
+     */
+    public function deleteTemplate($id)
+    {
+        try {
+            $merchantId = $this->resolveMerchantIdOrFail();
+            if (!$merchantId) return;
+
+            $template = ContentTemplate::where('id', $id)
+                ->where('merchant_id', $merchantId)
+                ->find();
+
+            if (!$template) {
+                return $this->error('模板不存在或无权操作', 404, 'template_not_found');
+            }
+
+            Db::startTrans();
+            try {
+                $template->delete();
+                Db::commit();
+            } catch (\Exception $e) {
+                Db::rollback();
+                throw $e;
+            }
+
+            Log::info('商户删除模板成功', [
+                'merchant_id' => $merchantId,
+                'template_id' => $id,
+            ]);
+
+            return $this->success([], '删除模板成功');
+
+        } catch (\Exception $e) {
+            Log::error('商户删除模板失败', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return $this->error($e->getMessage(), 400, 'delete_template_failed');
+        }
+    }
+
+    /**
+     * 获取指定设备的触发记录
+     * GET /api/merchant/nfc/device/:id/records
+     */
+    public function getDeviceTriggerRecords($id)
+    {
+        try {
+            $merchantId = $this->resolveMerchantIdOrFail();
+            if (!$merchantId) return;
+
+            // 验证设备归属
+            $device = NfcDevice::where('id', $id)
+                ->where('merchant_id', $merchantId)
+                ->find();
+
+            if (!$device) {
+                return $this->error('设备不存在或无权访问', 404, 'device_not_found');
+            }
+
+            $page = (int)$this->request->param('page', 1);
+            $limit = (int)$this->request->param('limit', 20);
+            $startDate = $this->request->param('start_date', '');
+            $endDate = $this->request->param('end_date', '');
+
+            $query = DeviceTrigger::where('device_id', $id)
+                ->where('merchant_id', $merchantId);
+
+            if ($startDate !== '' && $endDate !== '') {
+                $query->where('trigger_time', 'between', [$startDate . ' 00:00:00', $endDate . ' 23:59:59']);
+            }
+
+            $total = $query->count();
+
+            $records = $query->page($page, $limit)
+                ->order('trigger_time', 'desc')
+                ->select();
+
+            $list = [];
+            foreach ($records as $record) {
+                $list[] = [
+                    'id' => $record->id,
+                    'device_id' => $record->device_id,
+                    'device_code' => $record->device_code,
+                    'user_openid' => $record->user_openid,
+                    'trigger_mode' => $record->trigger_mode,
+                    'trigger_mode_text' => $record->trigger_mode_text,
+                    'response_type' => $record->response_type,
+                    'response_data' => $record->response_data,
+                    'response_time' => $record->response_time,
+                    'response_time_text' => $record->response_time_text,
+                    'client_ip' => $record->client_ip,
+                    'success' => $record->success,
+                    'success_text' => $record->success_text,
+                    'error_message' => $record->error_message,
+                    'trigger_time' => $record->trigger_time,
+                ];
+            }
+
+            return $this->paginate($list, $total, $page, $limit, '获取设备触发记录成功');
+
+        } catch (\Exception $e) {
+            Log::error('获取设备触发记录失败', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return $this->error($e->getMessage(), 400, 'get_device_trigger_records_failed');
+        }
+    }
+
+    /**
+     * 获取指定设备的统计数据
+     * GET /api/merchant/nfc/device/:id/stats
+     */
+    public function getDeviceStats($id)
+    {
+        try {
+            $merchantId = $this->resolveMerchantIdOrFail();
+            if (!$merchantId) return;
+
+            // 验证设备归属
+            $device = NfcDevice::where('id', $id)
+                ->where('merchant_id', $merchantId)
+                ->find();
+
+            if (!$device) {
+                return $this->error('设备不存在或无权访问', 404, 'device_not_found');
+            }
+
+            $date = $this->request->param('date', date('Y-m-d'));
+            $startDate = $this->request->param('start_date', date('Y-m-d', strtotime('-30 days')));
+            $endDate = $this->request->param('end_date', date('Y-m-d'));
+
+            // 当日统计
+            $todayStats = DeviceTrigger::getDeviceStats($id, $date);
+
+            // 按天统计趋势
+            $dailyStats = DeviceTrigger::where('device_id', $id)
+                ->where('merchant_id', $merchantId)
+                ->where('trigger_time', 'between', [$startDate . ' 00:00:00', $endDate . ' 23:59:59'])
+                ->field('DATE(trigger_time) as date, COUNT(*) as total,
+                        SUM(CASE WHEN success = 1 THEN 1 ELSE 0 END) as success_count,
+                        SUM(CASE WHEN success = 0 THEN 1 ELSE 0 END) as fail_count')
+                ->group('date')
+                ->order('date')
+                ->select()
+                ->toArray();
+
+            // 响应时间统计
+            $responseTimeStats = DeviceTrigger::getResponseTimeStats($id, $date);
+
+            // 设备基本信息
+            $deviceInfo = [
+                'id' => $device->id,
+                'device_code' => $device->device_code,
+                'device_name' => $device->device_name,
+                'status' => $device->status,
+                'status_text' => $device->status_text,
+                'is_online' => $device->is_online,
+                'battery_level' => $device->battery_level,
+                'battery_status' => $device->battery_status,
+                'last_heartbeat' => $device->last_heartbeat,
+            ];
+
+            $stats = [
+                'device' => $deviceInfo,
+                'today' => $todayStats,
+                'daily_stats' => $dailyStats,
+                'response_time' => $responseTimeStats,
+                'date_range' => [
+                    'start_date' => $startDate,
+                    'end_date' => $endDate,
+                ],
+            ];
+
+            return $this->success($stats, '获取设备统计成功');
+
+        } catch (\Exception $e) {
+            Log::error('获取设备统计失败', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return $this->error($e->getMessage(), 400, 'get_device_stats_failed');
         }
     }
 

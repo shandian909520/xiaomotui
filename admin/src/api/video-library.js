@@ -40,3 +40,11 @@ export function useVideoTemplate(id) {
     method: 'post'
   })
 }
+
+// 获取模板预览信息
+export function getTemplatePreview(id) {
+  return request({
+    url: `/video-library/preview/${id}`,
+    method: 'get'
+  })
+}

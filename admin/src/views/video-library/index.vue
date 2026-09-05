@@ -281,6 +281,28 @@
         <el-button type="primary" @click="useCurrentTemplate">使用此模板</el-button>
       </template>
     </el-dialog>
+
+    <!-- 视频预览对话框 -->
+    <el-dialog
+      v-model="previewVisible"
+      title="模板预览"
+      width="720px"
+      destroy-on-close
+    >
+      <div v-loading="previewLoading" class="preview-container">
+        <video
+          v-if="previewVideoUrl"
+          :src="previewVideoUrl"
+          :poster="previewCoverUrl"
+          controls
+          autoplay
+          class="preview-video"
+        />
+        <div v-else-if="!previewLoading" class="preview-empty">
+          <el-empty description="暂无视频预览资源" />
+        </div>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
@@ -288,12 +310,13 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, View, VideoCamera, VideoPlay } from '@element-plus/icons-vue'
-import { 
-  getVideoLibraryList, 
-  getVideoCategories, 
-  getVideoFilters, 
-  getHotVideos, 
-  useVideoTemplate 
+import {
+  getVideoLibraryList,
+  getVideoCategories,
+  getVideoFilters,
+  getHotVideos,
+  useVideoTemplate,
+  getTemplatePreview
 } from '@/api/video-library'
 
 // 数据
@@ -431,10 +454,31 @@ const viewTemplate = (template) => {
   detailVisible.value = true
 }
 
+// 预览相关
+const previewVisible = ref(false)
+const previewLoading = ref(false)
+const previewVideoUrl = ref('')
+const previewCoverUrl = ref('')
+
 // 预览模板
-const previewTemplate = (template) => {
-  // TODO: 实现视频预览功能
-  ElMessage.info('预览功能开发中')
+const previewTemplate = async (template) => {
+  previewVideoUrl.value = template.video_url || ''
+  previewCoverUrl.value = template.preview_url || ''
+  previewVisible.value = true
+
+  if (!template.video_url) {
+    previewLoading.value = true
+    try {
+      const data = await getTemplatePreview(template.id)
+      previewVideoUrl.value = data?.video_url || ''
+      previewCoverUrl.value = data?.cover_url || data?.preview_url || template.preview_url || ''
+    } catch (error) {
+      console.error('获取预览信息失败:', error)
+      ElMessage.warning('暂无视频预览资源')
+    } finally {
+      previewLoading.value = false
+    }
+  }
 }
 
 // 使用模板
@@ -815,5 +859,23 @@ onMounted(() => {
       }
     }
   }
+}
+
+.preview-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+}
+
+.preview-video {
+  width: 100%;
+  max-height: 450px;
+  border-radius: 8px;
+  background: #000;
+}
+
+.preview-empty {
+  width: 100%;
 }
 </style>

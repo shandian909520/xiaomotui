@@ -7,7 +7,7 @@ client = paramiko.SSHClient()
 client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
 try:
-    client.connect('47.113.226.37', username='root', password=password, timeout=30)
+    client.connect('123.57.68.51', username='root', password=password, timeout=30)
     print('SSH connected!')
 
     # 修改 Nginx 配置 - 根路径使用 try_files

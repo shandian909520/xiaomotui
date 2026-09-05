@@ -56,16 +56,17 @@ class OperationLogService
     ): void {
         try {
             OperationLog::create([
-                'user_id'     => $userId,
-                'username'    => $username,
-                'module'      => $module,
-                'action'      => $action,
-                'description' => mb_substr($description, 0, 500),
-                'method'      => $method,
-                'url'         => mb_substr($url, 0, 500),
-                'params'      => mb_substr($params, 0, 65000),
-                'ip'          => $ip,
-                'user_agent'  => mb_substr($userAgent, 0, 500),
+                'user_id'        => $userId,
+                'username'       => $username,
+                'role'           => 'admin',
+                'module'         => $module,
+                'action'         => $action,
+                'description'    => mb_substr($description, 0, 500),
+                'request_method' => $method,
+                'request_url'    => mb_substr($url, 0, 500),
+                'request_params' => $params ? json_decode($params, true) ?? $params : null,
+                'ip'             => $ip,
+                'user_agent'     => mb_substr($userAgent, 0, 500),
             ]);
         } catch (\Exception $e) {
             Log::error('记录操作日志失败', [
@@ -93,10 +94,30 @@ class OperationLogService
         $action = self::$actionMap[$method] ?? $method;
         $description = self::buildDescription($method, $url, $module);
 
-        self::record(
-            $userId, $username, $module, $action,
-            $description, $method, $url, $params, $ip, $userAgent
-        );
+        $role = request()->role ?? 'user';
+
+        try {
+            OperationLog::create([
+                'user_id'        => $userId,
+                'username'       => $username,
+                'role'           => $role,
+                'module'         => $module,
+                'action'         => $action,
+                'description'    => mb_substr($description, 0, 500),
+                'request_method' => $method,
+                'request_url'    => mb_substr($url, 0, 500),
+                'request_params' => $params ? json_decode($params, true) ?? $params : null,
+                'ip'             => $ip,
+                'user_agent'     => mb_substr($userAgent, 0, 500),
+            ]);
+        } catch (\Exception $e) {
+            Log::error('记录操作日志失败', [
+                'error'   => $e->getMessage(),
+                'user_id' => $userId,
+                'module'  => $module,
+                'action'  => $action,
+            ]);
+        }
     }
 
     /**
@@ -165,6 +186,14 @@ class OperationLogService
         $total = (clone $query)->count();
         $list = $query->page($page, $pageSize)->select()->toArray();
 
+        // 将数据库字段名映射为前端期望的字段名
+        foreach ($list as &$item) {
+            $item['method'] = $item['request_method'] ?? '';
+            $item['url'] = $item['request_url'] ?? '';
+            $item['params'] = $item['request_params'] ?? '';
+        }
+        unset($item);
+
         return [
             'list'  => $list,
             'total' => $total,
@@ -194,9 +223,19 @@ class OperationLogService
             $query->where('create_time', '<=', $filters['end_date'] . ' 23:59:59');
         }
 
-        return $query->limit(10000)
-            ->field('id, username, module, action, description, method, url, ip, create_time')
+        $data = $query->limit(10000)
+            ->field('id, username, module, action, description, request_method, request_url, ip, create_time')
             ->select()
             ->toArray();
+
+        // 将数据库字段名映射为前端期望的字段名
+        foreach ($data as &$row) {
+            $row['method'] = $row['request_method'] ?? '';
+            $row['url'] = $row['request_url'] ?? '';
+            unset($row['request_method'], $row['request_url']);
+        }
+        unset($row);
+
+        return $data;
     }
 }

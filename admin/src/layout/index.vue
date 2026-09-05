@@ -1,8 +1,8 @@
 <template>
-  <div class="layout-container">
-    <Header />
-    <div class="layout-body">
-      <Sidebar />
+  <div class="shell">
+    <Sidebar />
+    <div class="shell-main">
+      <Header />
       <Main />
     </div>
   </div>
@@ -15,15 +15,19 @@ import Main from './Main.vue'
 </script>
 
 <style lang="scss" scoped>
-.layout-container {
+.shell {
+  min-width: 1280px;
   height: 100vh;
   display: flex;
-  flex-direction: column;
+  overflow: hidden;
+  background: #f8f8f8;
 }
 
-.layout-body {
+.shell-main {
+  min-width: 0;
   flex: 1;
   display: flex;
+  flex-direction: column;
   overflow: hidden;
 }
 </style>

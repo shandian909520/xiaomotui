@@ -77,8 +77,8 @@ return [
 
     // 开发环境配置
     'debug' => [
-        // 是否启用调试模式 (生产环境也启用模拟模式)
-        'enabled' => env('sms.debug.enabled', true),
+        // 调试模式必须由环境变量显式开启，生产环境默认关闭
+        'enabled' => env('sms.debug.enabled', false),
         // 调试模式测试验证码
         'test_code' => env('sms.debug.test_code', '123456'),
         // 是否在响应中返回验证码

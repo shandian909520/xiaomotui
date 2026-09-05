@@ -20,6 +20,14 @@ import promoMaterial from './modules/promoMaterial.js'
 import promoTemplate from './modules/promoTemplate.js'
 import promoCampaign from './modules/promoCampaign.js'
 import promoStats from './modules/promoStats.js'
+import task from './modules/task.js'
+import nfcAggregation from './modules/nfc-aggregation.js'
+import lottery from './modules/lottery.js'
+import review from './modules/review.js'
+import groupbuy from './modules/groupbuy.js'
+import copywriting from './modules/copywriting.js'
+import funnel from './modules/funnel.js'
+import contactQq from './modules/contact-qq.js'
 import request from './request.js'
 
 // 导出所有API模块
@@ -41,6 +49,14 @@ export default {
 	promoTemplate, // 视频合成模板模块
 	promoCampaign, // 推广活动模块
 	promoStats,   // 推广统计模块
+	task,        // 任务引擎模块
+	nfcAggregation, // NFC 聚合页(顾客端)
+	lottery,     // 抽奖(顾客端)
+	review,      // 点评(顾客端)
+	groupbuy,    // 团购商品(顾客端)
+	copywriting, // 文案池(待 Agent C 联通)
+	funnel,      // 漏斗埋点(Agent E)
+	contactQq,   // QQ 联系方式(Agent C)
 	request      // 请求实例（用于自定义请求）
 }
 
@@ -63,5 +79,13 @@ export {
 	promoTemplate,
 	promoCampaign,
 	promoStats,
+	task,
+	nfcAggregation,
+	lottery,
+	review,
+	groupbuy,
+	copywriting,
+	funnel,
+	contactQq,
 	request
 }

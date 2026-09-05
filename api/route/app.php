@@ -5,6 +5,33 @@
 
 use think\facade\Route;
 
+// 碰一碰任务引擎路由（顶层注册）
+// 注：线上PHP8.3环境对组内变量规则匹配异常，task 相关路由统一在顶层注册，勿移入 api 组
+Route::get('api/task/instance/:id', '\app\controller\TaskInstance@read');
+Route::post('api/task/instance/:id/action/:action_id/start', '\app\controller\TaskInstance@startAction');
+Route::post('api/task/instance/:id/action/:action_id/proof', '\app\controller\TaskInstance@submitProof');
+Route::post('api/task/instance/:id/claim-reward', '\app\controller\TaskInstance@claimReward');
+Route::get('api/task/callback/wework/:instance_id/:action_id', '\app\controller\TaskCallback@wework');
+Route::post('api/task/callback/wework/:instance_id/:action_id', '\app\controller\TaskCallback@wework');
+Route::get('api/task/callback/official/:instance_id/:action_id', '\app\controller\TaskCallback@official');
+Route::post('api/task/callback/official/:instance_id/:action_id', '\app\controller\TaskCallback@official');
+
+// 碰一碰任务包管理路由（商家鉴权，顶层注册）
+Route::group('api/task', function () {
+    Route::get('bundle/list', '\app\controller\TaskBundle@index');
+    Route::get('bundle/plugins', '\app\controller\TaskBundle@plugins');
+    Route::get('bundle/:id', '\app\controller\TaskBundle@read');
+    Route::post('bundle/create', '\app\controller\TaskBundle@save');
+    Route::put('bundle/:id/update', '\app\controller\TaskBundle@update');
+    Route::delete('bundle/:id/delete', '\app\controller\TaskBundle@delete');
+    Route::post('bundle/:id/action', '\app\controller\TaskBundle@addAction');
+    Route::put('bundle/action/:action_id/update', '\app\controller\TaskBundle@updateAction');
+    Route::delete('bundle/action/:action_id/delete', '\app\controller\TaskBundle@deleteAction');
+    Route::get('proof/list', '\app\controller\TaskBundle@proofList');
+    Route::post('proof/:id/audit', '\app\controller\TaskBundle@proofAudit');
+    Route::get('instance/list', '\app\controller\TaskBundle@instanceList');
+})->middleware([\app\middleware\AllowCrossDomain::class, \app\middleware\Auth::class, \app\middleware\OperationLog::class, \app\middleware\ApiThrottle::class]);
+
 // 首页路由
 Route::get('/', function () {
     return json([
@@ -66,17 +93,92 @@ Route::group('api', function () {
         Route::post('device/clear-cache', '\app\controller\Nfc@clearConfigCache');
     });
 
+    // 碰一碰任务引擎路由已移至文件顶层注册（见顶部 api/task 规则与 api/task 组）
+
     // 推广发布确认（无需认证，消费者直接调用）
     Route::group('promo', function () {
         Route::post('confirm-publish', '\app\controller\Promo@confirmPublish');
         Route::get('reward-status', '\app\controller\Promo@rewardStatus');
     });
 
+    // 支付回调（无需认证，微信服务器调用）
+    Route::group('payment', function () {
+        Route::post('wechat-notify', '\app\controller\Payment@wechatNotify');
+    });
+
     // 公共路由（无需认证）
     Route::group('public', function () {
-        Route::get('config', 'Public/getConfig');
-        Route::post('feedback', 'Public/feedback');
-        Route::get('version', 'Public/version');
+        Route::get('config', 'PublicController/getConfig');
+        Route::post('feedback', 'PublicController/feedback');
+        Route::get('version', 'PublicController/version');
+    });
+
+    // 兼容前端 index.js 中 nfcApi 路径
+    Route::group('nfc', function () {
+        Route::get('devices', 'AdminCompat/stores');  // 映射到门店列表
+        Route::get('devices/:id', 'AdminCompat/storeDetail');
+
+        // ====== 模块1:聚合页(顾客端 H5/uni-app) ======
+        Route::get('aggregation-page', '\app\controller\Nfc@getAggregationPage');
+        // ====== 模块5:团购商品列表(顾客端) ======
+        Route::get('group-buy-items', '\app\controller\Nfc@getGroupBuyItems');
+    });
+
+    // ====== H5 聚合页兼容路径(顾客端,修复断链) ======
+    // aggregate.html 历史调用 /api/publish/copywriting 与 /api/wifi/mobileconfig
+    Route::group('publish', function () {
+        Route::get('copywriting', '\app\controller\Nfc@getPublishCopywriting'); // ?device_id=&rotate_token=
+    });
+    Route::group('wifi', function () {
+        Route::get('mobileconfig', '\app\controller\Nfc@getWifiMobileconfig');  // ?device_code=
+    });
+
+    // ====== 模块6:大转盘抽奖(顾客端,匿名 user_hash) ======
+    Route::group('lottery', function () {
+        Route::get('by-device',   '\app\controller\Lottery@getLotteryByDevice'); // ?device_code=
+        Route::post('draw',       '\app\controller\Lottery@draw');              // {activity_id, user_hash, device_id}
+        Route::get('my-records',  '\app\controller\Lottery@myRecords');          // ?device_id=&user_hash=&limit=
+    });
+
+    // ====== 模块4:点评(顾客端,合规:仅返回草稿 + 埋点) ======
+    Route::group('review', function () {
+        Route::get('config',      '\app\controller\Review@getReviewConfig');    // ?device_id=
+        Route::get('draft',       '\app\controller\Review@getReviewDraft');     // ?device_id=&platform=&count=
+        Route::post('action',     '\app\controller\Review@recordReviewAction'); // {device_id, platform, action, draft_index, extra}
+    });
+
+    // ====== 模块7:QQ 联系方式(顾客端读 + 公开埋点;写接口在下方鉴权组,Agent C) ======
+    Route::group('contact', function () {
+        Route::get('qq-config',   '\app\controller\ContactQq@getQqConfig');    // ?device_id=
+        Route::post('qq-action',  '\app\controller\ContactQq@recordQqAction'); // {device_id, action, user_hash?}
+    });
+
+    // ====== 模块3:文案池(顾客端 rotate 公开) ======
+    Route::group('copywriting', function () {
+        Route::get('rotate', '\app\controller\CopywritingPool@rotate'); // ?device_id=&scene=&rotate_token=&rotate=0/1
+    });
+
+    // ====== Agent E:漏斗埋点(顾客端打点公开) ======
+    Route::group('funnel', function () {
+        Route::post('record', '\app\controller\Funnel@record'); // {device_id?,user_hash?,step,block,action,meta}
+    });
+
+    // 兼容前端 index.js 中 couponApi 路径
+    Route::group('coupons', function () {
+        Route::get('', 'Coupon/my');
+        Route::get('users', 'Coupon/my');
+    });
+
+    // 兼容前端 index.js 中 merchantApi 路径
+    Route::group('merchants', function () {
+        Route::get('', 'Merchant/list');
+        Route::post('', 'Merchant/create');
+    });
+
+    // 兼容前端 index.js 中 statsApi 路径
+    Route::group('stats', function () {
+        Route::get('dashboard', '\app\controller\Statistics@dashboard');
+        Route::get('trends', '\app\controller\Statistics@trendAnalysis');
     });
 
     // 通用路由（无需认证）
@@ -140,8 +242,27 @@ Route::group('api', function () {
     Route::group('auth', function () {
         Route::post('logout', '\app\controller\Auth@logout');
         Route::get('info', '\app\controller\Auth@info');
+        Route::get('userinfo', '\app\controller\Auth@info');  // 兼容前端 /auth/userinfo 调用
+        Route::get('permissions', '\app\controller\Auth@permissions');
         Route::post('update', '\app\controller\Auth@update');
         Route::post('bind-phone', '\app\controller\Auth@bindPhone');
+    });
+
+    // 账号管理路由
+    Route::group('account', function () {
+        Route::post('change-password', '\app\controller\Account@changePassword');
+        Route::post('activate-card', '\app\controller\Account@activateCard');
+        Route::post('switch-version', '\app\controller\Account@switchVersion');
+        Route::get('benefits', '\app\controller\Account@benefits');
+    });
+
+    // 支付路由（需要认证）
+    Route::group('payment', function () {
+        Route::post('create-order', '\app\controller\Payment@createOrder');
+        Route::post('wechat-pay', '\app\controller\Payment@wechatPay');
+        Route::get('order/:id', '\app\controller\Payment@orderDetail');
+        Route::get('orders', '\app\controller\Payment@orders');
+        Route::get('packages', '\app\controller\Payment@packages');
     });
 
     // 用户相关路由
@@ -166,6 +287,7 @@ Route::group('api', function () {
         Route::get('feedback/stats', '\app\controller\Content@feedbackStats');
         Route::get('templates', '\app\controller\Content@templates');
         Route::get('my', '\app\controller\Content@my');
+        Route::get('tasks', '\app\controller\Content@my');  // 兼容前端 /content/tasks 调用
         Route::put('task/:id', '\app\controller\Content@updateTask');
         Route::delete('task/:id', '\app\controller\Content@deleteTask');
     });
@@ -229,6 +351,68 @@ Route::group('api', function () {
         });
     });
 
+    // ====== 模块6:抽奖后台管理(商家鉴权) ======
+    Route::group('lottery/admin', function () {
+        // 活动
+        Route::get('activities',           '\app\controller\LotteryAdmin@activityList');
+        Route::post('activities',          '\app\controller\LotteryAdmin@createActivity');
+        Route::put('activities/:id',       '\app\controller\LotteryAdmin@updateActivity');
+        Route::post('activities/:id/toggle','\app\controller\LotteryAdmin@toggleActivity');
+        // 奖品
+        Route::get('prizes',               '\app\controller\LotteryAdmin@prizes');          // ?activity_id=
+        Route::post('prizes',              '\app\controller\LotteryAdmin@createPrize');
+        Route::put('prizes/:id',           '\app\controller\LotteryAdmin@updatePrize');
+        Route::delete('prizes/:id',        '\app\controller\LotteryAdmin@deletePrize');
+        // 记录
+        Route::get('records',              '\app\controller\LotteryAdmin@recordList');
+        Route::post('records/:id/claim',   '\app\controller\LotteryAdmin@claimRecord');
+    });
+
+    // ====== 模块3:文案池后台管理(商家鉴权,Agent C) ======
+    Route::group('copywriting/admin', function () {
+        Route::get('list',          '\app\controller\CopywritingPool@list');         // ?device_id=&scene=
+        Route::post('',             '\app\controller\CopywritingPool@create');       // {device_id,scene,content,weight,sort,status}
+        Route::put(':id',           '\app\controller\CopywritingPool@update');       // {content?,weight?,status?,sort?,scene?}
+        Route::delete(':id',        '\app\controller\CopywritingPool@delete');
+        Route::post('batch-import', '\app\controller\CopywritingPool@batchImport');   // {device_id,scene,weight,lines}
+    });
+
+    // ====== 模块4:点评商家后台(商家鉴权,Agent C) ======
+    Route::group('review/admin', function () {
+        Route::post('config',                '\app\controller\Review@updateConfig');         // {device_id, enabled?, ai_draft_enabled?, default_count?, platforms?}
+        Route::get('draft-templates',        '\app\controller\Review@getDraftTemplates');   // ?device_id=&platform=&scope=
+        Route::post('draft-template',        '\app\controller\Review@addDraftTemplate');     // {device_id, platform, title, prompt, ...}
+        Route::delete('draft-template/:id',  '\app\controller\Review@deleteDraftTemplate');  // ?device_id=
+    });
+
+    // ====== 模块7:QQ 联系方式写入(商家鉴权,Agent C;从公开组迁移) ======
+    Route::group('contact/admin', function () {
+        Route::put('qq-config',   '\app\controller\ContactQq@setQqConfig');    // {device_id, qq_number, ...}
+    });
+
+    // ====== 模块5:团购商品后台管理(商家鉴权) ======
+    Route::group('groupbuy/admin', function () {
+        Route::get('items',                '\app\controller\GroupBuyAdmin@list');
+        Route::get('items/:id',            '\app\controller\GroupBuyAdmin@detail');
+        Route::post('items',               '\app\controller\GroupBuyAdmin@create');
+        Route::put('items/:id',            '\app\controller\GroupBuyAdmin@update');
+        Route::delete('items/:id',         '\app\controller\GroupBuyAdmin@delete');
+    });
+
+    // ====== Agent E:漏斗后台(商家鉴权) ======
+    Route::group('funnel', function () {
+        Route::get('funnel',    '\app\controller\Funnel@funnel');         // ?device_id=&date_from=&date_to=
+        Route::get('daily',     '\app\controller\Funnel@dailyStat');      // ?device_id=&days=7
+        Route::get('merchant',  '\app\controller\Funnel@merchantFunnel'); // ?merchant_id=&date_from=&date_to=
+    });
+
+    // ====== Agent E:NFC 设备配置页(商家后台鉴权,3 tab) ======
+    Route::group('admin/nfc/device', function () {
+        Route::get(':id/config',           '\app\controller\NfcConfig@getConfig');
+        Route::put(':id/config',           '\app\controller\NfcConfig@saveConfig');
+        Route::get(':id/aggregation',      '\app\controller\NfcConfig@getAggregationSnapshot');
+    });
+
     // 商家功能路由（商家角色专用）
     Route::group('merchant', function () {
         Route::get('list', '\app\controller\Merchant@list');
@@ -243,7 +427,7 @@ Route::group('api', function () {
         Route::group('device', function () {
             // CRUD操作
             Route::get('list', 'DeviceManage/index');
-            Route::get(':id', 'DeviceManage/read');
+            Route::get(':id', 'DeviceManage/read')->pattern(['id' => '\d+']);
             Route::post('create', 'DeviceManage/create');
             Route::put(':id/update', 'DeviceManage/update');
             Route::delete(':id/delete', 'DeviceManage/delete');
@@ -267,6 +451,13 @@ Route::group('api', function () {
             Route::post('batch/delete', 'DeviceManage/batchDelete');
             Route::post('batch/enable', 'DeviceManage/batchEnable');
             Route::post('batch/disable', 'DeviceManage/batchDisable');
+
+            // 兼容前端 /merchant/device/alerts 路径
+            Route::get('alerts', 'AlertController/index');
+            Route::put('alerts/:id/resolve', 'AlertController/resolve');
+            Route::put('alerts/:id/ignore', 'AlertController/ignore');
+            Route::post('alerts/batch/resolve', 'AlertController/batchAction');
+            Route::post('alerts/batch/ignore', 'AlertController/batchAction');
         });
 
         // NFC设备管理
@@ -312,6 +503,39 @@ Route::group('api', function () {
             Route::get('materials/:id', 'PromoMaterial/detail');
             Route::put('materials/:id/status', 'PromoMaterial/updateStatus');
             Route::delete('materials/:id', 'PromoMaterial/delete');
+
+            // 兼容前端 /merchant/promo/templates 路径
+            Route::post('templates', 'PromoTemplate/create');
+            Route::get('templates', 'PromoTemplate/list');
+            Route::get('templates/options', 'PromoTemplate/options');
+            Route::get('templates/:id', 'PromoTemplate/detail');
+            Route::put('templates/:id', 'PromoTemplate/update');
+            Route::put('templates/:id/status', 'PromoTemplate/updateStatus');
+            Route::delete('templates/:id', 'PromoTemplate/delete');
+            Route::post('templates/:id/generate', 'PromoTemplate/generate');
+
+            // 兼容前端 /merchant/promo/variants 路径
+            Route::get('variants', 'PromoVariant/list');
+            Route::get('variants/stats', 'PromoVariant/stats');
+            Route::get('variants/strategies', 'PromoVariant/strategies');
+            Route::get('variants/next', 'PromoVariant/getNext');
+            Route::post('variants/batch-delete', 'PromoVariant/batchDelete');
+            Route::get('variants/:id', 'PromoVariant/detail');
+            Route::post('variants/:id/record-use', 'PromoVariant/recordUse');
+            Route::put('variants/:id/status', 'PromoVariant/updateStatus');
+            Route::delete('variants/:id', 'PromoVariant/delete');
+
+            // 兼容前端 /merchant/promo/campaigns 路径
+            Route::post('campaigns', 'PromoCampaign/create');
+            Route::get('campaigns', 'PromoCampaign/list');
+            Route::get('campaigns/available-devices', 'PromoCampaign/availableDevices');
+            Route::get('campaigns/:id', 'PromoCampaign/detail');
+            Route::put('campaigns/:id', 'PromoCampaign/update');
+            Route::delete('campaigns/:id', 'PromoCampaign/delete');
+            Route::post('campaigns/:id/devices', 'PromoCampaign/bindDevices');
+            Route::delete('campaigns/:id/devices/:device_id', 'PromoCampaign/unbindDevice');
+            Route::get('campaigns/:id/stats', 'PromoCampaign/getStats');
+            Route::get('campaigns/:id/distributions', 'PromoCampaign/distributions');
         });
 
         // 视频模板管理
@@ -350,7 +574,11 @@ Route::group('api', function () {
             Route::post(':id/devices', 'PromoCampaign/bindDevices');
             Route::delete(':id/devices/:device_id', 'PromoCampaign/unbindDevice');
             Route::get(':id/stats', 'PromoCampaign/getStats');
+            Route::get(':id/distributions', 'PromoCampaign/distributions');
         });
+
+        // 碰一碰任务包管理路由已移至文件顶层注册（见 api/task 组，带 Auth 中间件）
+
 
         // 推广数据统计
         Route::group('promo-stats', function () {
@@ -360,8 +588,54 @@ Route::group('api', function () {
             Route::get('device-ranking', '\app\controller\PromoStats@deviceRanking');
             Route::get('campaign-comparison', '\app\controller\PromoStats@campaignComparison');
             Route::get('today', '\app\controller\PromoStats@today');
+            Route::get('campaign-list', '\app\controller\PromoStats@campaignList');
             Route::get('campaign/:id', '\app\controller\PromoStats@campaignDetail');
         });
+    });
+
+    // 剪辑工程管理
+    Route::group('clip-project', function () {
+        Route::get('list', '\app\controller\ClipProject@list');
+        Route::post('create', '\app\controller\ClipProject@create');
+        Route::get('detail', '\app\controller\ClipProject@detail');
+        Route::post('update', '\app\controller\ClipProject@update');
+        Route::post('delete', '\app\controller\ClipProject@delete');
+        Route::post('save-as-template', '\app\controller\ClipProject@saveAsTemplate');
+        Route::get('my-templates', '\app\controller\ClipProject@myTemplates');
+
+        // 分镜管理
+        Route::get('shots', '\app\controller\ClipProject@shotList');
+        Route::post('shot/add', '\app\controller\ClipProject@addShot');
+        Route::post('shot/update', '\app\controller\ClipProject@updateShot');
+        Route::post('shot/delete', '\app\controller\ClipProject@deleteShot');
+        Route::post('shot/sort', '\app\controller\ClipProject@sortShots');
+
+        // 配置查询
+        Route::get('voice-actors', '\app\controller\ClipProject@voiceActors');
+        Route::get('transitions', '\app\controller\ClipProject@transitions');
+        Route::get('filters', '\app\controller\ClipProject@filters');
+        Route::get('aspect-ratios', '\app\controller\ClipProject@aspectRatios');
+        Route::get('frame-rates', '\app\controller\ClipProject@frameRates');
+
+        // 一键成片
+        Route::post('generate-auto-shots', '\app\controller\ClipProject@generateAutoShots');
+        // 批量混剪
+        Route::post('batch-remix', '\app\controller\ClipProject@batchRemix');
+        // 批量导出
+        Route::post('batch-export', '\app\controller\ClipProject@batchExport');
+
+        // 导出
+        Route::post('export', '\app\controller\ClipProject@export');
+    });
+
+    // 场景配置矩阵
+    Route::group('scene-config', function () {
+        Route::get('list', '\app\controller\SceneConfig@list');
+        Route::get('detail', '\app\controller\SceneConfig@detail');
+        Route::post('save', '\app\controller\SceneConfig@save');
+        Route::post('batch-save', '\app\controller\SceneConfig@batchSave');
+        Route::post('toggle-status', '\app\controller\SceneConfig@toggleStatus');
+        Route::get('platforms', '\app\controller\SceneConfig@platforms');
     });
 
     // 优惠券用户功能
@@ -377,6 +651,21 @@ Route::group('api', function () {
         Route::post('video', 'Upload/video')->middleware([\app\middleware\ApiThrottle::class, 'upload']);
         Route::post('file', 'Upload/file')->middleware([\app\middleware\ApiThrottle::class, 'upload']);
         Route::post('avatar', 'Upload/avatar')->middleware([\app\middleware\ApiThrottle::class, 'upload']);
+    });
+
+    // 素材管理升级路由
+    Route::group('material', function () {
+        Route::get('folders', 'Material/getFolders');
+        Route::post('folder-create', 'Material/createFolder');
+        Route::post('folder-rename', 'Material/renameFolder');
+        Route::post('folder-delete', 'Material/deleteFolder');
+        Route::get('list', 'Material/getList');
+        Route::post('move', 'Material/move');
+        Route::post('batch-delete', 'Material/batchDelete');
+        Route::post('soft-delete', 'Material/softDelete');
+        Route::get('trash', 'Material/getTrash');
+        Route::post('restore', 'Material/restore');
+        Route::post('permanent-delete', 'Material/permanentDelete');
     });
 
     // AI内容生成路由（需要认证，AI限流）
@@ -397,6 +686,61 @@ Route::group('api', function () {
         Route::get('platforms', '\app\controller\AiContent@getPlatforms');
     });
 
+    // 智能员工路由（需要认证）
+    Route::group('ai-staff', function () {
+        Route::get('groups', '\app\controller\AiStaff@groups');
+        Route::get('list', '\app\controller\AiStaff@list');
+        Route::get('detail', '\app\controller\AiStaff@detail');
+        Route::post('create', '\app\controller\AiStaff@create');
+        Route::put('update', '\app\controller\AiStaff@update');
+        Route::delete('delete', '\app\controller\AiStaff@delete');
+        Route::post('assign', '\app\controller\AiStaff@assign');
+        Route::get('usage', '\app\controller\AiStaff@usage');
+    });
+
+    // 连锁版员工管理路由
+    Route::group('employee-stats', function () {
+        Route::get('stats-by-employee', 'EmployeeStats/statsByEmployee');
+        Route::get('stats-by-store', 'EmployeeStats/statsByStore');
+        Route::get('stats-by-task', 'EmployeeStats/statsByTask');
+        Route::get('rankings', 'EmployeeStats/rankings');
+        Route::get('publish-details', 'EmployeeStats/publishDetails');
+    });
+
+    // 红包活动路由
+    Route::group('redpacket-activity', function () {
+        Route::get('list', 'RedpacketActivity/list');
+        Route::get('detail', 'RedpacketActivity/detail');
+        Route::post('create', 'RedpacketActivity/create');
+        Route::post('update', 'RedpacketActivity/update');
+        Route::post('toggle-status', 'RedpacketActivity/toggleStatus');
+        Route::get('stats', 'RedpacketActivity/stats');
+        Route::get('balance-overview', 'RedpacketActivity/balanceOverview');
+    });
+
+    // 话题监控路由
+    Route::group('topic-monitor', function () {
+        Route::get('list', 'TopicMonitor/list');
+        Route::post('add', 'TopicMonitor/add');
+        Route::get('detail', 'TopicMonitor/detail');
+        Route::post('cancel', 'TopicMonitor/cancel');
+        Route::get('daily-trend', 'TopicMonitor/dailyTrend');
+    });
+
+    // 门店管理增强路由
+    Route::group('store-manage', function () {
+        Route::get('list', 'StoreManage/list');
+        Route::get('detail', 'StoreManage/detail');
+        Route::post('update', 'StoreManage/update');
+        Route::post('batch-import', 'StoreManage/batchImport');
+        Route::post('batch-import-poi', 'StoreManage/batchImportPoi');
+        Route::get('import-status', 'StoreManage/importStatus');
+        Route::get('qr-code', 'StoreManage/qrCode');
+        Route::get('nfc-path', 'StoreManage/nfcPath');
+        Route::post('decoration', 'StoreManage/decoration');
+        Route::post('table-sticker', 'StoreManage/tableSticker');
+    });
+
     // 统计分析路由（商家专用，统计限流）
     Route::group('statistics', function () {
         Route::get('dashboard', '\app\controller\Statistics@dashboard');
@@ -410,6 +754,9 @@ Route::group('api', function () {
         Route::get('user-behavior', '\app\controller\Statistics@userBehavior'); // Added
         Route::get('realtime', '\app\controller\Statistics@realtimeMetrics');
         Route::get('export', '\app\controller\Statistics@exportReport');
+        Route::post('export', '\app\controller\Statistics@exportReport');
+        Route::get('insights', '\app\controller\Statistics@insights'); // 兼容前端 statistics.js
+        Route::get('alerts', '\app\controller\Statistics@statisticsAlerts'); // 兼容前端 statistics.js
     });
 
     // 设备告警路由（需要认证）
@@ -449,28 +796,128 @@ Route::group('api', function () {
     // 智能推荐系统路由（需要认证）
     Route::group('recommendation', function () {
         // 推荐列表
-        Route::get('list', '\\app\\controller\\Recommendation@index');
-        Route::post('batch', '\\app\\controller\\Recommendation@batch');
+        Route::get('list', '\app\controller\Recommendation@index');
+        Route::post('batch', '\app\controller\Recommendation@batch');
 
         // 用户画像
-        Route::get('profile', '\\app\\controller\\Recommendation@profile');
+        Route::get('profile', '\app\controller\Recommendation@profile');
 
         // 相似度计算
-        Route::get('similarity', '\\app\\controller\\Recommendation@similarity');
-        Route::get('user-similarity', '\\app\\controller\\Recommendation@userSimilarity');
+        Route::get('similarity', '\app\controller\Recommendation@similarity');
+        Route::get('user-similarity', '\app\controller\Recommendation@userSimilarity');
 
         // 评估报告
-        Route::get('evaluation', '\\app\\controller\\Recommendation@evaluation');
-        Route::get('algorithm-comparison', '\\app\\controller\\Recommendation@algorithmComparison');
-        Route::get('ab-test', '\\app\\controller\\Recommendation@abTest');
-        Route::get('coverage', '\\app\\controller\\Recommendation@coverage');
+        Route::get('evaluation', '\app\controller\Recommendation@evaluation');
+        Route::get('algorithm-comparison', '\app\controller\Recommendation@algorithmComparison');
+        Route::get('ab-test', '\app\controller\Recommendation@abTest');
+        Route::get('coverage', '\app\controller\Recommendation@coverage');
 
         // 缓存管理
-        Route::get('cache-stats', '\\app\\controller\\Recommendation@cacheStats');
-        Route::post('clear-cache', '\\app\\controller\\Recommendation@clearCache');
+        Route::get('cache-stats', '\app\controller\Recommendation@cacheStats');
+        Route::post('clear-cache', '\app\controller\Recommendation@clearCache');
 
         // 行为追踪
-        Route::post('track', '\\app\\controller\\Recommendation@track');
+        Route::post('track', '\app\controller\Recommendation@track');
+    });
+
+    // 通知路由
+    Route::group('notification', function () {
+        Route::get('list', 'Notification/list');
+        Route::get('detail', 'Notification/detail');
+        Route::post('mark-read', 'Notification/markRead');
+        Route::post('mark-all-read', 'Notification/markAllRead');
+        Route::get('unread-count', 'Notification/unreadCount');
+        Route::post('create', 'Notification/create');
+    });
+
+    // 任务中心路由
+    Route::group('user-task', function () {
+        Route::get('list', 'UserTask/list');
+        Route::get('detail', 'UserTask/detail');
+        Route::post('create', 'UserTask/create');
+        Route::post('update-progress', 'UserTask/updateProgress');
+        Route::post('complete', 'UserTask/complete');
+        Route::post('fail', 'UserTask/fail');
+        Route::get('summary', 'UserTask/summary');
+    });
+
+    // 首页驾驶舱路由
+    Route::group('dashboard', function () {
+        Route::get('flow-steps', 'Dashboard/flowSteps');
+        Route::get('data-stats', 'Dashboard/dataStats');
+        Route::get('consumption', 'Dashboard/consumption');
+        Route::get('quick-entries', 'Dashboard/quickEntries');
+        Route::get('qr-code', 'Dashboard/qrCode');
+    });
+
+    // 物料设计场景路由
+    Route::group('design-scene', function () {
+        Route::get('list', 'DesignScene/list');
+        Route::get('detail', 'DesignScene/detail');
+        Route::get('templates', 'DesignScene/templates');
+        Route::post('preview', 'DesignScene/preview');
+        Route::post('generate', 'DesignScene/generate');
+    });
+
+    // AI成品库路由
+    Route::group('content-library', function () {
+        // 统计
+        Route::get('statistics', 'ContentLibrary/statistics');
+
+        // 通用：预警邮箱、删除条目
+        Route::post(':id/warning-email', 'ContentLibrary/setWarningEmail');
+        Route::delete('item/:id', 'ContentLibrary/deleteItem');
+
+        // 视频库
+        Route::group('video', function () {
+            Route::get('list', 'ContentLibrary/videoList');
+            Route::post('create', 'ContentLibrary/videoCreate');
+            Route::get(':id', 'ContentLibrary/videoDetail');
+            Route::put(':id', 'ContentLibrary/videoUpdate');
+            Route::delete(':id', 'ContentLibrary/videoDelete');
+            Route::post(':id/add-local', 'ContentLibrary/videoAddLocal');
+            Route::post(':id/import', 'ContentLibrary/videoImport');
+        });
+
+        // 图文库
+        Route::group('graphic', function () {
+            Route::get('list', 'ContentLibrary/graphicList');
+            Route::post('create', 'ContentLibrary/graphicCreate');
+            Route::get(':id', 'ContentLibrary/graphicDetail');
+            Route::put(':id', 'ContentLibrary/graphicUpdate');
+            Route::delete(':id', 'ContentLibrary/graphicDelete');
+            Route::post(':id/add-content', 'ContentLibrary/graphicAddContent');
+        });
+
+        // 图片库
+        Route::group('image', function () {
+            Route::get('list', 'ContentLibrary/imageList');
+            Route::post('create', 'ContentLibrary/imageCreate');
+            Route::get('detail/:id', 'ContentLibrary/imageDetail');
+            Route::put('update/:id', 'ContentLibrary/imageUpdate');
+            Route::delete('delete/:id', 'ContentLibrary/imageDelete');
+            Route::post(':id/add', 'ContentLibrary/imageAdd');
+        });
+
+        // 文案库
+        Route::group('text', function () {
+            Route::get('list', 'ContentLibrary/textList');
+            Route::post('create', 'ContentLibrary/textCreate');
+            Route::get('detail/:id', 'ContentLibrary/textDetail');
+            Route::put('update/:id', 'ContentLibrary/textUpdate');
+            Route::delete('delete/:id', 'ContentLibrary/textDelete');
+            Route::post(':id/add', 'ContentLibrary/textAdd');
+        });
+
+        // 话题库
+        Route::group('topic', function () {
+            Route::get('list', 'ContentLibrary/topicList');
+            Route::post('create', 'ContentLibrary/topicCreate');
+            Route::get('detail/:id', 'ContentLibrary/topicDetail');
+            Route::post(':id/add', 'ContentLibrary/topicAdd');
+            Route::put(':id/rename', 'ContentLibrary/topicRename');
+            Route::delete(':id', 'ContentLibrary/topicDelete');
+        });
     });
 
     // IP黑名单管理路由（管理员专用）
@@ -489,6 +936,73 @@ Route::group('api', function () {
 
 })->middleware([\app\middleware\AllowCrossDomain::class, \app\middleware\Auth::class, \app\middleware\OperationLog::class, \app\middleware\ApiThrottle::class]);
 
+// 兼容前端 /api/admin/* 路径的路由（映射到 AdminCompat 控制器）
+Route::group('api/admin', function () {
+    // 视频任务 (video.js)
+    Route::get('video/tasks', 'AdminCompat/videoTasks');
+    Route::post('video/tasks', 'AdminCompat/createVideoTask');
+    Route::get('video/tasks/:id', 'AdminCompat/videoTaskDetail');
+    Route::post('video/tasks/:id/retry', 'AdminCompat/retryVideoTask');
+
+    // 门店 (stores.js)
+    Route::get('stores', 'AdminCompat/stores');
+    Route::get('stores/simple', 'AdminCompat/storesSimple');
+    Route::get('stores/:id', 'AdminCompat/storeDetail');
+    Route::post('stores', 'AdminCompat/createStore');
+    Route::put('stores/:id', 'AdminCompat/updateStore');
+    Route::delete('stores/:id', 'AdminCompat/deleteStore');
+
+    // 任务 (tasks.js)
+    Route::get('tasks', 'AdminCompat/tasks');
+    Route::get('tasks/:id', 'AdminCompat/taskDetail');
+    Route::post('tasks/:id/retry', 'AdminCompat/retryTask');
+    Route::post('tasks/:id/cancel', 'AdminCompat/cancelTask');
+
+    // 成品库 (library.js)
+    Route::get('library/videos', 'AdminCompat/libraryVideos');
+    Route::get('library/images', 'AdminCompat/libraryImages');
+    Route::get('library/topics', 'AdminCompat/libraryTopics');
+    Route::get('library/stores', 'AdminCompat/libraryStores');
+    Route::get('library/platforms', 'AdminCompat/libraryPlatforms');
+    Route::delete('library/videos/:id', 'AdminCompat/deleteLibraryVideo');
+    Route::delete('library/images/:id', 'AdminCompat/deleteLibraryImage');
+    Route::delete('library/topics/:id', 'AdminCompat/deleteLibraryTopic');
+
+    // 监控 (monitor.js)
+    Route::get('monitor/topics', 'AdminCompat/monitorTopics');
+    Route::get('monitor/topics/:id', 'AdminCompat/monitorTopicDetail');
+    Route::get('monitor/topics/:id/trend', 'AdminCompat/monitorTopicTrend');
+    Route::get('monitor/topics/:id/export', 'AdminCompat/monitorTopicExport');
+    Route::get('monitor/platforms', 'AdminCompat/monitorPlatforms');
+
+    // 物料设计 (design.js)
+    Route::get('design/materials', 'AdminCompat/designMaterials');
+    Route::get('design/materials/:id', 'AdminCompat/designMaterialDetail');
+
+    // 素材管理 (materials.js)
+    Route::get('materials', 'AdminCompat/materials');
+    Route::post('materials/upload', 'AdminCompat/materialsUpload');
+    Route::put('materials/:id', 'AdminCompat/materialsUpdate');
+    Route::delete('materials/:id', 'AdminCompat/materialsDelete');
+    Route::delete('materials/batch', 'AdminCompat/materialsBatchDelete');
+    Route::get('materials/storage', 'AdminCompat/materialsStorage');
+
+    // 模板列表 (video.js)
+    Route::get('templates', 'AdminCompat/templates');
+
+    // 活动 (activity.js)
+    Route::get('activity/scenes', 'AdminCompat/activityScenes');
+    Route::post('activity/scenes', 'AdminCompat/createActivityScene');
+    Route::put('activity/scenes/:id', 'AdminCompat/updateActivityScene');
+    Route::delete('activity/scenes/:id', 'AdminCompat/deleteActivityScene');
+    Route::put('activity/scenes/:id/toggle', 'AdminCompat/toggleActivityScene');
+    Route::get('activity/redpackets', 'AdminCompat/activityRedpackets');
+    Route::get('activity/redpackets/balance', 'AdminCompat/redpacketBalance');
+    Route::post('activity/redpackets/send', 'AdminCompat/redpacketSend');
+    Route::get('activity/redpackets/rules', 'AdminCompat/redpacketRules');
+    Route::post('activity/redpackets/rules', 'AdminCompat/redpacketSetRules');
+})->middleware([\app\middleware\AllowCrossDomain::class, \app\middleware\Auth::class, \app\middleware\OperationLog::class, \app\middleware\ApiThrottle::class]);
+
 // 管理员路由组（需要管理员权限，应用管理员限流）
 Route::group('api/admin', function () {
     // 用户管理
@@ -502,6 +1016,38 @@ Route::group('api/admin', function () {
     // 操作日志
     Route::get('operation-logs', '\app\controller\AdminUser@operationLogs');
     Route::get('operation-logs/export', '\app\controller\AdminUser@exportOperationLogs');
+
+    // AI 大模型配置
+    Route::group('ai', function () {
+        Route::get('config', '\app\controller\AdminAi@getConfig');
+        Route::put('config', '\app\controller\AdminAi@updateConfig');
+        Route::post('test', '\app\controller\AdminAi@testConnection');
+        Route::get('models', '\app\controller\AdminAi@getModels');
+    });
+
+    // AI 智能员工管理
+    Route::group('ai-staff', function () {
+        Route::get('groups', '\app\controller\AdminAi@staffGroups');
+        Route::get('list', '\app\controller\AdminAi@staffList');
+        Route::post('create', '\app\controller\AdminAi@staffCreate');
+        Route::put('update', '\app\controller\AdminAi@staffUpdate');
+        Route::delete('delete', '\app\controller\AdminAi@staffDelete');
+    });
+
+    // 兼容前端 ai.js 中的 /api/admin/ai/staff 等路径
+    Route::group('ai', function () {
+        Route::get('staff', '\app\controller\AdminAi@staffList');
+        Route::get('staff/:id', '\app\controller\AdminAi@staffDetail');
+        Route::post('staff/:id/assign', '\app\controller\AiStaff@assign');
+        Route::get('staff/:id/abilities', '\app\controller\AdminAi@staffDetail');
+        Route::post('generate', '\app\controller\AiContent@generateText');
+    });
+
+    // 卡密管理（管理员专用）
+    Route::group('cardkey', function () {
+        Route::post('generate', '\app\controller\AdminCardKey@generate');
+        Route::get('list', '\app\controller\AdminCardKey@lists');
+    });
 })->middleware([\app\middleware\AllowCrossDomain::class, \app\middleware\Auth::class, \app\middleware\OperationLog::class, \app\middleware\ApiThrottle::class]);
 
 // 管理员路由组 - 告警监控（旧路由保持兼容）

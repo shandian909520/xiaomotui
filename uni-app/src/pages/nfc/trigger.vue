@@ -163,11 +163,6 @@ export default {
     }
   },
 
-  onLoad() {
-    // 检查是否需要显示新手引导
-    this.checkFirstTime()
-  },
-
   computed: {
     // 状态文本
     statusText() {
@@ -188,6 +183,9 @@ export default {
 
   onLoad(options) {
     console.log('页面加载参数:', options)
+
+    // 检查是否需要显示新手引导
+    this.checkFirstTime()
 
     // 从参数获取设备码
     if (options.device_code) {
@@ -367,7 +365,7 @@ export default {
         })
       } catch (error) {
         console.error('加载设备信息失败:', error)
-        this.showErrorDetail(error, () => this.loadDeviceInfo())
+        this.openErrorDetail(error, () => this.loadDeviceInfo())
       } finally {
         this.isLoading = false
       }
@@ -408,6 +406,15 @@ export default {
         })
 
         console.log('触发结果:', res)
+
+        // 任务引擎模式：跳转到任务落地页（Hub）
+        if (res.action === 'open_hub' && res.task_instance_id) {
+          this.isLoading = false
+          uni.navigateTo({
+            url: '/pages/hub/index?ti=' + res.task_instance_id
+          })
+          return
+        }
 
         // 如果是推广模式，跳转到推广页面
         if (res.type === 'promo') {
@@ -672,7 +679,7 @@ export default {
      * @param {Object} error - 错误对象（从API返回）
      * @param {Function} retryAction - 重试时执行的操作
      */
-    showErrorDetail(error, retryAction = null) {
+    openErrorDetail(error, retryAction = null) {
       console.log('显示错误详情:', error)
 
       // 从API错误响应中提取详细信息
@@ -718,60 +725,13 @@ export default {
           await this.lastFailedAction()
         } catch (error) {
           console.error('重试失败:', error)
-          this.showErrorDetail(error, this.lastFailedAction)
+          this.openErrorDetail(error, this.lastFailedAction)
         }
       } else {
         FeedbackHelper.warning('无可重试的操作', { vibrate: false })
       }
     },
 
-    /**
-     * 联系商家
-     */
-    contactMerchant() {
-      if (!this.deviceInfo || !this.deviceInfo.merchant) {
-        FeedbackHelper.warning('商家信息不可用', { vibrate: true })
-        return
-      }
-
-      const merchant = this.deviceInfo.merchant
-
-      // 显示联系方式选择
-      uni.showActionSheet({
-        itemList: [
-          merchant.phone ? `拨打电话: ${merchant.phone}` : null,
-          merchant.wechat ? `复制微信号: ${merchant.wechat}` : null,
-          '查看商家详情'
-        ].filter(Boolean),
-        success: (res) => {
-          const index = res.tapIndex
-
-          if (index === 0 && merchant.phone) {
-            // 拨打电话
-            uni.makePhoneCall({
-              phoneNumber: merchant.phone
-            })
-          } else if (index === 1 && merchant.wechat) {
-            // 复制微信号
-            uni.setClipboardData({
-              data: merchant.wechat,
-              success: () => {
-                FeedbackHelper.copySuccess(merchant.wechat)
-              }
-            })
-          } else {
-            // 查看商家详情
-            uni.navigateTo({
-              url: `/pages/merchant/detail?id=${merchant.id}`
-            })
-          }
-        }
-      })
-    },
-
-    /**
-     * 联系商家
-     */
     async contactMerchant() {
       if (!this.deviceInfo || !this.deviceInfo.merchant) {
         FeedbackHelper.warning('无法获取商家信息', { vibrate: true })
@@ -780,7 +740,6 @@ export default {
 
       const merchant = this.deviceInfo.merchant
 
-      // 构建联系方式选项
       const itemList = []
       if (merchant.phone) {
         itemList.push('拨打电话：' + merchant.phone)
@@ -788,6 +747,7 @@ export default {
       if (merchant.wechat) {
         itemList.push('复制微信：' + merchant.wechat)
       }
+      itemList.push('查看商家详情')
       itemList.push('返回重试')
 
       uni.showActionSheet({
@@ -795,8 +755,7 @@ export default {
         success: (res) => {
           const index = res.tapIndex
 
-          if (index === 0 && merchant.phone) {
-            // 拨打电话
+          if (itemList[index].includes('电话') && merchant.phone) {
             uni.makePhoneCall({
               phoneNumber: merchant.phone,
               fail: (err) => {
@@ -804,12 +763,15 @@ export default {
               }
             })
           } else if (itemList[index].includes('微信') && merchant.wechat) {
-            // 复制微信号
             uni.setClipboardData({
               data: merchant.wechat,
               success: () => {
                 FeedbackHelper.copySuccess(merchant.wechat)
               }
+            })
+          } else if (itemList[index].includes('商家详情')) {
+            uni.navigateTo({
+              url: `/pages/merchant/detail?id=${merchant.id}`
             })
           }
         }

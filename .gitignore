@@ -96,3 +96,51 @@ TEST_*.html
 # 其他
 .DS_Store
 desktop.ini
+
+# ===== 本地工作区 / 工具目录 =====
+.workbuddy/
+.deploy/
+.claude/scheduled_tasks.json
+.claude/scheduled_tasks.lock
+tmp/
+test-screenshots/
+
+# ===== 构建残留 / 大文件 =====
+admin/dist2/
+downloaded_materials/
+*.mp4
+*.rar
+*.zip
+nul
+
+# ===== 一次性运维脚本（多数硬编码服务器/数据库凭据，禁止入库）=====
+scripts/*
+!scripts/audit_frontend_urls.js
+
+# ===== 线上调试脚本（public/ 下只允许框架入口）=====
+api/public/*.php
+!api/public/index.php
+!api/public/router.php
+!api/public/api.php
+
+# ===== H5 / 前端构建产物（由 uni-app build 生成）=====
+api/public/assets/
+api/public/index.html
+
+# ===== 实验性工作区副本（含 node_modules/dist/日志）=====
+platform-admin/
+api/.env.original
+*.php.bak
+
+# ===== 根目录一次性修复脚本 =====
+/add_column.php
+/fix_recommendation.php
+/fix_stats.php
+/fix_stats.py
+/sync_cols.php
+/upload_to_qiniu.py
+/e2e_test.py
+
+# ===== 部署凭据（本地保存，禁止入库）=====
+deploy/ftp.env
+*.env.ftp

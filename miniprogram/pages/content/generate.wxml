@@ -1,0 +1,93 @@
+<view class="container">
+  <!-- 内容类型切换 -->
+  <view class="type-tabs">
+    <view
+      class="type-tab {{contentType === item.value ? 'active' : ''}}"
+      wx:for="{{contentTypeOptions}}"
+      wx:key="value"
+      data-type="{{item.value}}"
+      bindtap="switchContentType"
+    >
+      <text>{{item.label}}</text>
+    </view>
+  </view>
+
+  <!-- 模板选择 -->
+  <view class="section" wx:if="{{templates.length > 0}}">
+    <view class="section-header">
+      <text class="section-title">选择模板</text>
+    </view>
+    <scroll-view class="template-scroll" scroll-x="true">
+      <view
+        class="template-item {{selectedTemplateId === item.id ? 'selected' : ''}}"
+        wx:for="{{templates}}"
+        wx:key="id"
+        data-id="{{item.id}}"
+        bindtap="selectTemplate"
+      >
+        <image class="template-cover" src="{{item.cover_url || '/images/template-default.png'}}" mode="aspectFill"></image>
+        <text class="template-name">{{item.name}}</text>
+      </view>
+    </scroll-view>
+  </view>
+
+  <!-- 参数输入 -->
+  <view class="section">
+    <view class="section-header">
+      <text class="section-title">内容参数</text>
+    </view>
+
+    <view class="form-group">
+      <text class="form-label">标题 *</text>
+      <input
+        class="form-input"
+        placeholder="请输入内容标题"
+        value="{{form.title}}"
+        data-field="title"
+        bindinput="handleInputChange"
+      />
+    </view>
+
+    <view class="form-group">
+      <text class="form-label">行业</text>
+      <input
+        class="form-input"
+        placeholder="请输入所属行业"
+        value="{{form.industry}}"
+        data-field="industry"
+        bindinput="handleInputChange"
+      />
+    </view>
+
+    <view class="form-group">
+      <text class="form-label">关键词</text>
+      <input
+        class="form-input"
+        placeholder="多个关键词用逗号分隔"
+        value="{{form.keywords}}"
+        data-field="keywords"
+        bindinput="handleInputChange"
+      />
+    </view>
+
+    <view class="form-group">
+      <text class="form-label">补充描述</text>
+      <textarea
+        class="form-textarea"
+        placeholder="描述你想要生成的内容风格和要求"
+        value="{{form.description}}"
+        data-field="description"
+        bindinput="handleInputChange"
+        maxlength="500"
+      />
+    </view>
+  </view>
+
+  <!-- 操作按钮 -->
+  <view class="action-bar">
+    <button class="btn btn-secondary" bindtap="goToHistory">历史记录</button>
+    <button class="btn btn-primary" bindtap="handleGenerate" loading="{{isGenerating}}" disabled="{{isGenerating}}">
+      {{isGenerating ? '生成中...' : '生成内容'}}
+    </button>
+  </view>
+</view>

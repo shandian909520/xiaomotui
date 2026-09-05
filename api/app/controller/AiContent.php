@@ -356,14 +356,14 @@ class AiContent extends BaseController
         }
 
         // 平台验证
-        $validPlatforms = ['DOUYIN', 'XIAOHONGSHU', 'WECHAT', 'KUAISHOU', 'VIDEO', 'RED'];
+        $validPlatforms = ['DOUYIN', 'XIAOHONGSHU', 'WECHAT', 'KUAISHOU', 'VIDEO', 'RED', 'ALL'];
         if (!in_array(strtoupper($params['platform']), $validPlatforms)) {
             throw new \Exception('不支持的平台: ' . $params['platform']);
         }
 
-        // 长度验证
-        if (mb_strlen($params['scene']) > 50) {
-            throw new \Exception('场景描述不能超过50个字符');
+        // 长度验证（智能问答场景描述可能较长，放宽限制）
+        if (mb_strlen($params['scene']) > 500) {
+            throw new \Exception('场景描述不能超过500个字符');
         }
 
         if (!empty($params['requirements']) && mb_strlen($params['requirements']) > 200) {

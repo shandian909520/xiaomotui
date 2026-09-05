@@ -1,35 +1,41 @@
 import request from '@/utils/request'
 
-// 获取发布记录列表
 export function getPublishTasks(params) {
-  return request({
-    url: '/publish/tasks',
-    method: 'get',
-    params
-  })
+  return request.get('/publish/tasks', { params })
 }
 
-// 创建发布任务
 export function createPublishTask(data) {
-  return request({
-    url: '/publish/create',
-    method: 'post',
-    data
-  })
+  return request.post('/publish/create', data)
 }
 
-// 取消发布任务
+export function getPublishTaskDetail(id) {
+  return request.get(`/publish/task/${id}`)
+}
+
+export function retryPublishTask(id) {
+  return request.post(`/publish/task/${id}/retry`)
+}
+
+export function updateScheduledTask(id, data) {
+  return request.put(`/publish/task/${id}/schedule`, data)
+}
+
 export function cancelPublishTask(id) {
-  return request({
-    url: `/publish/${id}/cancel`,
-    method: 'post'
-  })
+  return request.post(`/publish/task/${id}/cancel`)
 }
 
-// 获取任务详情
-export function getTaskDetail(id) {
-  return request({
-    url: `/publish/${id}`,
-    method: 'get'
-  })
+export function getPlatformAccounts(params) {
+  return request.get('/publish/accounts', { params })
+}
+
+export function deletePlatformAccount(id) {
+  return request.delete(`/publish/account/${id}`)
+}
+
+export function refreshAccountToken(id) {
+  return request.post(`/publish/account/${id}/refresh`)
+}
+
+export function getPlatformAuthUrl(platform) {
+  return request.get(`/publish/oauth/url/${platform}`)
 }

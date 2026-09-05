@@ -8,6 +8,7 @@ use think\facade\Log;
 use app\service\PublishService;
 use app\service\PlatformOAuthService;
 use app\model\PlatformAccount;
+use app\validate\PublishValidate;
 
 /**
  * 发布控制器
@@ -86,17 +87,7 @@ class Publish extends BaseController
             $merchantId = $this->request->merchant_id ?? null;
 
             // 数据验证
-            // TODO: 创建 Publish 验证器
-            // $this->validate($data, 'Publish.create');
-
-            // 基本参数验证
-            if (empty($data['content_task_id'])) {
-                return $this->validationError(['content_task_id' => '内容任务ID不能为空']);
-            }
-
-            if (empty($data['platforms']) || !is_array($data['platforms'])) {
-                return $this->validationError(['platforms' => '发布平台列表不能为空']);
-            }
+            validate(PublishValidate::class . '.create')->check($data);
 
             // 组装参数
             $params = [
@@ -169,33 +160,39 @@ class Publish extends BaseController
                 return $this->error('用户未登录', 401, 'unauthorized');
             }
 
+            $merchantId = $this->request->merchant_id ?? 0;
+            if (!$merchantId) {
+                return $this->error('缺少商户ID', 400, 'missing_merchant_id');
+            }
+
             // 验证平台参数
-            $supportedPlatforms = ['douyin', 'kuaishou', 'xiaohongshu'];
             $platform = strtolower($platform);
 
-            if (!in_array($platform, $supportedPlatforms)) {
+            validate(PublishValidate::class . '.platformAuth')->check(['platform' => $platform]);
+
+            // 检查平台是否已配置
+            $config = config("platform_oauth.{$platform}");
+            if (!$config) {
                 return $this->error('不支持的平台类型', 400, 'unsupported_platform');
             }
 
-            // TODO: 调用发布服务生成授权URL
-            // $result = $this->publishService->generateAuthUrl($userId, $platform);
+            if (!$config['enabled']) {
+                return $this->error("{$config['name']}平台暂未开放", 400, 'platform_not_available');
+            }
 
-            // 临时响应数据（待实现）
-            $state = md5(uniqid((string)mt_rand(), true));
-            $result = [
-                'auth_url' => "https://{$platform}.com/oauth/authorize?state={$state}",  // TODO: 实际授权URL
-                'state' => $state,
-                'expires_in' => 600
-            ];
+            // 调用OAuth服务生成授权URL
+            $result = $this->oauthService->getAuthUrl($merchantId, $platform);
 
             Log::info('生成平台授权URL', [
                 'user_id' => $userId,
-                'platform' => $platform,
-                'state' => $state
+                'merchant_id' => $merchantId,
+                'platform' => $platform
             ]);
 
             return $this->success($result, '获取授权链接成功');
 
+        } catch (ValidateException $e) {
+            return $this->validationError(['platform' => $e->getMessage()]);
         } catch (\Exception $e) {
             Log::error('生成平台授权URL失败', [
                 'error' => $e->getMessage(),
@@ -261,7 +258,7 @@ class Publish extends BaseController
                 return $this->validationError(['merchant_id' => '商户ID不能为空']);
             }
 
-            // 临时设置merchant_id到request,供OAuth服务使用
+            // 设置merchant_id到request,供OAuth服务使用
             $this->request->merchant_id = $merchantId;
 
             // 调用OAuth服务处理回调
@@ -463,8 +460,16 @@ class Publish extends BaseController
             ];
 
             // 参数验证
-            // TODO: 创建验证规则
-            // $this->validate($params, 'Publish.taskList');
+            validate(PublishValidate::class . '.taskList')->check([
+                'page' => $params['page'],
+                'limit' => $params['limit'],
+                'status' => $params['status'] ?: null,
+                'content_task_id_query' => $params['content_task_id'] ?: null,
+                'start_date' => $params['start_date'] ?: null,
+                'end_date' => $params['end_date'] ?: null,
+                'sort' => $params['sort'] !== 'create_time' ? $params['sort'] : null,
+                'order' => $params['order'] !== 'desc' ? $params['order'] : null,
+            ]);
 
             // 调用模型获取任务列表
             $query = \app\model\PublishTask::where('user_id', $userId);
@@ -1083,6 +1088,47 @@ class Publish extends BaseController
             ]);
 
             return $this->error($e->getMessage(), 400, 'get_auth_url_failed');
+        }
+    }
+
+    /**
+     * ========== 模块3:文案池"换一批" ==========
+     *
+     * GET /api/publish/copywriting?device_id=xx&rotate_token=xxx
+     *
+     * - device_id 必填(从设备上下文推断顾客)
+     * - rotate_token 可选;首次不传,后续传上次返回的 token
+     * - 返回: {content, content_id, rotate_token, has_more, source}
+     */
+    public function getPublishCopywriting($deviceId = null, $rotateToken = null)
+    {
+        try {
+            $deviceId = (int)($deviceId ?: $this->request->param('device_id', 0));
+            $rotateToken = (string)($rotateToken ?: $this->request->param('rotate_token', ''));
+
+            if ($deviceId <= 0) {
+                return $this->validationError(['device_id' => '设备ID不能为空']);
+            }
+
+            $service = new \app\service\CopywritingPoolService();
+            $data = $service->rotateCopywriting($deviceId, $rotateToken);
+
+            Log::info('文案池旋转', [
+                'device_id'     => $deviceId,
+                'content_id'    => $data['content_id'] ?? 0,
+                'source'        => $data['source'] ?? '',
+                'has_more'      => !empty($data['has_more']),
+            ]);
+
+            return $this->success($data, '获取文案成功');
+        } catch (\think\exception\ValidateException $e) {
+            return $this->validationError(['copywriting' => $e->getMessage()]);
+        } catch (\Exception $e) {
+            Log::error('获取文案失败', [
+                'device_id' => $deviceId,
+                'error' => $e->getMessage(),
+            ]);
+            return $this->error($e->getMessage(), 400, 'get_publish_copywriting_failed');
         }
     }
 }

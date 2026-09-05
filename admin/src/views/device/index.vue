@@ -299,20 +299,21 @@
 import { ref, reactive, onMounted, onBeforeUnmount } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Refresh } from '@element-plus/icons-vue'
-import { 
-  getDeviceList, 
+import {
+  getDeviceList,
   getDeviceDetail,
-  createDevice, 
-  updateDevice, 
-  deleteDevice, 
+  createDevice,
+  updateDevice,
+  deleteDevice,
   updateDeviceConfig,
   updateDeviceStatus,
-  batchEnableDevice, 
-  batchDisableDevice 
+  batchEnableDevice,
+  batchDisableDevice
 } from '@/api/device'
 import { getTemplateList } from '@/api/content'
 import { getCouponList } from '@/api/coupon'
 import { getVideoLibraryList } from '@/api/video-library'
+import { normalizeListPayload, normalizePagination } from '@/utils/responseHelper'
 
 // 搜索表单
 const searchForm = reactive({
@@ -422,9 +423,9 @@ const loadDevices = async () => {
 
     const res = await getDeviceList(params)
 
-    // request.js 拦截器已解包，res 即为 data 字段
-    deviceList.value = res.list || res.data || []
-    pagination.total = res.pagination?.total || res.total || 0
+    const { list: items, total } = normalizePagination(res)
+    deviceList.value = items
+    pagination.total = total
   } catch (error) {
     console.error('加载设备列表失败:', error)
     ElMessage.error(error.message || '加载设备列表失败')
@@ -437,7 +438,7 @@ const loadDevices = async () => {
 const loadTemplates = async () => {
   try {
     const res = await getTemplateList({ page: 1, limit: 100 })
-    templateList.value = res.list || res.data || res || []
+    templateList.value = normalizeListPayload(res)
   } catch (error) {
     console.error('加载模板列表失败:', error)
   }
@@ -447,7 +448,7 @@ const loadTemplates = async () => {
 const loadCoupons = async () => {
   try {
     const res = await getCouponList({ page: 1, limit: 100, status: 'active' })
-    couponList.value = res.list || res.data || res || []
+    couponList.value = normalizeListPayload(res)
   } catch (error) {
     console.error('加载优惠券列表失败:', error)
   }
@@ -457,7 +458,7 @@ const loadCoupons = async () => {
 const loadVideoLibrary = async () => {
   try {
     const res = await getVideoLibraryList({ page: 1, limit: 100 })
-    videoLibraryList.value = res.list || res.data || res || []
+    videoLibraryList.value = normalizeListPayload(res)
   } catch (error) {
     console.error('加载视频库列表失败:', error)
   }

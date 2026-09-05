@@ -8,6 +8,8 @@ use think\Exception;
 use app\model\PublishTask;
 use app\model\ContentTask;
 use app\model\PlatformAccount;
+use app\service\DouyinService;
+use app\service\PlatformOAuthService;
 
 /**
  * 平台发布服务
@@ -309,26 +311,118 @@ class PublishService
      */
     protected function publishToDouyin(array $platformConfig, array $contentData, string $contentType): array
     {
-        // 实际开发中应调用抖音开放平台API
-        // 这里返回模拟数据
-
         Log::info('发布到抖音', [
-            'platform_uid' => $platformConfig['platform_uid'],
+            'platform_uid' => $platformConfig['platform_uid'] ?? '',
+            'account_id' => $platformConfig['account_id'] ?? '',
             'content_type' => $contentType
         ]);
 
-        // 模拟API调用
-        sleep(1);
+        // 获取平台账号
+        $account = PlatformAccount::find($platformConfig['account_id'] ?? 0);
+        if (!$account) {
+            throw new Exception('抖音平台账号不存在');
+        }
 
-        return [
-            'post_id' => 'dy_' . uniqid(),
-            'url' => 'https://www.douyin.com/video/' . uniqid(),
-            'message' => '发布到抖音成功'
-        ];
+        if (empty($account->platform_uid)) {
+            throw new Exception('抖音账号openId为空，请重新授权');
+        }
+
+        // 检查token是否过期，尝试自动刷新
+        if ($account->isTokenExpired() && !empty($account->refresh_token)) {
+            try {
+                $oauthService = new PlatformOAuthService();
+                $oauthService->refreshToken($account->id);
+                $account->refresh();
+            } catch (\Exception $e) {
+                Log::warning('抖音token自动刷新失败', [
+                    'account_id' => $account->id,
+                    'error' => $e->getMessage()
+                ]);
+                throw new Exception('抖音账号授权已过期，请重新授权');
+            }
+        }
+
+        // 获取视频文件路径
+        $videoPath = $contentData['video_path'] ?? $contentData['video_url'] ?? '';
+        if (empty($videoPath)) {
+            throw new Exception('视频文件路径不能为空');
+        }
+
+        // 如果是URL，下载到本地临时文件
+        $tempPath = null;
+        if (filter_var($videoPath, FILTER_VALIDATE_URL)) {
+            $tempPath = runtime_path() . 'temp/douyin_' . uniqid() . '.mp4';
+            $tempDir = dirname($tempPath);
+            if (!is_dir($tempDir)) {
+                mkdir($tempDir, 0755, true);
+            }
+            $ch = curl_init($videoPath);
+            $fp = fopen($tempPath, 'wb');
+            curl_setopt_array($ch, [
+                CURLOPT_FILE => $fp,
+                CURLOPT_TIMEOUT => 300,
+                CURLOPT_CONNECTTIMEOUT => 10,
+                CURLOPT_FOLLOWLOCATION => true,
+                CURLOPT_SSL_VERIFYPEER => false,
+            ]);
+            $success = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $curlError = curl_error($ch);
+            curl_close($ch);
+            fclose($fp);
+
+            if (!$success || $httpCode !== 200) {
+                @unlink($tempPath);
+                throw new Exception('视频文件下载失败' . ($curlError ? ": {$curlError}" : ''));
+            }
+            $videoPath = $tempPath;
+        }
+
+        try {
+            // 获取发布配置
+            $config = $platformConfig['config'] ?? [];
+
+            // 调用DouyinService发布
+            $douyinService = new DouyinService();
+
+            $content = [
+                'video_path' => $videoPath,
+                'title' => $config['title'] ?? $contentData['title'] ?? $contentData['text'] ?? '',
+                'tags' => $config['tags'] ?? $contentData['tags'] ?? [],
+                'cover_tsp' => $config['cover_tsp'] ?? 0,
+                'privacy_level' => $config['privacy'] ?? null,
+            ];
+
+            $accountInfo = [
+                'open_id' => $account->platform_uid,
+            ];
+
+            // 预先将access_token写入缓存供DouyinService使用
+            if (!empty($account->access_token)) {
+                $douyinService->cacheAccessTokenForPublish($account->platform_uid, $account->access_token, $account->expires_at ? max(0, $account->expires_at - time()) : 7200);
+            }
+
+            $result = $douyinService->publishToDouyin($content, $accountInfo);
+
+            if ($result['status'] === DouyinService::STATUS_FAILED) {
+                throw new Exception($result['error'] ?? '抖音发布失败');
+            }
+
+            return [
+                'post_id' => $result['item_id'] ?? '',
+                'url' => $result['share_url'] ?? '',
+                'message' => '发布到抖音成功'
+            ];
+        } finally {
+            if ($tempPath !== null && file_exists($tempPath)) {
+                @unlink($tempPath);
+            }
+        }
     }
 
     /**
      * 发布到小红书
+     * TODO: 等待 XiaohongshuService 实现后对接真实API
      *
      * @param array $platformConfig 平台配置
      * @param array $contentData 内容数据
@@ -337,26 +431,25 @@ class PublishService
      */
     protected function publishToXiaohongshu(array $platformConfig, array $contentData, string $contentType): array
     {
-        // 实际开发中应调用小红书API
-        // 这里返回模拟数据
-
-        Log::info('发布到小红书', [
-            'platform_uid' => $platformConfig['platform_uid'],
+        Log::warning('小红书发布功能尚未对接真实API，使用模拟数据', [
+            'platform_uid' => $platformConfig['platform_uid'] ?? '',
             'content_type' => $contentType
         ]);
 
-        // 模拟API调用
-        sleep(1);
+        throw new Exception('小红书发布功能尚未对接，请等待后续版本更新');
 
-        return [
-            'post_id' => 'xhs_' . uniqid(),
-            'url' => 'https://www.xiaohongshu.com/explore/' . uniqid(),
-            'message' => '发布到小红书成功'
-        ];
+        // 以下为模拟实现，待 XiaohongshuService 开发完成后替换
+        // sleep(1);
+        // return [
+        //     'post_id' => 'xhs_' . uniqid(),
+        //     'url' => 'https://www.xiaohongshu.com/explore/' . uniqid(),
+        //     'message' => '发布到小红书成功'
+        // ];
     }
 
     /**
      * 发布到微信
+     * TODO: 等待微信视频号/公众号API对接
      *
      * @param array $platformConfig 平台配置
      * @param array $contentData 内容数据
@@ -365,26 +458,25 @@ class PublishService
      */
     protected function publishToWechat(array $platformConfig, array $contentData, string $contentType): array
     {
-        // 实际开发中应调用微信API
-        // 这里返回模拟数据
-
-        Log::info('发布到微信', [
-            'platform_uid' => $platformConfig['platform_uid'],
+        Log::warning('微信发布功能尚未对接真实API，使用模拟数据', [
+            'platform_uid' => $platformConfig['platform_uid'] ?? '',
             'content_type' => $contentType
         ]);
 
-        // 模拟API调用
-        sleep(1);
+        throw new Exception('微信发布功能尚未对接，请等待后续版本更新');
 
-        return [
-            'post_id' => 'wx_' . uniqid(),
-            'url' => 'https://mp.weixin.qq.com/s/' . uniqid(),
-            'message' => '发布到微信成功'
-        ];
+        // 以下为模拟实现，待 WechatService 开发完成后替换
+        // sleep(1);
+        // return [
+        //     'post_id' => 'wx_' . uniqid(),
+        //     'url' => 'https://mp.weixin.qq.com/s/' . uniqid(),
+        //     'message' => '发布到微信成功'
+        // ];
     }
 
     /**
      * 发布到微博
+     * TODO: 等待 WeiboService 实现后对接真实API
      *
      * @param array $platformConfig 平台配置
      * @param array $contentData 内容数据
@@ -393,22 +485,20 @@ class PublishService
      */
     protected function publishToWeibo(array $platformConfig, array $contentData, string $contentType): array
     {
-        // 实际开发中应调用微博API
-        // 这里返回模拟数据
-
-        Log::info('发布到微博', [
-            'platform_uid' => $platformConfig['platform_uid'],
+        Log::warning('微博发布功能尚未对接真实API，使用模拟数据', [
+            'platform_uid' => $platformConfig['platform_uid'] ?? '',
             'content_type' => $contentType
         ]);
 
-        // 模拟API调用
-        sleep(1);
+        throw new Exception('微博发布功能尚未对接，请等待后续版本更新');
 
-        return [
-            'post_id' => 'wb_' . uniqid(),
-            'url' => 'https://weibo.com/' . uniqid(),
-            'message' => '发布到微博成功'
-        ];
+        // 以下为模拟实现，待 WeiboService 开发完成后替换
+        // sleep(1);
+        // return [
+        //     'post_id' => 'wb_' . uniqid(),
+        //     'url' => 'https://weibo.com/' . uniqid(),
+        //     'message' => '发布到微博成功'
+        // ];
     }
 
     /**
@@ -469,7 +559,10 @@ class PublishService
                 throw new Exception('只能取消待发布状态的任务');
             }
 
-            return $publishTask->delete();
+            $publishTask->status = 'CANCELLED';
+            $publishTask->save();
+
+            return true;
 
         } catch (Exception $e) {
             Log::error('取消发布任务失败', [

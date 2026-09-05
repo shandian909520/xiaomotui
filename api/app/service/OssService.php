@@ -5,6 +5,7 @@ namespace app\service;
 
 use think\facade\Log;
 use think\facade\Config;
+use think\facade\Http;
 use think\Exception;
 
 /**
@@ -469,7 +470,7 @@ class OssService
         $allowedMimeTypes = $validationConfig['allowed_mime_types'] ?? [];
 
         if (!empty($allowedMimeTypes)) {
-            $mimeType = mime_content_type($filePath);
+            $mimeType = xmt_mime_type($filePath);
             if (!in_array($mimeType, $allowedMimeTypes)) {
                 throw new Exception('不支持的文件类型: ' . $mimeType);
             }
@@ -544,7 +545,7 @@ class OssService
     }
 
     /**
-     * 病毒扫描(预留接口)
+     * 病毒扫描
      * @param string $filePath 文件路径
      * @return array
      */
@@ -560,13 +561,13 @@ class OssService
                 ];
             }
 
-            // TODO: 集成病毒扫描服务 (ClamAV, VirusTotal等)
-            // 这里返回模拟结果
-            return [
-                'clean' => true,
-                'message' => '病毒扫描通过',
-                'engine' => 'placeholder',
-            ];
+            $scanner = $validationConfig['virus_scanner'] ?? 'local';
+
+            return match ($scanner) {
+                'clamav' => $this->scanByClamAv($filePath),
+                'virustotal' => $this->scanByVirusTotal($filePath, $validationConfig),
+                default => $this->scanByLocalRules($filePath),
+            };
 
         } catch (\Exception $e) {
             Log::error('病毒扫描失败', [
@@ -579,6 +580,215 @@ class OssService
                 'message' => '病毒扫描失败: ' . $e->getMessage()
             ];
         }
+    }
+
+    /**
+     * ClamAV扫描
+     */
+    protected function scanByClamAv(string $filePath): array
+    {
+        $clamavHost = $this->config['validation']['clamav_host'] ?? '127.0.0.1';
+        $clamavPort = (int)($this->config['validation']['clamav_port'] ?? 3310);
+
+        $socket = @fsockopen($clamavHost, $clamavPort, $errno, $errstr, 10);
+        if (!$socket) {
+            Log::warning('ClamAV连接失败，降级为本地规则扫描', [
+                'host' => $clamavHost,
+                'port' => $clamavPort,
+                'error' => $errstr,
+            ]);
+            return $this->scanByLocalRules($filePath);
+        }
+
+        $command = "SCAN {$filePath}\n";
+        fwrite($socket, $command);
+        $response = fread($socket, 4096);
+        fclose($socket);
+
+        Log::info('ClamAV扫描结果', [
+            'file_path' => $filePath,
+            'response' => trim($response),
+        ]);
+
+        if (strpos($response, ' FOUND') !== false) {
+            $virusName = '';
+            if (preg_match('/: (.+) FOUND$/', trim($response), $matches)) {
+                $virusName = $matches[1];
+            }
+            return [
+                'clean' => false,
+                'message' => "检测到病毒: {$virusName}",
+                'engine' => 'clamav',
+                'virus_name' => $virusName,
+            ];
+        }
+
+        if (strpos($response, ' OK') !== false) {
+            return [
+                'clean' => true,
+                'message' => '病毒扫描通过',
+                'engine' => 'clamav',
+            ];
+        }
+
+        return [
+            'clean' => false,
+            'message' => 'ClamAV扫描结果异常: ' . trim($response),
+            'engine' => 'clamav',
+        ];
+    }
+
+    /**
+     * VirusTotal API扫描
+     */
+    protected function scanByVirusTotal(string $filePath, array $validationConfig): array
+    {
+        $apiKey = $validationConfig['virustotal_api_key'] ?? '';
+        if (empty($apiKey)) {
+            return $this->scanByLocalRules($filePath);
+        }
+
+        $fileSize = filesize($filePath);
+        if ($fileSize > 32 * 1024 * 1024) {
+            Log::info('文件过大，VirusTotal跳过扫描', ['file_size' => $fileSize]);
+            return $this->scanByLocalRules($filePath);
+        }
+
+        $fileContent = file_get_contents($filePath);
+        if ($fileContent === false) {
+            return ['clean' => true, 'message' => '无法读取文件，跳过扫描'];
+        }
+
+        $boundary = '----VirusTotalFormBoundary' . md5(uniqid());
+        $body = "--{$boundary}\r\n"
+            . "Content-Disposition: form-data; name=\"file\"; filename=\"" . basename($filePath) . "\"\r\n"
+            . "Content-Type: application/octet-stream\r\n\r\n"
+            . $fileContent . "\r\n"
+            . "--{$boundary}--\r\n";
+
+        try {
+            $response = Http::post('https://www.virustotal.com/api/v3/files', $body, [
+                'headers' => [
+                    'x-apikey' => $apiKey,
+                    'Content-Type' => "multipart/form-data; boundary={$boundary}",
+                ],
+                'timeout' => 60,
+            ]);
+
+            $result = json_decode($response, true);
+            $analysisId = $result['data']['id'] ?? '';
+
+            if (empty($analysisId)) {
+                return $this->scanByLocalRules($filePath);
+            }
+
+            $maxRetries = 10;
+            for ($i = 0; $i < $maxRetries; $i++) {
+                sleep(3);
+                $reportResponse = Http::get("https://www.virustotal.com/api/v3/analyses/{$analysisId}", [], [
+                    'headers' => ['x-apikey' => $apiKey],
+                    'timeout' => 30,
+                ]);
+                $report = json_decode($reportResponse, true);
+                $status = $report['data']['attributes']['status'] ?? '';
+
+                if ($status === 'completed') {
+                    $stats = $report['data']['attributes']['stats'] ?? [];
+                    $malicious = (int)($stats['malicious'] ?? 0);
+
+                    if ($malicious > 0) {
+                        return [
+                            'clean' => false,
+                            'message' => "检测到恶意内容，{$malicious}个引擎报告异常",
+                            'engine' => 'virustotal',
+                            'malicious_count' => $malicious,
+                        ];
+                    }
+
+                    return [
+                        'clean' => true,
+                        'message' => '病毒扫描通过',
+                        'engine' => 'virustotal',
+                    ];
+                }
+            }
+
+            return $this->scanByLocalRules($filePath);
+        } catch (\Exception $e) {
+            Log::warning('VirusTotal扫描失败，降级为本地规则', ['error' => $e->getMessage()]);
+            return $this->scanByLocalRules($filePath);
+        }
+    }
+
+    /**
+     * 本地规则扫描（基础检查）
+     */
+    protected function scanByLocalRules(string $filePath): array
+    {
+        $dangerousSignatures = [
+            'PK' => 'ZIP炸弹或恶意压缩文件',
+            'MZ' => '可执行文件',
+            "\x89PNG" => false,
+            "\xFF\xD8\xFF" => false,
+        ];
+
+        $extension = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
+        $dangerousExtensions = [
+            'exe', 'bat', 'cmd', 'com', 'vbs', 'vbe', 'js', 'jse',
+            'wsf', 'wsh', 'ps1', 'scr', 'pif', 'cpl', 'dll', 'msi',
+            'sh', 'bash', 'py', 'rb', 'pl', 'php', 'jsp', 'asp', 'aspx',
+        ];
+
+        if (in_array($extension, $dangerousExtensions)) {
+            return [
+                'clean' => false,
+                'message' => "危险文件类型: .{$extension}",
+                'engine' => 'local',
+            ];
+        }
+
+        $handle = fopen($filePath, 'rb');
+        if (!$handle) {
+            return ['clean' => true, 'message' => '无法读取文件', 'engine' => 'local'];
+        }
+
+        $header = fread($handle, 2);
+        fclose($handle);
+
+        if ($header === 'MZ') {
+            return [
+                'clean' => false,
+                'message' => '检测到PE可执行文件头',
+                'engine' => 'local',
+            ];
+        }
+
+        $fileSize = filesize($filePath);
+        if ($fileSize > 0 && $fileSize < 100) {
+            $content = file_get_contents($filePath);
+            $suspiciousPatterns = [
+                '/<script\s*.*?\s*>/i',
+                '/eval\s*\(/i',
+                '/exec\s*\(/i',
+                '/system\s*\(/i',
+                '/base64_decode\s*\(/i',
+            ];
+            foreach ($suspiciousPatterns as $pattern) {
+                if (preg_match($pattern, $content)) {
+                    return [
+                        'clean' => false,
+                        'message' => '检测到可疑内容模式',
+                        'engine' => 'local',
+                    ];
+                }
+            }
+        }
+
+        return [
+            'clean' => true,
+            'message' => '本地安全检查通过',
+            'engine' => 'local',
+        ];
     }
 
     /**

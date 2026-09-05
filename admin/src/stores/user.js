@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { login, logout, getUserInfo } from '@/api/auth'
+import { login, logout, getUserInfo, getUserPermissions } from '@/api/auth'
 import { setToken, removeToken, getToken } from '@/utils/request'
 import router from '@/router'
 
@@ -7,24 +7,40 @@ export const useUserStore = defineStore('user', {
   state: () => ({
     token: getToken() || '',
     user: JSON.parse(localStorage.getItem('user') || 'null'),
-    roles: []
+    roles: [],
+    permissions: JSON.parse(localStorage.getItem('user_permissions') || '[]')
   }),
 
   getters: {
     // 是否已登录
     isLoggedIn: (state) => !!state.token,
-    
+
     // 用户名
     username: (state) => state.user?.username || '',
-    
+
     // 用户昵称
     nickname: (state) => state.user?.nickname || '',
-    
+
     // 用户头像
     avatar: (state) => state.user?.avatar || '',
-    
+
     // 用户角色
-    userRole: (state) => state.user?.role || ''
+    userRole: (state) => state.user?.role || '',
+
+    // 是否有指定权限
+    hasPermission: (state) => (permission) => {
+      if (state.user?.role === 'admin') return true
+      if (state.permissions.includes('*')) return true
+      if (!state.permissions || state.permissions.length === 0) return false
+      return state.permissions.some(p => {
+        if (p === permission) return true
+        if (p.endsWith('/*') && permission.startsWith(p.slice(0, -1))) return true
+        return false
+      })
+    },
+
+    // 是否是连锁版
+    isChainVersion: (state) => state.user?.version === 'chain'
   },
 
   actions: {
@@ -32,7 +48,7 @@ export const useUserStore = defineStore('user', {
         this.token = token
         setToken(token)
     },
-    
+
     setUserInfo(user) {
         this.user = user
         localStorage.setItem('user', JSON.stringify(user))
@@ -41,25 +57,27 @@ export const useUserStore = defineStore('user', {
         }
     },
 
+    setPermissions(permissions) {
+      this.permissions = permissions || []
+      localStorage.setItem('user_permissions', JSON.stringify(this.permissions))
+    },
+
     /**
      * 登录
-     * @param {Object} loginForm - 登录表单数据
-     * @returns {Promise}
      */
     async login(loginForm) {
       try {
         const response = await login(loginForm)
-        
-        // Handle response format
+
         const resData = response.data || response
         const code = response.code !== undefined ? response.code : 200
 
         if (code === 200) {
           const { token, user } = resData
-          
-          if (token) this.setToken(token)
+
+          if (token && typeof token === 'string') this.setToken(token)
           if (user) this.setUserInfo(user)
-          
+
           return Promise.resolve(response)
         } else {
           return Promise.reject(new Error(response.msg || response.message || '登录失败'))
@@ -71,14 +89,13 @@ export const useUserStore = defineStore('user', {
 
     /**
      * 获取用户信息
-     * @returns {Promise}
      */
     async getUserInfo() {
       try {
         const response = await getUserInfo()
         const resData = response.data || response
         const code = response.code !== undefined ? response.code : 200
-        
+
         if (code === 200) {
           const user = resData
           this.setUserInfo(user)
@@ -92,8 +109,24 @@ export const useUserStore = defineStore('user', {
     },
 
     /**
+     * 获取用户权限
+     */
+    async fetchPermissions() {
+      try {
+        const response = await getUserPermissions()
+        const resData = response.data || response
+        const permissions = Array.isArray(resData) ? resData : (resData?.permissions || [])
+        this.setPermissions(permissions)
+        return permissions
+      } catch (error) {
+        console.error('获取权限失败:', error)
+        this.setPermissions([])
+        return []
+      }
+    },
+
+    /**
      * 退出登录
-     * @returns {Promise}
      */
     async logout() {
       try {
@@ -104,7 +137,9 @@ export const useUserStore = defineStore('user', {
         this.token = ''
         this.user = null
         this.roles = []
+        this.permissions = []
         removeToken()
+        localStorage.removeItem('user_permissions')
       }
     }
   }

@@ -13,6 +13,7 @@ use think\Model;
  * @property string $device_name 设备名称
  * @property string $location 设备位置
  * @property string $type 设备类型 TABLE/WALL/COUNTER/ENTRANCE
+ * @property string $device_type 设备形态 PASSIVE=被动贴片 ACTIVE=主动设备
  * @property string $trigger_mode 触发模式 VIDEO/COUPON/WIFI/CONTACT/MENU
  * @property int $template_id 内容模板ID
  * @property string $redirect_url 跳转链接
@@ -36,12 +37,17 @@ class NfcDevice extends Model
         'device_name'     => 'string',
         'location'        => 'string',
         'type'            => 'string',
+        'device_type'     => 'string',
         'trigger_mode'    => 'string',
         'template_id'     => 'int',
         'redirect_url'    => 'string',
         'group_buy_config' => 'json',
         'wifi_ssid'       => 'string',
         'wifi_password'   => 'string',
+        'qq_contact_config' => 'json',
+        'wechat_contact_config' => 'json', // Agent E:微信/企微联系方式
+        'shop_owner_qr'   => 'string',     // Agent E:店长二维码
+        'ai_copy_enabled' => 'int',        // Agent E:AI 文案模板开关
         'promo_video_id'  => 'int',
         'promo_copywriting' => 'string',
         'promo_tags'      => 'json',
@@ -67,9 +73,12 @@ class NfcDevice extends Model
         'status'           => 'integer',
         'battery_level'    => 'integer',
         'group_buy_config' => 'json',
+        'qq_contact_config' => 'json',
+        'wechat_contact_config' => 'json',
         'promo_video_id'   => 'integer',
         'promo_tags'       => 'json',
         'promo_reward_coupon_id' => 'integer',
+        'ai_copy_enabled'  => 'integer',
         'last_heartbeat'   => 'datetime',
         'create_time'      => 'datetime',
         'update_time'      => 'datetime',
@@ -128,8 +137,9 @@ class NfcDevice extends Model
     // 允许批量赋值的字段
     protected $field = [
         'merchant_id', 'device_code', 'device_name', 'location', 'type',
-        'trigger_mode', 'template_id', 'redirect_url', 'group_buy_config',
+        'device_type', 'trigger_mode', 'template_id', 'redirect_url', 'group_buy_config',
         'wifi_ssid', 'wifi_password',
+        'qq_contact_config', 'wechat_contact_config', 'shop_owner_qr', 'ai_copy_enabled',
         'promo_video_id', 'promo_copywriting', 'promo_tags', 'promo_reward_coupon_id',
         'status', 'battery_level', 'last_heartbeat'
     ];
@@ -142,12 +152,18 @@ class NfcDevice extends Model
     const STATUS_MAINTENANCE = 2; // 维护
 
     /**
-     * 设备类型常量
+     * 设备类型常量（按物理形态：贴哪里）
      */
     const TYPE_TABLE = 'TABLE';       // 桌贴
     const TYPE_WALL = 'WALL';         // 墙贴
     const TYPE_COUNTER = 'COUNTER';   // 台面
     const TYPE_ENTRANCE = 'ENTRANCE'; // 门口
+
+    /**
+     * 设备形态常量（按通信能力：能不能主动报心跳）
+     */
+    const DEVICE_TYPE_PASSIVE = 'PASSIVE'; // 被动贴片：NFC 标签，无心跳能力，"在线"概念不适用
+    const DEVICE_TYPE_ACTIVE  = 'ACTIVE';  // 主动设备：智能网关/POS 等，可上报心跳，需在线判定
 
     /**
      * 触发模式常量
@@ -185,6 +201,36 @@ class NfcDevice extends Model
             self::TYPE_ENTRANCE => '门口'
         ];
         return $types[$data['type']] ?? '未知';
+    }
+
+    /**
+     * 设备形态获取器
+     */
+    public function getDeviceTypeTextAttr($value, $data): string
+    {
+        $types = [
+            self::DEVICE_TYPE_PASSIVE => '被动贴片',
+            self::DEVICE_TYPE_ACTIVE  => '主动设备',
+        ];
+        return $types[$data['device_type']] ?? '被动贴片';
+    }
+
+    /**
+     * 是否为被动贴片（默认设备形态）
+     * 被动贴片没有心跳能力，触发时不检查"在线"状态
+     */
+    public function isPassive(): bool
+    {
+        return ($this->device_type ?? self::DEVICE_TYPE_PASSIVE) === self::DEVICE_TYPE_PASSIVE;
+    }
+
+    /**
+     * 是否为主动设备
+     * 主动设备可上报心跳，触发时需检查"在线"状态
+     */
+    public function isActive(): bool
+    {
+        return ($this->device_type ?? '') === self::DEVICE_TYPE_ACTIVE;
     }
 
     /**
@@ -246,12 +292,19 @@ class NfcDevice extends Model
 
     /**
      * 更新心跳时间
+     * 被动贴片（PASSIVE）没有心跳能力，调用此方法仅记录最近触发时间，不修改 status
+     * 主动设备（ACTIVE）按原逻辑：心跳同时把 status 从离线切回在线
      */
     public function updateHeartbeat(): bool
     {
         $this->last_heartbeat = date('Y-m-d H:i:s');
 
-        // 如果设备状态是离线，自动设为在线
+        // 被动贴片不参与"在线"状态机 —— 仅记录触发时间，不改 status
+        if ($this->isPassive()) {
+            return $this->save();
+        }
+
+        // 主动设备：心跳时若 status=OFFLINE，自动回切为 ONLINE
         if ($this->status == self::STATUS_OFFLINE) {
             $this->status = self::STATUS_ONLINE;
         }
@@ -439,6 +492,7 @@ class NfcDevice extends Model
             'device_name' => 'require|max:100',
             'location' => 'max:100',
             'type' => 'in:TABLE,WALL,COUNTER,ENTRANCE',
+            'device_type' => 'in:PASSIVE,ACTIVE',
             'trigger_mode' => 'in:VIDEO,COUPON,WIFI,CONTACT,MENU,GROUP_BUY,PROMO',
             'template_id' => 'integer|>:0',
             'redirect_url' => 'url|max:255',
@@ -465,6 +519,7 @@ class NfcDevice extends Model
             'device_name.max' => '设备名称长度不能超过100个字符',
             'location.max' => '设备位置长度不能超过100个字符',
             'type.in' => '设备类型值无效',
+            'device_type.in' => '设备形态值无效（仅 PASSIVE/ACTIVE）',
             'trigger_mode.in' => '触发模式值无效',
             'template_id.integer' => '模板ID必须是整数',
             'template_id.>' => '模板ID必须大于0',

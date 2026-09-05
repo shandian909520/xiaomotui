@@ -203,7 +203,12 @@ class CacheService
      */
     public static function forever(string $key, $value, $tags = null): bool
     {
-        return self::set($key, $value, 0, $tags);
+        if (!empty($tags)) {
+            $tags = is_array($tags) ? $tags : [$tags];
+            $tags = array_map([self::class, 'formatTag'], $tags);
+            return Cache::set($key, $value, null, $tags);
+        }
+        return Cache::set($key, $value, null);
     }
 
     /**

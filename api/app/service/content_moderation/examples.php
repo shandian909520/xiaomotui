@@ -10,6 +10,8 @@ declare(strict_types=1);
 namespace app\service\content_moderation;
 
 use app\service\ContentModerationService;
+use app\service\content_moderation\ModerationProviderFactory;
+use think\facade\Db;
 use think\facade\Log;
 
 /**
@@ -251,8 +253,6 @@ class ContentModerationExamples
      */
     public static function example11_checkProviders(): void
     {
-        use app\service\content_moderation\ModerationProviderFactory;
-
         $status = ModerationProviderFactory::getProvidersStatus();
 
         echo "服务商状态:\n";
@@ -269,8 +269,6 @@ class ContentModerationExamples
      */
     public static function example12_manageBlacklist(): void
     {
-        use app\service\content_moderation\ModerationProviderFactory;
-
         // 将服务商加入黑名单
         ModerationProviderFactory::addToBlacklist('baidu', 1800); // 30分钟
 
@@ -384,8 +382,6 @@ class ContentModerationExamples
     public static function example15_withDatabase(): void
     {
         $service = new ContentModerationService();
-        use think\facade\Db;
-
         // 从数据库获取待审核内容
         $pendingMaterials = Db::name('materials')
             ->where('moderation_status', 'PENDING')

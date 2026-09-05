@@ -12,5 +12,5 @@ return [
     // 全局错误处理
     \app\middleware\ErrorHandler::class,
     // API访问频次限制
-    // \app\middleware\ApiThrottle::class,
+    \app\middleware\ApiThrottle::class,
 ];

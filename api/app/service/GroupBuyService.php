@@ -427,6 +427,191 @@ class GroupBuyService
     }
 
     /**
+     * ============ 模块5 扩展:团购商品列表 + CRUD + 跳转 ============
+     * 复用 xmt_groupbuy_items 表,与现有 group_buy_redirects 跳转链路无缝对接。
+     * 现存方法(generateRedirectUrl / recordRedirect / getStatistics 等)未做任何修改。
+     */
+
+    /**
+     * 获取某设备关联的团购商品列表(顾客端).
+     * 策略:device_id 命中优先;其次取商家维度共享的列表.
+     *
+     * @param int $deviceId
+     * @param int $limit
+     * @return array
+     */
+    public function getItemsByDevice(int $deviceId, int $limit = 20): array
+    {
+        try {
+            $device = Db::name('nfc_devices')->where('id', $deviceId)->find();
+            if (!$device) {
+                return [];
+            }
+            $now = date('Y-m-d H:i:s');
+            $items = Db::name('groupbuy_items')
+                ->where('status', 1)
+                ->where(function ($q) use ($deviceId, $device) {
+                    $q->where('device_id', $deviceId)
+                      ->whereOr(function ($q2) use ($device) {
+                          $q2->where('device_id', 0)
+                             ->where('merchant_id', (int)$device['merchant_id']);
+                      });
+                })
+                ->where(function ($q) use ($now) {
+                    $q->whereNull('start_time')->whereOr('start_time', '<=', $now);
+                })
+                ->where(function ($q) use ($now) {
+                    $q->whereNull('end_time')->whereOr('end_time', '>=', $now);
+                })
+                ->order('sort', 'desc')
+                ->order('id', 'desc')
+                ->limit(max(1, $limit))
+                ->select()
+                ->toArray();
+
+            foreach ($items as &$it) {
+                $price    = (float)($it['price'] ?? 0);
+                $original = (float)($it['original_price'] ?? 0);
+                $it['discount_text'] = '';
+                $it['save_amount']   = 0;
+                if ($original > 0 && $price > 0 && $price < $original) {
+                    $it['discount_text'] = round(($price / $original) * 10, 1) . '折';
+                    $it['save_amount']   = round($original - $price, 2);
+                }
+                $it['platform_name'] = $this->getPlatformName((string)($it['platform'] ?? ''));
+            }
+            return $items;
+        } catch (\Exception $e) {
+            Log::error('获取团购商品列表失败', [
+                'device_id' => $deviceId,
+                'error' => $e->getMessage(),
+            ]);
+            return [];
+        }
+    }
+
+    /**
+     * 新增商品(后台)
+     *
+     * @param array $data
+     * @return int 新ID
+     */
+    public function addItem(array $data): int
+    {
+        $allowKeys = [
+            'merchant_id', 'device_id', 'platform', 'title', 'image',
+            'price', 'original_price', 'sales', 'jump_url', 'sort', 'status',
+            'start_time', 'end_time',
+        ];
+        $row = [];
+        foreach ($allowKeys as $k) {
+            if (array_key_exists($k, $data)) {
+                $row[$k] = $data[$k];
+            }
+        }
+        if (empty($row['title']) || empty($row['jump_url']) || empty($row['merchant_id'])) {
+            throw new \InvalidArgumentException('title/merchant_id/jump_url 必填');
+        }
+        $row['create_time'] = date('Y-m-d H:i:s');
+        $row['update_time'] = date('Y-m-d H:i:s');
+        return (int)Db::name('groupbuy_items')->insertGetId($row);
+    }
+
+    /**
+     * 更新商品(后台)
+     *
+     * @param int   $itemId
+     * @param array $data
+     * @return int 影响行数
+     */
+    public function updateItem(int $itemId, array $data): int
+    {
+        $allowKeys = [
+            'platform', 'title', 'image', 'price', 'original_price',
+            'sales', 'jump_url', 'sort', 'status', 'device_id',
+            'start_time', 'end_time',
+        ];
+        $row = [];
+        foreach ($allowKeys as $k) {
+            if (array_key_exists($k, $data)) {
+                $row[$k] = $data[$k];
+            }
+        }
+        if (empty($row)) {
+            return 0;
+        }
+        $row['update_time'] = date('Y-m-d H:i:s');
+        return Db::name('groupbuy_items')->where('id', $itemId)->update($row);
+    }
+
+    /**
+     * 删除(下架)商品
+     *
+     * @param int $itemId
+     * @return bool
+     */
+    public function deleteItem(int $itemId): bool
+    {
+        $affected = Db::name('groupbuy_items')
+            ->where('id', $itemId)
+            ->update([
+                'status'      => 0,
+                'update_time' => date('Y-m-d H:i:s'),
+            ]);
+        return $affected > 0;
+    }
+
+    /**
+     * 商品级跳转:在现有 recordRedirect 之上套一层"商品快照"
+     *
+     * @param int    $itemId
+     * @param string $userHash  匿名用户(无登录态)
+     * @return array {jump_url, item_id, record_id}
+     */
+    public function itemRedirect(int $itemId, string $userHash = ''): array
+    {
+        $item = Db::name('groupbuy_items')->where('id', $itemId)->find();
+        if (!$item) {
+            throw new \Exception('团购商品不存在');
+        }
+        if ((int)($item['status'] ?? 0) !== 1) {
+            throw new \Exception('团购商品已下架');
+        }
+        $deviceId = (int)($item['device_id'] ?? 0);
+        if ($deviceId <= 0) {
+            // 商家共享商品:取商家任一在线设备用于触发埋点
+            $deviceId = (int)Db::name('nfc_devices')
+                ->where('merchant_id', (int)$item['merchant_id'])
+                ->where('status', 1)
+                ->value('id');
+        }
+        if ($deviceId <= 0) {
+            throw new \Exception('未找到可用设备,无法完成跳转');
+        }
+        $userId = 0; // 顾客匿名
+
+        // 复用现有 recordRedirect(写入 xmt_group_buy_redirects)
+        $this->recordRedirect(
+            $deviceId,
+            $userId,
+            (string)$item['platform'],
+            (string)$item['jump_url'],
+            [
+                'deal_id'  => (string)$item['id'],   // 借用 deal_id 存 item_id
+                'item_id'  => (int)$item['id'],
+                'title'    => (string)$item['title'],
+                'user_hash'=> $userHash,
+            ]
+        );
+
+        return [
+            'jump_url'  => (string)$item['jump_url'],
+            'item_id'   => (int)$item['id'],
+            'platform'  => (string)$item['platform'],
+        ];
+    }
+
+    /**
      * 解析团购配置
      *
      * @param string|array $config 配置数据（JSON字符串或数组）

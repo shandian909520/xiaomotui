@@ -5,7 +5,7 @@
  */
 return [
     // 默认使用的AI服务提供商
-    'default' => env('AI_DEFAULT_PROVIDER', 'wenxin'),
+    'default' => env('AI_DEFAULT_PROVIDER', 'glm'),
 
     // 百度文心一言配置
     'wenxin' => [
@@ -70,6 +70,55 @@ return [
         'enabled' => false,
     ],
 
+    // 智谱AI配置（图像/视频生成）
+    'zhipu' => [
+        'api_key' => env('AI.ZHIPU_API_KEY', '97e789386b8f4a56916cba8bd179d3cf.CChVLN05Ilx0bNL2'),
+        'image_model' => env('AI.ZHIPU_IMAGE_MODEL', 'CogView-3-Flash'),
+        'video_model' => env('AI.ZHIPU_VIDEO_MODEL', 'CogVideoX-Flash'),
+        'base_url' => 'https://open.bigmodel.cn/api/paas/v4',
+        'timeout' => 120,
+
+        // 可用模型列表
+        'models' => [
+            'CogView-3-Flash' => 'CogView-3-Flash (图像生成-快速)',
+            'CogView-3-Plus' => 'CogView-3-Plus (图像生成-增强)',
+            'CogVideoX-Flash' => 'CogVideoX-Flash (视频生成-快速)',
+            'CogVideoX-2' => 'CogVideoX-2 (视频生成-标准)',
+        ],
+    ],
+
+    // 智谱 GLM 文字生成配置（OpenAI 兼容协议）
+    'glm' => [
+        'api_key' => env('AI.ZHIPU_API_KEY', '97e789386b8f4a56916cba8bd179d3cf.CChVLN05Ilx0bNL2'),
+        'base_url' => env('AI.GLM_BASE_URL', 'https://open.bigmodel.cn/api/paas/v4'),
+        // 默认模型：glm-4-flash（4.7/4.6 等旗舰版需要付费资源包，余额不足自动降级到 flash）
+        'model' => env('AI.GLM_MODEL', 'glm-4-flash'),
+        'timeout' => env('AI.GLM_TIMEOUT', 30),
+        'max_retries' => 3,
+        'retry_delay' => 1,
+
+        // 可用模型
+        'models' => [
+            'glm-4-flash' => 'GLM-4-Flash (快速,免费)',
+            'glm-4.7' => 'GLM-4.7 (智谱最新旗舰,需付费)',
+            'glm-4.6' => 'GLM-4.6 (智谱旗舰,需付费)',
+            'glm-4-plus' => 'GLM-4-Plus (增强,需付费)',
+            'glm-4-air' => 'GLM-4-Air (轻量,需付费)',
+        ],
+
+        // 生成参数
+        'generation' => [
+            'temperature' => 0.8,
+            'top_p' => 0.9,
+        ],
+
+        // 内容配置
+        'content' => [
+            'max_length' => 2000,
+            'system_prompt' => '你是一个专业的营销文案创作助手，擅长根据不同场景和风格生成吸引人的营销内容。',
+        ],
+    ],
+
     // MiniMax 文字生成配置（使用 Anthropic API 兼容接口）
     'minimax' => [
         // API 认证配置
@@ -77,11 +126,12 @@ return [
         'base_url' => env('ANTHROPIC_BASE_URL', 'https://api.minimaxi.com/anthropic'),
 
         // 模型配置
-        'model' => env('AI.MINIMAX_MODEL', 'MiniMax-M2.7'),
+        'model' => env('AI.MINIMAX_MODEL', 'MiniMax-M2.7-highspeed'),
 
         // 可用的模型列表
         'models' => [
-            'MiniMax-M2.7' => 'MiniMax-M2.7',  // MiniMax M2.7 模型
+            'MiniMax-M2.7-highspeed' => 'MiniMax-M2.7-highspeed (高速)',
+            'MiniMax-M2.7' => 'MiniMax-M2.7 (标准)',
         ],
 
         // 请求参数配置

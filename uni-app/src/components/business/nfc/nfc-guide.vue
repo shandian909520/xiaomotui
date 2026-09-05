@@ -13,7 +13,6 @@
           <view class="step-content">
             <text class="step-title">📱 靠近设备</text>
             <text class="step-desc">将手机背面靠近NFC设备（距离<5cm）</text>
-            <image class="step-image" src="/static/guide/nfc-touch.png" mode="aspectFit" />
           </view>
         </view>
 
@@ -22,7 +21,6 @@
           <view class="step-content">
             <text class="step-title">✨ 自动触发</text>
             <text class="step-desc">手机震动后即可看到生成的内容</text>
-            <image class="step-image" src="/static/guide/auto-trigger.png" mode="aspectFit" />
           </view>
         </view>
 
@@ -31,7 +29,6 @@
           <view class="step-content">
             <text class="step-title">📷 备选方式</text>
             <text class="step-desc">手机不支持NFC？点击"扫码"按钮扫描二维码</text>
-            <image class="step-image" src="/static/guide/scan-qr.png" mode="aspectFit" />
           </view>
         </view>
       </view>
@@ -170,14 +167,6 @@ export default {
             font-size: 14px;
             color: #6b7280;
             line-height: 1.6;
-          }
-
-          .step-image {
-            width: 100%;
-            height: 200rpx;
-            border-radius: 12rpx;
-            background: #f3f4f6;
-            margin-top: 12rpx;
           }
         }
       }

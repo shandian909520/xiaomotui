@@ -5,6 +5,7 @@ namespace app\service;
 
 use think\facade\Log;
 use think\facade\Cache;
+use think\facade\Http;
 use think\Exception;
 use app\model\Material;
 use app\model\MaterialCategory;
@@ -325,7 +326,7 @@ class MaterialImportService
                         'name' => basename($filePath),
                         'tmp_name' => $filePath,
                         'size' => filesize($filePath),
-                        'type' => mime_content_type($filePath)
+                        'type' => xmt_mime_type($filePath)
                     ];
                 }
 
@@ -509,7 +510,7 @@ class MaterialImportService
         $metadata = [
             'file_name' => basename($filePath),
             'file_size' => filesize($filePath),
-            'mime_type' => mime_content_type($filePath),
+            'mime_type' => xmt_mime_type($filePath),
             'extension' => pathinfo($filePath, PATHINFO_EXTENSION),
             'extract_time' => date('Y-m-d H:i:s')
         ];
@@ -854,7 +855,376 @@ class MaterialImportService
      */
     protected function checkContentSecurity(string $filePath, string $materialType): array
     {
-        // TODO: 实现内容安全检查（接入阿里云内容安全、腾讯云天御等）
+        $provider = config('material.security_provider', 'aliyun');
+
+        try {
+            $result = match ($provider) {
+                'aliyun' => $this->checkContentSecurityByAliyun($filePath, $materialType),
+                'tencent' => $this->checkContentSecurityByTencent($filePath, $materialType),
+                default => $this->checkContentSecurityLocal($filePath, $materialType),
+            };
+
+            if (!$result['valid']) {
+                Log::warning('内容安全检查未通过', [
+                    'file_path' => $filePath,
+                    'material_type' => $materialType,
+                    'provider' => $provider,
+                    'reason' => $result['message'] ?? '',
+                ]);
+            }
+
+            return $result;
+        } catch (\Exception $e) {
+            Log::error('内容安全检查异常', [
+                'file_path' => $filePath,
+                'provider' => $provider,
+                'error' => $e->getMessage(),
+            ]);
+
+            return [
+                'valid' => false,
+                'message' => '安全检查服务异常，已拦截: ' . $e->getMessage(),
+            ];
+        }
+    }
+
+    /**
+     * 阿里云内容安全检查
+     */
+    protected function checkContentSecurityByAliyun(string $filePath, string $materialType): array
+    {
+        $config = config('material.security_config.aliyun', []);
+        $accessKey = $config['access_key'] ?? '';
+        $secretKey = $config['secret_key'] ?? '';
+        $region = $config['region'] ?? 'cn-shanghai';
+
+        if (empty($accessKey) || empty($secretKey)) {
+            return $this->checkContentSecurityLocal($filePath, $materialType);
+        }
+
+        if (in_array($materialType, ['TEXT_TEMPLATE'])) {
+            return $this->aliyunTextScan($filePath, $accessKey, $secretKey, $region);
+        }
+
+        if (in_array($materialType, ['IMAGE'])) {
+            return $this->aliyunImageScan($filePath, $accessKey, $secretKey, $region);
+        }
+
+        if (in_array($materialType, ['VIDEO', 'TRANSITION'])) {
+            return $this->aliyunVideoScan($filePath, $accessKey, $secretKey, $region);
+        }
+
+        return ['valid' => true];
+    }
+
+    /**
+     * 阿里云文本扫描
+     */
+    protected function aliyunTextScan(string $filePath, string $accessKey, string $secretKey, string $region): array
+    {
+        $content = file_get_contents($filePath);
+        if ($content === false) {
+            return ['valid' => true];
+        }
+
+        $host = "green.{$region}.aliyuncs.com";
+        $path = '/green/text/scan';
+        $url = "https://{$host}{$path}";
+
+        $body = json_encode([
+            'scenes' => ['antispam'],
+            'tasks' => [[
+                'content' => base64_encode($content),
+            ]],
+        ]);
+
+        $headers = $this->buildAliyunHeaders('POST', $host, $path, $body, $accessKey, $secretKey);
+
+        try {
+            $response = Http::post($url, $body, [
+                'headers' => array_merge($headers, ['Content-Type' => 'application/json']),
+                'timeout' => 30,
+            ]);
+            $result = json_decode($response, true);
+
+            if (isset($result['data'][0]['results'][0]['suggestion'])) {
+                $suggestion = $result['data'][0]['results'][0]['suggestion'];
+                $label = $result['data'][0]['results'][0]['label'] ?? '';
+                if ($suggestion === 'block') {
+                    return [
+                        'valid' => false,
+                        'message' => "文本内容不合规: {$label}",
+                    ];
+                }
+            }
+
+            return ['valid' => true];
+        } catch (\Exception $e) {
+            Log::warning('阿里云文本扫描请求失败', ['error' => $e->getMessage()]);
+            return $this->checkContentSecurityLocal($filePath, 'TEXT_TEMPLATE');
+        }
+    }
+
+    /**
+     * 阿里云图片扫描
+     */
+    protected function aliyunImageScan(string $filePath, string $accessKey, string $secretKey, string $region): array
+    {
+        $host = "green.{$region}.aliyuncs.com";
+        $path = '/green/image/scan';
+        $url = "https://{$host}{$path}";
+
+        $imageContent = file_get_contents($filePath);
+        if ($imageContent === false) {
+            return ['valid' => true];
+        }
+
+        $body = json_encode([
+            'scenes' => ['porn', 'terrorism', 'ad'],
+            'tasks' => [[
+                'dataId' => uniqid(),
+                'content' => base64_encode($imageContent),
+            ]],
+        ]);
+
+        $headers = $this->buildAliyunHeaders('POST', $host, $path, $body, $accessKey, $secretKey);
+
+        try {
+            $response = Http::post($url, $body, [
+                'headers' => array_merge($headers, ['Content-Type' => 'application/json']),
+                'timeout' => 30,
+            ]);
+            $result = json_decode($response, true);
+
+            if (isset($result['data'][0]['results'])) {
+                foreach ($result['data'][0]['results'] as $item) {
+                    if (($item['suggestion'] ?? '') === 'block') {
+                        $label = $item['label'] ?? 'unknown';
+                        return [
+                            'valid' => false,
+                            'message' => "图片内容不合规: {$label}",
+                        ];
+                    }
+                }
+            }
+
+            return ['valid' => true];
+        } catch (\Exception $e) {
+            Log::warning('阿里云图片扫描请求失败', ['error' => $e->getMessage()]);
+            return $this->checkContentSecurityLocal($filePath, 'IMAGE');
+        }
+    }
+
+    /**
+     * 阿里云视频扫描（异步提交）
+     */
+    protected function aliyunVideoScan(string $filePath, string $accessKey, string $secretKey, string $region): array
+    {
+        $host = "green.{$region}.aliyuncs.com";
+        $path = '/green/video/syncscan';
+        $url = "https://{$host}{$path}";
+
+        $videoContent = file_get_contents($filePath);
+        if ($videoContent === false) {
+            return ['valid' => true];
+        }
+
+        $body = json_encode([
+            'scenes' => ['porn', 'terrorism'],
+            'tasks' => [[
+                'dataId' => uniqid(),
+                'content' => base64_encode($videoContent),
+            ]],
+        ]);
+
+        $headers = $this->buildAliyunHeaders('POST', $host, $path, $body, $accessKey, $secretKey);
+
+        try {
+            $response = Http::post($url, $body, [
+                'headers' => array_merge($headers, ['Content-Type' => 'application/json']),
+                'timeout' => 60,
+            ]);
+            $result = json_decode($response, true);
+
+            if (isset($result['data'][0]['results'])) {
+                foreach ($result['data'][0]['results'] as $item) {
+                    if (($item['suggestion'] ?? '') === 'block') {
+                        $label = $item['label'] ?? 'unknown';
+                        return [
+                            'valid' => false,
+                            'message' => "视频内容不合规: {$label}",
+                        ];
+                    }
+                }
+            }
+
+            return ['valid' => true];
+        } catch (\Exception $e) {
+            Log::warning('阿里云视频扫描请求失败', ['error' => $e->getMessage()]);
+            return $this->checkContentSecurityLocal($filePath, $materialType);
+        }
+    }
+
+    /**
+     * 构建阿里云API签名头
+     */
+    protected function buildAliyunHeaders(string $method, string $host, string $path, string $body, string $accessKey, string $secretKey): array
+    {
+        $date = gmdate('Y-m-d\TH:i:s\Z');
+        $accept = 'application/json';
+        $contentMd5 = base64_encode(md5($body, true));
+        $contentType = 'application/json';
+
+        $stringToSign = "{$method}\n{$accept}\n{$contentMd5}\n{$contentType}\n{$date}\n{$path}";
+        $signature = base64_encode(hash_hmac('sha1', $stringToSign, $secretKey, true));
+
+        return [
+            'Authorization' => "acs {$accessKey}:{$signature}",
+            'Date' => $date,
+            'Accept' => $accept,
+            'Content-MD5' => $contentMd5,
+        ];
+    }
+
+    /**
+     * 腾讯云天御内容安全检查
+     */
+    protected function checkContentSecurityByTencent(string $filePath, string $materialType): array
+    {
+        $config = config('material.security_config.tencent', []);
+        $secretId = $config['secret_id'] ?? '';
+        $secretKey = $config['secret_key'] ?? '';
+
+        if (empty($secretId) || empty($secretKey)) {
+            return $this->checkContentSecurityLocal($filePath, $materialType);
+        }
+
+        $timestamp = time();
+        $expired = $timestamp + 3600;
+        $nonce = mt_rand(1, 999999);
+
+        if (in_array($materialType, ['TEXT_TEMPLATE'])) {
+            $content = file_get_contents($filePath);
+            if ($content === false) {
+                return ['valid' => true];
+            }
+            $params = [
+                'Content' => base64_encode($content),
+                'Action' => 'TextModeration',
+                'SecretId' => $secretId,
+                'Timestamp' => $timestamp,
+                'Expired' => $expired,
+                'Nonce' => $nonce,
+            ];
+
+            ksort($params);
+            $srcStr = 'POSTtms.tencentcloudapi.com/?' . http_build_query($params);
+            $signature = base64_encode(hash_hmac('sha1', $srcStr, $secretKey, true));
+
+            try {
+                $response = Http::post('https://tms.tencentcloudapi.com/', http_build_query($params), [
+                    'headers' => ['Authorization' => $signature, 'Content-Type' => 'application/x-www-form-urlencoded'],
+                    'timeout' => 30,
+                ]);
+                $result = json_decode($response, true);
+
+                if (isset($result['Response']['Suggestion']) && $result['Response']['Suggestion'] === 'Block') {
+                    $label = $result['Response']['Label'] ?? 'unknown';
+                    return [
+                        'valid' => false,
+                        'message' => "文本内容不合规: {$label}",
+                    ];
+                }
+            } catch (\Exception $e) {
+                Log::warning('腾讯云文本扫描请求失败', ['error' => $e->getMessage()]);
+            }
+
+            return $this->checkContentSecurityLocal($filePath, $materialType);
+        }
+
+        if (in_array($materialType, ['IMAGE'])) {
+            $imageContent = file_get_contents($filePath);
+            if ($imageContent === false) {
+                return ['valid' => true];
+            }
+            $params = [
+                'Image' => base64_encode($imageContent),
+                'Scenes' => json_encode(['PORN', 'POLITICS', 'TERRORISM']),
+                'Action' => 'ImageModeration',
+                'SecretId' => $secretId,
+                'Timestamp' => $timestamp,
+                'Expired' => $expired,
+                'Nonce' => $nonce,
+            ];
+
+            ksort($params);
+            $srcStr = 'POSTims.tencentcloudapi.com/?' . http_build_query($params);
+            $signature = base64_encode(hash_hmac('sha1', $srcStr, $secretKey, true));
+
+            try {
+                $response = Http::post('https://ims.tencentcloudapi.com/', http_build_query($params), [
+                    'headers' => ['Authorization' => $signature, 'Content-Type' => 'application/x-www-form-urlencoded'],
+                    'timeout' => 30,
+                ]);
+                $result = json_decode($response, true);
+
+                if (isset($result['Response']['Suggestion']) && $result['Response']['Suggestion'] === 'Block') {
+                    $label = $result['Response']['Label'] ?? 'unknown';
+                    return [
+                        'valid' => false,
+                        'message' => "图片内容不合规: {$label}",
+                    ];
+                }
+            } catch (\Exception $e) {
+                Log::warning('腾讯云图片扫描请求失败', ['error' => $e->getMessage()]);
+            }
+
+            return $this->checkContentSecurityLocal($filePath, $materialType);
+        }
+
+        return ['valid' => true];
+    }
+
+    /**
+     * 本地敏感词检查（降级方案）
+     */
+    protected function checkContentSecurityLocal(string $filePath, string $materialType): array
+    {
+        $sensitiveWords = config('material.sensitive_words', []);
+
+        if (empty($sensitiveWords)) {
+            return ['valid' => true];
+        }
+
+        if (in_array($materialType, ['TEXT_TEMPLATE'])) {
+            $content = file_get_contents($filePath);
+            if ($content === false) {
+                return ['valid' => true];
+            }
+            $matched = [];
+            foreach ($sensitiveWords as $word) {
+                if (mb_stripos($content, $word) !== false) {
+                    $matched[] = $word;
+                }
+            }
+            if (!empty($matched)) {
+                return [
+                    'valid' => false,
+                    'message' => '内容包含敏感词: ' . implode(', ', $matched),
+                ];
+            }
+        }
+
+        if (in_array($materialType, ['IMAGE'])) {
+            $imageInfo = @getimagesize($filePath);
+            if ($imageInfo === false) {
+                return [
+                    'valid' => false,
+                    'message' => '文件不是有效图片',
+                ];
+            }
+        }
+
         return ['valid' => true];
     }
 

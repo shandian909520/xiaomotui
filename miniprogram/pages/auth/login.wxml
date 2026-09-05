@@ -1,0 +1,28 @@
+<view class="container">
+  <view class="header">
+    <image class="logo" src="/images/logo.png" mode="aspectFit"></image>
+    <text class="title">小魔推碰一碰</text>
+    <text class="subtitle">NFC智能营销内容生成平台</text>
+  </view>
+
+  <view class="login-section">
+    <button class="login-btn wechat-btn" bindtap="handleWechatLogin" loading="{{isLoading}}" disabled="{{isLoading}}">
+      微信一键登录
+    </button>
+
+    <view class="divider">
+      <view class="divider-line"></view>
+      <text class="divider-text">或者</text>
+      <view class="divider-line"></view>
+    </view>
+
+    <button class="login-btn guest-btn" bindtap="handleGuestMode">游客模式浏览</button>
+  </view>
+
+  <view class="footer">
+    <text class="footer-text">登录即表示同意</text>
+    <text class="footer-link">《用户协议》</text>
+    <text class="footer-text">和</text>
+    <text class="footer-link">《隐私政策》</text>
+  </view>
+</view>

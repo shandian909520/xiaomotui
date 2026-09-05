@@ -4,6 +4,7 @@ declare (strict_types = 1);
 namespace app\controller;
 
 use app\service\ContentService;
+use app\model\ContentTask;
 use app\validate\Content as ContentValidate;
 use think\exception\ValidateException;
 use think\facade\Log;
@@ -480,11 +481,10 @@ class Content extends BaseController
             }
 
             // 分页查询
+            $total = (clone $query)->count();
             $list = $query->order('create_time', 'desc')
                 ->page($page, $limit)
                 ->select();
-
-            $total = $query->count();
 
             return $this->success([
                 'list' => $list,
@@ -519,7 +519,8 @@ class Content extends BaseController
             }
 
             // 验证用户权限
-            if ($task->user_id !== $this->userId) {
+            $userId = $this->request->user_id ?? null;
+            if ($task->user_id !== $userId) {
                 return $this->error('无权操作', 403, 'permission_denied');
             }
 
@@ -536,8 +537,8 @@ class Content extends BaseController
             // 创建或更新反馈
             $feedbackData = [
                 'task_id' => $data['task_id'],
-                'user_id' => $this->userId,
-                'merchant_id' => $this->merchantId,
+                'user_id' => $this->request->user_id ?? null,
+                'merchant_id' => $this->request->merchant_id ?? null,
                 'feedback_type' => $data['feedback_type'],
                 'reasons' => $data['reasons'] ?? [],
                 'other_reason' => $data['other_reason'] ?? '',
@@ -563,7 +564,7 @@ class Content extends BaseController
     public function feedbackStats()
     {
         try {
-            $merchantId = $this->merchantId;
+            $merchantId = $this->request->merchant_id ?? null;
             $startDate = $this->request->get('start_date');
             $endDate = $this->request->get('end_date');
 
@@ -580,6 +581,112 @@ class Content extends BaseController
 
         } catch (\Exception $e) {
             return $this->error($e->getMessage(), 400, 'get_feedback_stats_failed');
+        }
+    }
+
+    /**
+     * 更新任务
+     * PUT /api/content/task/:id
+     */
+    public function updateTask($id)
+    {
+        try {
+            $task = $this->findTaskWithAuth($id);
+
+            $data = $this->request->put();
+            $allowedFields = ['title', 'type', 'platform', 'style', 'scene', 'content'];
+            foreach ($allowedFields as $field) {
+                if (isset($data[$field])) {
+                    $task->$field = $data[$field];
+                }
+            }
+            $task->save();
+
+            return $this->success($task->toArray(), '更新任务成功');
+        } catch (\Exception $e) {
+            return $this->error('更新任务失败：' . $e->getMessage());
+        }
+    }
+
+    /**
+     * 删除任务
+     * DELETE /api/content/task/:id
+     */
+    public function deleteTask($id)
+    {
+        try {
+            $task = $this->findTaskWithAuth($id);
+
+            $task->delete();
+            return $this->success(null, '删除任务成功');
+        } catch (\Exception $e) {
+            return $this->error('删除任务失败：' . $e->getMessage());
+        }
+    }
+
+    /**
+     * 查找任务并验证当前用户权限
+     * @throws \Exception
+     */
+    private function findTaskWithAuth($id): ContentTask
+    {
+        $userId = $this->request->user_id ?? null;
+        if ($userId === null) {
+            throw new \Exception('用户未登录');
+        }
+
+        $task = ContentTask::find((int)$id);
+        if (!$task) {
+            throw new \Exception('任务不存在');
+        }
+
+        if ($task->user_id !== $userId) {
+            throw new \Exception('无权操作此任务');
+        }
+
+        return $task;
+    }
+
+    /**
+     * 查看内容详情（公开）
+     * GET /api/content/view/:id
+     */
+    public function view($id)
+    {
+        try {
+            $task = ContentTask::find((int)$id);
+            if (!$task) {
+                return $this->error('内容不存在', 404);
+            }
+
+            return $this->success($task->visible(['id', 'type', 'status', 'create_time', 'complete_time'])->toArray());
+        } catch (\Exception $e) {
+            return $this->error('获取内容失败：' . $e->getMessage());
+        }
+    }
+
+    /**
+     * 获取公开内容列表
+     * GET /api/content/public
+     */
+    public function public()
+    {
+        try {
+            $params = $this->request->param();
+            $page = (int)($params['page'] ?? 1);
+            $pageSize = (int)($params['page_size'] ?? 20);
+
+            $query = ContentTask::where('status', ContentTask::STATUS_COMPLETED);
+            $total = (clone $query)->count();
+            $list = $query->order('create_time', 'desc')
+                ->page($page, $pageSize)
+                ->select()
+                ->visible(['id', 'type', 'status', 'create_time', 'complete_time'])
+                ->toArray();
+
+            return $this->success(['list' => $list, 'total' => $total]);
+        } catch (\Exception $e) {
+            return $this->error('获取公开内容失败：' . $e->getMessage());
         }
     }
 }

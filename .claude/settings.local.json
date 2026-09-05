@@ -12,15 +12,30 @@
       "Bash(findstr:*)",
       "Bash(dir .mcp.json 2)",
       "Bash(nul)",
-      "Bash(dir:*)"
+      "Bash(dir:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(cp *)",
+      "mcp__chrome-devtools__select_page",
+      "mcp__chrome-devtools__navigate_page",
+      "mcp__chrome-devtools__take_snapshot",
+      "mcp__chrome-devtools__click",
+      "mcp__chrome-devtools__take_screenshot",
+      "Bash(xargs grep *)",
+      "Read(//tmp/**)",
+      "Bash(nslookup pengpeng.moban8.top)",
+      "Bash(nslookup pengh5.moban8.top)",
+      "Bash(nslookup moban8.top)",
+      "Bash(awk -F'|' '{print $2}')"
     ],
     "deny": [],
     "ask": []
   },
+  "enableAllProjectMcpServers": true,
   "enabledMcpjsonServers": [
     "playwright",
     "chrome-devtools",
     "zai-mcp-server"
-  ],
-  "enableAllProjectMcpServers": true
+  ]
 }

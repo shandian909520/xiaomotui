@@ -55,6 +55,28 @@ class Statistics extends BaseController
     }
 
     /**
+     * 获取商家ID：优先从请求参数，其次从JWT token，管理员默认1
+     */
+    protected function resolveMerchantId(): int
+    {
+        $merchantId = (int)$this->request->param('merchant_id/d', 0);
+        if ($merchantId > 0) {
+            return $merchantId;
+        }
+
+        $merchantId = $this->request->getMerchantId();
+        if ($merchantId > 0) {
+            return $merchantId;
+        }
+
+        if ($this->request->isAdmin()) {
+            return 1;
+        }
+
+        return 0;
+    }
+
+    /**
      * Dashboard数据概览
      * GET /api/statistics/dashboard
      *
@@ -64,24 +86,10 @@ class Statistics extends BaseController
     {
         try {
             // 获取请求参数
-            $merchantId = $this->request->param('merchant_id/d');
+            $merchantId = $this->resolveMerchantId();
             $dateRange = $this->request->param('date_range', '7'); // 7 or 30
             $startDate = $this->request->param('start_date', '');
             $endDate = $this->request->param('end_date', '');
-
-            // 如果没有传递merchant_id，尝试从用户信息中获取
-            if (!$merchantId) {
-                $merchantId = $this->request->merchantId ?? $this->request->user_id ?? null;
-
-                // 如果还是没有，检查是否是管理员（管理员可以看到所有数据或默认商家）
-                $userInfo = $this->request->userInfo ?? [];
-                $role = $userInfo['role'] ?? 'user';
-
-                if ($role === 'admin' && !$merchantId) {
-                    // 管理员使用默认商家ID 1（或者可以设置为null表示查看所有）
-                    $merchantId = 1;
-                }
-            }
 
             // 最终检查
             if (!$merchantId) {
@@ -264,7 +272,7 @@ class Statistics extends BaseController
     {
         try {
             // 获取请求参数
-            $merchantId = $this->request->param('merchant_id/d');
+            $merchantId = $this->resolveMerchantId();
             $dateRange = $this->request->param('date_range', '7');
             $page = $this->request->param('page/d', 1);
             $limit = $this->request->param('limit/d', 20);
@@ -418,7 +426,7 @@ class Statistics extends BaseController
     {
         try {
             // 获取请求参数
-            $merchantId = $this->request->param('merchant_id/d');
+            $merchantId = $this->resolveMerchantId();
             $type = $this->request->param('type', '');
             $dateRange = $this->request->param('date_range', '7');
 
@@ -454,12 +462,22 @@ class Statistics extends BaseController
                 $query->where('type', $type);
             }
 
-            // 总数统计
-            $total = (clone $query)->count();
-            $pending = (clone $query)->where('status', ContentTask::STATUS_PENDING)->count();
-            $processing = (clone $query)->where('status', ContentTask::STATUS_PROCESSING)->count();
-            $completed = (clone $query)->where('status', ContentTask::STATUS_COMPLETED)->count();
-            $failed = (clone $query)->where('status', ContentTask::STATUS_FAILED)->count();
+            // 总数统计 - 使用 GROUP BY status 一次查询所有状态计数
+            $statusCounts = (clone $query)
+                ->field('status, COUNT(*) as count')
+                ->group('status')
+                ->select()
+                ->toArray();
+            $statusMap = [];
+            foreach ($statusCounts as $row) {
+                $statusMap[$row['status']] = (int)$row['count'];
+            }
+
+            $total = array_sum($statusMap);
+            $pending = $statusMap[ContentTask::STATUS_PENDING] ?? 0;
+            $processing = $statusMap[ContentTask::STATUS_PROCESSING] ?? 0;
+            $completed = $statusMap[ContentTask::STATUS_COMPLETED] ?? 0;
+            $failed = $statusMap[ContentTask::STATUS_FAILED] ?? 0;
 
             // 成功率
             $successRate = $total > 0 ? round(($completed / $total) * 100, 2) : 0;
@@ -470,27 +488,32 @@ class Statistics extends BaseController
                 ->avg('generation_time');
             $avgGenerationTime = $avgGenerationTime ? round($avgGenerationTime, 2) : 0;
 
-            // 按类型统计
+            // 按类型统计 - 使用 GROUP BY 一次查询
+            $typeRawStats = ContentTask::where('merchant_id', $merchantId)
+                ->where('create_time', '>=', $startDate . ' 00:00:00')
+                ->where('create_time', '<=', $endDate . ' 23:59:59')
+                ->field('type, status, COUNT(*) as count')
+                ->group(['type', 'status'])
+                ->select()
+                ->toArray();
+
             $typeStats = [];
             foreach (['VIDEO', 'TEXT', 'IMAGE'] as $contentType) {
-                $typeCount = ContentTask::where('merchant_id', $merchantId)
-                    ->where('type', $contentType)
-                    ->where('create_time', '>=', $startDate . ' 00:00:00')
-                    ->where('create_time', '<=', $endDate . ' 23:59:59')
-                    ->count();
-
-                $typeCompleted = ContentTask::where('merchant_id', $merchantId)
-                    ->where('type', $contentType)
-                    ->where('status', ContentTask::STATUS_COMPLETED)
-                    ->where('create_time', '>=', $startDate . ' 00:00:00')
-                    ->where('create_time', '<=', $endDate . ' 23:59:59')
-                    ->count();
-
+                $typeTotal = 0;
+                $typeCompleted = 0;
+                foreach ($typeRawStats as $row) {
+                    if ($row['type'] === $contentType) {
+                        $typeTotal += (int)$row['count'];
+                        if ($row['status'] === ContentTask::STATUS_COMPLETED) {
+                            $typeCompleted += (int)$row['count'];
+                        }
+                    }
+                }
                 $typeStats[$contentType] = [
                     'type' => $contentType,
-                    'total' => $typeCount,
+                    'total' => $typeTotal,
                     'completed' => $typeCompleted,
-                    'success_rate' => $typeCount > 0 ? round(($typeCompleted / $typeCount) * 100, 2) : 0
+                    'success_rate' => $typeTotal > 0 ? round(($typeCompleted / $typeTotal) * 100, 2) : 0
                 ];
             }
 
@@ -546,7 +569,7 @@ class Statistics extends BaseController
     {
         try {
             // 获取请求参数
-            $merchantId = $this->request->param('merchant_id/d');
+            $merchantId = $this->resolveMerchantId();
             $platform = $this->request->param('platform', '');
             $dateRange = $this->request->param('date_range', '7');
 
@@ -705,7 +728,7 @@ class Statistics extends BaseController
 
             if ($merchantId) {
                 $triggerQuery->whereIn('device_id', function($query) use ($merchantId) {
-                    $query->table('nfc_devices')
+                    $query->table('xmt_nfc_devices')
                         ->where('merchant_id', $merchantId)
                         ->field('id');
                 });
@@ -763,7 +786,7 @@ class Statistics extends BaseController
     {
         try {
             // 获取请求参数
-            $merchantId = $this->request->param('merchant_id/d');
+            $merchantId = $this->resolveMerchantId();
             $metric = $this->request->param('metric', 'triggers');
             $dimension = $this->request->param('dimension', 'day');
             $dateRange = $this->request->param('date_range', '7');
@@ -876,7 +899,7 @@ class Statistics extends BaseController
     public function conversionStats(): Response
     {
         try {
-            $merchantId = $this->request->param('merchant_id', null);
+            $merchantId = $this->resolveMerchantId() ?: null;
             $dateRange = $this->request->param('date_range', '7');
 
             if ($merchantId && !$this->validateMerchantAccess($merchantId)) {
@@ -906,8 +929,8 @@ class Statistics extends BaseController
                 ->count();
 
             // 转化数 = coupon_users 领取数
-            $couponQuery = CouponUser::where('create_time', '>=', $startDate . ' 00:00:00')
-                ->where('create_time', '<=', $endDate . ' 23:59:59');
+            $couponQuery = CouponUser::where('get_time', '>=', $startDate . ' 00:00:00')
+                ->where('get_time', '<=', $endDate . ' 23:59:59');
             if ($merchantId) {
                 $couponQuery->whereIn('coupon_id', function ($q) use ($merchantId) {
                     $q->table('xmt_coupons')->where('merchant_id', $merchantId)->field('id');
@@ -1024,7 +1047,7 @@ class Statistics extends BaseController
     {
         try {
             // 获取请求参数
-            $merchantId = $this->request->param('merchant_id/d');
+            $merchantId = $this->resolveMerchantId();
             $type = $this->request->param('type', 'overview');
             $dateRange = $this->request->param('date_range', '7');
 
@@ -1151,19 +1174,9 @@ class Statistics extends BaseController
      */
     protected function validateMerchantAccess(?int $merchantId): bool
     {
-        // 临时：测试环境下允许所有请求通过
-        if (env('APP_DEBUG', false) === true) {
-            return true;
-        }
-
-        // 如果没有传商家ID，允许访问（系统级统计）
-        if ($merchantId === null) {
-            return true;
-        }
-
         // 从JWT中获取用户信息
         $userId = $this->request->user_id ?? 0;
-        $userRole = $this->request->getUserRole();
+        $userRole = $this->request->user_role ?? ($this->request->role ?? 'user');
 
         // 管理员可以访问所有商家数据
         if ($userRole === 'admin') {
@@ -1172,8 +1185,12 @@ class Statistics extends BaseController
 
         // 商家用户只能访问自己的数据
         if ($userRole === 'merchant') {
+            // 如果没有指定 merchant_id，允许访问
+            if ($merchantId === null) {
+                return true;
+            }
             $userMerchantId = $this->request->getMerchantId();
-            return $userMerchantId === $merchantId;
+            return $userMerchantId == $merchantId;
         }
 
         // 普通用户无权访问统计数据
@@ -1196,7 +1213,7 @@ class Statistics extends BaseController
 
         if ($merchantId) {
             $triggerQuery->whereIn('device_id', function($query) use ($merchantId) {
-                $query->table('nfc_devices')->where('merchant_id', $merchantId)->field('id');
+                $query->table('xmt_nfc_devices')->where('merchant_id', $merchantId)->field('id');
             });
         }
 
@@ -1307,9 +1324,9 @@ class Statistics extends BaseController
      */
     protected function getTopDevices(?int $merchantId, string $startDate, string $endDate, int $limit = 5): array
     {
-        $query = Db::table('device_triggers')
+        $query = Db::table('xmt_device_triggers')
             ->alias('dt')
-            ->join('nfc_devices nd', 'dt.device_id = nd.id')
+            ->join('xmt_nfc_devices nd', 'dt.device_id = nd.id')
             ->where('dt.create_time', '>=', $startDate . ' 00:00:00')
             ->where('dt.create_time', '<=', $endDate . ' 23:59:59')
             ->where('dt.result', 'SUCCESS');
@@ -1370,7 +1387,7 @@ class Statistics extends BaseController
 
         if ($merchantId) {
             $query->whereIn('device_id', function($q) use ($merchantId) {
-                $q->table('nfc_devices')->where('merchant_id', $merchantId)->field('id');
+                $q->table('xmt_nfc_devices')->where('merchant_id', $merchantId)->field('id');
             });
         }
 
@@ -1393,7 +1410,7 @@ class Statistics extends BaseController
     protected function getTriggersTrend(int $merchantId, string $startDate, string $endDate, string $dimension): array
     {
         $query = DeviceTrigger::whereIn('device_id', function($q) use ($merchantId) {
-                $q->table('nfc_devices')->where('merchant_id', $merchantId)->field('id');
+                $q->table('xmt_nfc_devices')->where('merchant_id', $merchantId)->field('id');
             })
             ->where('create_time', '>=', $startDate . ' 00:00:00')
             ->where('create_time', '<=', $endDate . ' 23:59:59')
@@ -1452,8 +1469,24 @@ class Statistics extends BaseController
      */
     protected function getPublishTrend(int $merchantId, string $startDate, string $endDate, string $dimension): array
     {
-        // 简化处理，使用内容趋势作为发布趋势
-        return $this->getContentTrend($merchantId, $startDate, $endDate, $dimension);
+        $query = PublishTask::whereIn('content_task_id', function($q) use ($merchantId) {
+                $q->table('xmt_content_tasks')->where('merchant_id', $merchantId)->field('id');
+            })
+            ->where('create_time', '>=', $startDate . ' 00:00:00')
+            ->where('create_time', '<=', $endDate . ' 23:59:59')
+            ->whereIn('status', [PublishTask::STATUS_COMPLETED, PublishTask::STATUS_PARTIAL]);
+
+        $dateFormat = match($dimension) {
+            'week' => "DATE_FORMAT(create_time, '%Y-%u')",
+            'month' => "DATE_FORMAT(create_time, '%Y-%m')",
+            default => 'DATE(create_time)'
+        };
+
+        return $query->field("{$dateFormat} as period, COUNT(*) as count")
+            ->group('period')
+            ->order('period', 'asc')
+            ->select()
+            ->toArray();
     }
 
     /**
@@ -1467,8 +1500,13 @@ class Statistics extends BaseController
      */
     protected function getUsersTrend(int $merchantId, string $startDate, string $endDate, string $dimension): array
     {
-        $query = User::where('create_time', '>=', $startDate . ' 00:00:00')
-            ->where('create_time', '<=', $endDate . ' 23:59:59');
+        // 从 device_triggers 获取该商家设备关联的用户趋势数据
+        $query = DeviceTrigger::whereIn('device_id', function($q) use ($merchantId) {
+                $q->table('xmt_nfc_devices')->where('merchant_id', $merchantId)->field('id');
+            })
+            ->where('create_time', '>=', $startDate . ' 00:00:00')
+            ->where('create_time', '<=', $endDate . ' 23:59:59')
+            ->where('success', 1);
 
         $dateFormat = match($dimension) {
             'week' => "DATE_FORMAT(create_time, '%Y-%u')",
@@ -1476,7 +1514,7 @@ class Statistics extends BaseController
             default => 'DATE(create_time)'
         };
 
-        return $query->field("{$dateFormat} as period, COUNT(*) as count")
+        return $query->field("{$dateFormat} as period, COUNT(DISTINCT user_id) as count")
             ->group('period')
             ->order('period', 'asc')
             ->select()
@@ -1589,7 +1627,7 @@ class Statistics extends BaseController
     {
         // 1. NFC触发数
         $triggerQuery = DeviceTrigger::whereIn('device_id', function($q) use ($merchantId) {
-                $q->table('nfc_devices')->where('merchant_id', $merchantId)->field('id');
+                $q->table('xmt_nfc_devices')->where('merchant_id', $merchantId)->field('id');
             })
             ->where('create_time', '>=', $startDate . ' 00:00:00')
             ->where('create_time', '<=', $endDate . ' 23:59:59');
@@ -1608,9 +1646,13 @@ class Statistics extends BaseController
             ? round(($successTriggers / $totalTriggers) * 100, 2)
             : 0;
 
-        // 4. 收益（模拟数据，实际应从订单表获取）
-        // 假设每次成功触发带来平均10元收益
-        $revenue = $successTriggers * 10;
+        // 4. 收益（从订单表获取真实数据）
+        $revenue = (float)Db::table('xmt_orders')
+            ->where('merchant_id', $merchantId)
+            ->where('status', 'paid')
+            ->where('paid_at', '>=', $startDate . ' 00:00:00')
+            ->where('paid_at', '<=', $endDate . ' 23:59:59')
+            ->sum('amount');
 
         // 计算上期数据用于对比
         $days = (strtotime($endDate) - strtotime($startDate)) / 86400 + 1;
@@ -1618,7 +1660,7 @@ class Statistics extends BaseController
         $prevStartDate = date('Y-m-d', strtotime($prevEndDate . " -{$days} days"));
 
         $prevTriggers = DeviceTrigger::whereIn('device_id', function($q) use ($merchantId) {
-                $q->table('nfc_devices')->where('merchant_id', $merchantId)->field('id');
+                $q->table('xmt_nfc_devices')->where('merchant_id', $merchantId)->field('id');
             })
             ->where('create_time', '>=', $prevStartDate . ' 00:00:00')
             ->where('create_time', '<=', $prevEndDate . ' 23:59:59')
@@ -1626,7 +1668,7 @@ class Statistics extends BaseController
             ->count();
 
         $prevVisitors = DeviceTrigger::whereIn('device_id', function($q) use ($merchantId) {
-                $q->table('nfc_devices')->where('merchant_id', $merchantId)->field('id');
+                $q->table('xmt_nfc_devices')->where('merchant_id', $merchantId)->field('id');
             })
             ->where('create_time', '>=', $prevStartDate . ' 00:00:00')
             ->where('create_time', '<=', $prevEndDate . ' 23:59:59')
@@ -1634,7 +1676,12 @@ class Statistics extends BaseController
             ->distinct()
             ->count('user_id');
 
-        $prevRevenue = $prevTriggers * 10;
+        $prevRevenue = (float)Db::table('xmt_orders')
+            ->where('merchant_id', $merchantId)
+            ->where('status', 'paid')
+            ->where('paid_at', '>=', $prevStartDate . ' 00:00:00')
+            ->where('paid_at', '<=', $prevEndDate . ' 23:59:59')
+            ->sum('amount');
 
         return [
             'triggers' => [
@@ -1670,7 +1717,7 @@ class Statistics extends BaseController
     {
         // 触发趋势
         $triggerTrend = DeviceTrigger::whereIn('device_id', function($q) use ($merchantId) {
-                $q->table('nfc_devices')->where('merchant_id', $merchantId)->field('id');
+                $q->table('xmt_nfc_devices')->where('merchant_id', $merchantId)->field('id');
             })
             ->where('create_time', '>=', $startDate . ' 00:00:00')
             ->where('create_time', '<=', $endDate . ' 23:59:59')
@@ -1683,7 +1730,7 @@ class Statistics extends BaseController
 
         // 访客趋势
         $visitorTrend = DeviceTrigger::whereIn('device_id', function($q) use ($merchantId) {
-                $q->table('nfc_devices')->where('merchant_id', $merchantId)->field('id');
+                $q->table('xmt_nfc_devices')->where('merchant_id', $merchantId)->field('id');
             })
             ->where('create_time', '>=', $startDate . ' 00:00:00')
             ->where('create_time', '<=', $endDate . ' 23:59:59')
@@ -1723,9 +1770,9 @@ class Statistics extends BaseController
      */
     protected function getDeviceRanking(int $merchantId, string $startDate, string $endDate, int $limit = 10): array
     {
-        $ranking = Db::table('device_triggers')
+        $ranking = Db::table('xmt_device_triggers')
             ->alias('dt')
-            ->join('nfc_devices nd', 'dt.device_id = nd.id')
+            ->join('xmt_nfc_devices nd', 'dt.device_id = nd.id')
             ->where('nd.merchant_id', $merchantId)
             ->where('dt.create_time', '>=', $startDate . ' 00:00:00')
             ->where('dt.create_time', '<=', $endDate . ' 23:59:59')
@@ -1744,11 +1791,18 @@ class Statistics extends BaseController
             ->select()
             ->toArray();
 
-        // 添加排名和收益数据
+        // 添加排名和收益数据（一次性查询该商家的订单收益，避免N+1）
+        $totalRevenue = (float)Db::table('xmt_orders')
+            ->where('merchant_id', $merchantId)
+            ->where('status', 'paid')
+            ->where('paid_at', '>=', $startDate . ' 00:00:00')
+            ->where('paid_at', '<=', $endDate . ' 23:59:59')
+            ->sum('amount');
+
         $rank = 1;
         foreach ($ranking as &$item) {
             $item['rank'] = $rank++;
-            $item['revenue'] = $item['trigger_count'] * 10; // 模拟收益
+            $item['revenue'] = $totalRevenue;
             $item['avg_per_visitor'] = $item['visitor_count'] > 0
                 ? round($item['trigger_count'] / $item['visitor_count'], 2)
                 : 0;
@@ -1769,7 +1823,7 @@ class Statistics extends BaseController
     {
         // 获取原始数据
         $data = DeviceTrigger::whereIn('device_id', function($q) use ($merchantId) {
-                $q->table('nfc_devices')->where('merchant_id', $merchantId)->field('id');
+                $q->table('xmt_nfc_devices')->where('merchant_id', $merchantId)->field('id');
             })
             ->where('create_time', '>=', $startDate . ' 00:00:00')
             ->where('create_time', '<=', $endDate . ' 23:59:59')
@@ -1828,35 +1882,43 @@ class Statistics extends BaseController
      */
     protected function getROIAnalysis(int $merchantId, string $startDate, string $endDate): array
     {
-        // 1. 设备成本（假设每台设备500元）
-        $deviceCount = NfcDevice::where('merchant_id', $merchantId)->count();
-        $deviceCost = $deviceCount * 500;
+        // 1. 设备成本
+        $perTrigger = (float)\think\facade\Config::get('marketing.cost.per_trigger', 2.0);
+        $perContent = (float)\think\facade\Config::get('marketing.cost.per_content', 5.0);
+        $perDeviceDaily = (float)\think\facade\Config::get('marketing.cost.per_device_daily', 10.0);
 
-        // 2. 内容生成成本（假设每条内容2元）
+        $deviceCount = NfcDevice::where('merchant_id', $merchantId)->count();
+        $days = (strtotime($endDate) - strtotime($startDate)) / 86400 + 1;
+        $deviceCost = $deviceCount * $perDeviceDaily * $days;
+
+        // 2. 内容生成成本
         $contentCount = ContentTask::where('merchant_id', $merchantId)
             ->where('create_time', '>=', $startDate . ' 00:00:00')
             ->where('create_time', '<=', $endDate . ' 23:59:59')
             ->where('status', ContentTask::STATUS_COMPLETED)
             ->count();
-        $contentCost = $contentCount * 2;
+        $contentCost = $contentCount * $perContent;
 
-        // 3. 运营成本（假设每月1000元）
-        $days = (strtotime($endDate) - strtotime($startDate)) / 86400 + 1;
-        $operationCost = ($days / 30) * 1000;
-
-        // 总成本
-        $totalCost = $deviceCost + $contentCost + $operationCost;
-
-        // 4. 收益（基于触发次数）
+        // 3. 触发成本
         $successTriggers = DeviceTrigger::whereIn('device_id', function($q) use ($merchantId) {
-                $q->table('nfc_devices')->where('merchant_id', $merchantId)->field('id');
+                $q->table('xmt_nfc_devices')->where('merchant_id', $merchantId)->field('id');
             })
             ->where('create_time', '>=', $startDate . ' 00:00:00')
             ->where('create_time', '<=', $endDate . ' 23:59:59')
             ->where('success', 1)
             ->count();
+        $triggerCost = $successTriggers * $perTrigger;
 
-        $revenue = $successTriggers * 10;
+        // 总成本
+        $totalCost = $deviceCost + $contentCost + $triggerCost;
+
+        // 4. 收益（从订单表获取真实数据）
+        $revenue = (float)Db::table('xmt_orders')
+            ->where('merchant_id', $merchantId)
+            ->where('status', 'paid')
+            ->where('paid_at', '>=', $startDate . ' 00:00:00')
+            ->where('paid_at', '<=', $endDate . ' 23:59:59')
+            ->sum('amount');
 
         // 5. 计算ROI
         $roi = $totalCost > 0
@@ -1867,15 +1929,15 @@ class Statistics extends BaseController
 
         return [
             'cost_breakdown' => [
-                'device_cost' => $deviceCost,
-                'content_cost' => $contentCost,
-                'operation_cost' => round($operationCost, 2),
+                'device_cost' => round($deviceCost, 2),
+                'content_cost' => round($contentCost, 2),
+                'trigger_cost' => round($triggerCost, 2),
                 'total_cost' => round($totalCost, 2)
             ],
             'revenue' => [
                 'total_revenue' => $revenue,
                 'trigger_count' => $successTriggers,
-                'avg_per_trigger' => 10
+                'avg_per_trigger' => $successTriggers > 0 ? round($revenue / $successTriggers, 2) : 0
             ],
             'roi' => [
                 'value' => $roi,
@@ -1889,5 +1951,183 @@ class Statistics extends BaseController
                 'roi_percent' => $roi
             ]
         ];
+    }
+
+    /**
+     * 获取营销洞察和建议
+     * GET /api/statistics/insights
+     */
+    public function insights(): Response
+    {
+        try {
+            $merchantId = $this->request->param('merchant_id/d');
+            $startDate = $this->request->param('start_date', date('Y-m-d', strtotime('-7 days')));
+            $endDate = $this->request->param('end_date', date('Y-m-d'));
+
+            $insights = [];
+
+            // 基于真实趋势数据生成洞察
+            $trends = $this->getRecentTrends($merchantId ?: null, 7);
+            if (!empty($trends)) {
+                $trendInsight = $this->generateTrendInsight($trends);
+                if ($trendInsight) {
+                    $insights[] = $trendInsight;
+                }
+            }
+
+            // 基于核心指标生成洞察
+            if ($merchantId) {
+                $coreMetrics = $this->getDashboardCoreMetrics($merchantId, $startDate, $endDate);
+                $contentInsight = $this->generateContentInsight($merchantId, $startDate, $endDate);
+                if ($contentInsight) {
+                    $insights[] = $contentInsight;
+                }
+                $deviceInsight = $this->generateDeviceInsight($merchantId, $startDate, $endDate);
+                if ($deviceInsight) {
+                    $insights[] = $deviceInsight;
+                }
+            }
+
+            return $this->success([
+                'insights' => $insights,
+                'generated_at' => date('Y-m-d H:i:s'),
+            ]);
+        } catch (\Exception $e) {
+            Log::error('获取营销洞察失败', ['error' => $e->getMessage()]);
+            return $this->error('获取营销洞察失败：' . $e->getMessage());
+        }
+    }
+
+    protected function generateTrendInsight(array $trends): ?array
+    {
+        if (count($trends) < 3) {
+            return null;
+        }
+
+        $counts = array_column($trends, 'count');
+        $firstHalf = array_slice($counts, 0, (int)(count($counts) / 2));
+        $secondHalf = array_slice($counts, (int)(count($counts) / 2));
+        $firstAvg = array_sum($firstHalf) / max(count($firstHalf), 1);
+        $secondAvg = array_sum($secondHalf) / max(count($secondHalf), 1);
+
+        if ($firstAvg == 0 && $secondAvg == 0) {
+            return null;
+        }
+
+        $change = $firstAvg > 0 ? round((($secondAvg - $firstAvg) / $firstAvg) * 100, 1) : 0;
+
+        if (abs($change) < 5) {
+            return [
+                'type' => 'trend',
+                'title' => '触发趋势分析',
+                'description' => "近期NFC设备触发次数趋势稳定，日均约" . round($secondAvg) . "次",
+                'suggestion' => '建议维持当前运营策略，关注高峰时段的内容更新',
+                'priority' => 'low',
+            ];
+        }
+
+        $direction = $change > 0 ? '增长' : '下降';
+        return [
+            'type' => 'trend',
+            'title' => '触发趋势分析',
+            'description' => "近期NFC设备触发次数呈{$direction}趋势，变化幅度{$change}%",
+            'suggestion' => $change > 0
+                ? '建议在高频触发时段增加内容更新频率，巩固增长势头'
+                : '建议检查设备在线状态和内容配置，排查下降原因',
+            'priority' => abs($change) > 20 ? 'high' : 'medium',
+        ];
+    }
+
+    protected function generateContentInsight(int $merchantId, string $startDate, string $endDate): ?array
+    {
+        $typeStats = ContentTask::where('merchant_id', $merchantId)
+            ->where('create_time', '>=', $startDate . ' 00:00:00')
+            ->where('create_time', '<=', $endDate . ' 23:59:59')
+            ->where('status', ContentTask::STATUS_COMPLETED)
+            ->field('type, COUNT(*) as count')
+            ->group('type')
+            ->order('count', 'desc')
+            ->select()
+            ->toArray();
+
+        if (count($typeStats) < 2) {
+            return null;
+        }
+
+        $top = $typeStats[0];
+        $typeNames = ['VIDEO' => '短视频', 'TEXT' => '图文', 'IMAGE' => '图片'];
+        $topName = $typeNames[$top['type']] ?? $top['type'];
+
+        return [
+            'type' => 'content',
+            'title' => '内容效果分析',
+            'description' => "{$topName}内容生成量最多，共{$top['count']}条",
+            'suggestion' => "建议根据{$topName}内容的表现数据，调整各类型内容的生成比例",
+            'priority' => 'medium',
+        ];
+    }
+
+    protected function generateDeviceInsight(int $merchantId, string $startDate, string $endDate): ?array
+    {
+        $deviceRanking = $this->getDeviceRanking($merchantId, $startDate, $endDate, 10);
+        if (empty($deviceRanking)) {
+            return null;
+        }
+
+        $maxTrigger = $deviceRanking[0]['trigger_count'] ?? 0;
+        $minTrigger = end($deviceRanking)['trigger_count'] ?? 0;
+
+        if ($maxTrigger > 0 && $minTrigger < $maxTrigger * 0.3) {
+            return [
+                'type' => 'device',
+                'title' => '设备利用率',
+                'description' => '部分设备触发频率较低，最高与最低相差' . ($maxTrigger - $minTrigger) . '次',
+                'suggestion' => '建议优化低频设备的位置摆放或内容配置',
+                'priority' => 'low',
+            ];
+        }
+
+        return null;
+    }
+
+    /**
+     * 获取统计数据异常预警
+     * GET /api/statistics/alerts
+     */
+    public function statisticsAlerts(): Response
+    {
+        try {
+            $merchantId = $this->resolveMerchantId();
+
+            $anomalyAlertService = new \app\service\AnomalyAlertService();
+            $result = $anomalyAlertService->getAnomalyHistory($merchantId, [
+                'status' => 'DETECTED',
+                'page_size' => 10,
+            ]);
+
+            $alerts = [];
+            foreach ($result['list'] as $item) {
+                $alerts[] = [
+                    'id' => $item['id'],
+                    'type' => strtolower($item['severity'] ?? 'warning'),
+                    'category' => $item['type'] ?? 'unknown',
+                    'title' => $item['type_text'] ?? ($item['type'] ?? '异常告警'),
+                    'message' => $item['type_text'] . '：当前值 ' . $item['current_value'] . '，偏差 ' . $item['deviation'] . '%',
+                    'is_read' => in_array($item['status'], ['RESOLVED', 'IGNORED']),
+                    'created_at' => $item['create_time'] ?? '',
+                ];
+            }
+
+            $unreadCount = count(array_filter($alerts, fn($a) => !$a['is_read']));
+
+            return $this->success([
+                'alerts' => $alerts,
+                'unread_count' => $unreadCount,
+                'total' => $result['total'] ?? count($alerts),
+            ]);
+        } catch (\Exception $e) {
+            Log::error('获取统计预警失败', ['error' => $e->getMessage()]);
+            return $this->error('获取统计预警失败：' . $e->getMessage());
+        }
     }
 }

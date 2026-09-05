@@ -129,6 +129,22 @@ class Auth extends BaseController
     }
 
     /**
+     * 获取当前用户权限列表
+     * GET /api/auth/permissions
+     */
+    public function permissions()
+    {
+        try {
+            $role = $this->request->role ?? 'user';
+            $permissions = $this->authService->getRolePermissions($role);
+
+            return $this->success(['permissions' => $permissions], '获取成功');
+        } catch (\Exception $e) {
+            return $this->error($e->getMessage(), 400, 'get_permissions_failed');
+        }
+    }
+
+    /**
      * 更新用户信息
      * POST /api/auth/update
      */

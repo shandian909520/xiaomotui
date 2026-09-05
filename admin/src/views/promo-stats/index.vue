@@ -246,6 +246,7 @@ import {
   getTodayStats,
   getCampaignList
 } from '@/api/promo-stats'
+import { exportReport } from '@/api/statistics'
 
 // 日期范围类型
 const dateRangeType = ref('7days')
@@ -449,26 +450,24 @@ const loadOverviewData = async () => {
     const params = getQueryParams()
     const res = await getOverview(params)
 
-    if (res.code === 200 && res.data) {
-      const data = res.data
+    const data = res
 
-      // 更新核心指标
-      metrics.value[0].value = data.campaign_count || 0
-      metrics.value[0].trend = data.campaign_trend || 'flat'
-      metrics.value[0].trendPercent = data.campaign_trend_percent || 0
+    // 更新核心指标
+    metrics.value[0].value = data.campaign_count || 0
+    metrics.value[0].trend = data.campaign_trend || 'flat'
+    metrics.value[0].trendPercent = data.campaign_trend_percent || 0
 
-      metrics.value[1].value = data.trigger_count || 0
-      metrics.value[1].trend = data.trigger_trend || 'flat'
-      metrics.value[1].trendPercent = data.trigger_trend_percent || 0
+    metrics.value[1].value = data.trigger_count || 0
+    metrics.value[1].trend = data.trigger_trend || 'flat'
+    metrics.value[1].trendPercent = data.trigger_trend_percent || 0
 
-      metrics.value[2].value = data.publish_count || 0
-      metrics.value[2].trend = data.publish_trend || 'flat'
-      metrics.value[2].trendPercent = data.publish_trend_percent || 0
+    metrics.value[2].value = data.publish_count || 0
+    metrics.value[2].trend = data.publish_trend || 'flat'
+    metrics.value[2].trendPercent = data.publish_trend_percent || 0
 
-      metrics.value[3].value = data.reward_count || 0
-      metrics.value[3].trend = data.reward_trend || 'flat'
-      metrics.value[3].trendPercent = data.reward_trend_percent || 0
-    }
+    metrics.value[3].value = data.reward_count || 0
+    metrics.value[3].trend = data.reward_trend || 'flat'
+    metrics.value[3].trendPercent = data.reward_trend_percent || 0
   } catch (error) {
     console.error('加载概览数据失败:', error)
   }
@@ -481,31 +480,27 @@ const loadTrendData = async () => {
     const params = getQueryParams()
     const res = await getTrendData(params)
 
-    if (res.code === 200 && res.data) {
-      const data = res.data
-      isEmpty.trend = !data.dates || data.dates.length === 0
+    const data = res
+    isEmpty.trend = !data || !data.dates || data.dates.length === 0
 
-      if (!isEmpty.trend) {
-        const option = getLineChartOption(
-          data.dates,
-          [
-            { name: '触发', data: data.trigger_data, smooth: true },
-            { name: '发布', data: data.publish_data, smooth: true },
-            { name: '奖励', data: data.reward_data, smooth: true }
-          ],
-          {
-            legend: {
-              data: ['触发', '发布', '奖励']
-            },
-            tooltip: {
-              trigger: 'axis'
-            }
+    if (!isEmpty.trend) {
+      const option = getLineChartOption(
+        data.dates,
+        [
+          { name: '触发', data: data.trigger_data, smooth: true },
+          { name: '发布', data: data.publish_data, smooth: true },
+          { name: '奖励', data: data.reward_data, smooth: true }
+        ],
+        {
+          legend: {
+            data: ['触发', '发布', '奖励']
+          },
+          tooltip: {
+            trigger: 'axis'
           }
-        )
-        trendChart.setOption(option)
-      }
-    } else {
-      isEmpty.trend = true
+        }
+      )
+      trendChart.setOption(option)
     }
   } catch (error) {
     console.error('加载趋势数据失败:', error)
@@ -522,30 +517,26 @@ const loadPlatformData = async () => {
     const params = getQueryParams()
     const res = await getPlatformDistribution(params)
 
-    if (res.code === 200 && res.data) {
-      const data = res.data
-      isEmpty.platform = !data.platforms || data.platforms.length === 0
+    const data = res
+    isEmpty.platform = !data || !data.platforms || data.platforms.length === 0
 
-      if (!isEmpty.platform) {
-        const pieData = data.platforms.map(item => ({
-          value: item.count,
-          name: item.name
-        }))
+    if (!isEmpty.platform) {
+      const pieData = data.platforms.map(item => ({
+        value: item.count,
+        name: item.name
+      }))
 
-        const option = getPieChartOption(pieData, {
-          tooltip: {
-            trigger: 'item',
-            formatter: '{b}: {c} ({d}%)'
-          },
-          legend: {
-            orient: 'vertical',
-            left: 'left'
-          }
-        })
-        platformChart.setOption(option)
-      }
-    } else {
-      isEmpty.platform = true
+      const option = getPieChartOption(pieData, {
+        tooltip: {
+          trigger: 'item',
+          formatter: '{b}: {c} ({d}%)'
+        },
+        legend: {
+          orient: 'vertical',
+          left: 'left'
+        }
+      })
+      platformChart.setOption(option)
     }
   } catch (error) {
     console.error('加载平台分布数据失败:', error)
@@ -562,16 +553,11 @@ const loadDeviceData = async () => {
     const params = { ...getQueryParams(), limit: 10 }
     const res = await getDeviceRanking(params)
 
-    if (res.code === 200 && res.data) {
-      const data = res.data
-      isEmpty.device = !data.devices || data.devices.length === 0
+    const data = res
+    isEmpty.device = !data || !data.devices || data.devices.length === 0
 
-      if (!isEmpty.device) {
-        deviceRanking.value = data.devices
-      }
-    } else {
-      isEmpty.device = true
-      deviceRanking.value = []
+    if (!isEmpty.device) {
+      deviceRanking.value = data.devices
     }
   } catch (error) {
     console.error('加载设备排行数据失败:', error)
@@ -597,33 +583,29 @@ const loadCampaignData = async () => {
     }
     const res = await getCampaignComparison(params)
 
-    if (res.code === 200 && res.data) {
-      const data = res.data
-      isEmpty.campaign = !data.campaigns || data.campaigns.length === 0
+    const data = res
+    isEmpty.campaign = !data || !data.campaigns || data.campaigns.length === 0
 
-      if (!isEmpty.campaign) {
-        const campaignNames = data.campaigns.map(c => c.name)
-        const triggerData = data.campaigns.map(c => c.trigger_count)
-        const publishData = data.campaigns.map(c => c.publish_count)
-        const rewardData = data.campaigns.map(c => c.reward_count)
+    if (!isEmpty.campaign) {
+      const campaignNames = data.campaigns.map(c => c.name)
+      const triggerData = data.campaigns.map(c => c.trigger_count)
+      const publishData = data.campaigns.map(c => c.publish_count)
+      const rewardData = data.campaigns.map(c => c.reward_count)
 
-        const option = getBarChartOption(
-          campaignNames,
-          [
-            { name: '触发', data: triggerData },
-            { name: '发布', data: publishData },
-            { name: '奖励', data: rewardData }
-          ],
-          {
-            legend: {
-              data: ['触发', '发布', '奖励']
-            }
+      const option = getBarChartOption(
+        campaignNames,
+        [
+          { name: '触发', data: triggerData },
+          { name: '发布', data: publishData },
+          { name: '奖励', data: rewardData }
+        ],
+        {
+          legend: {
+            data: ['触发', '发布', '奖励']
           }
-        )
-        campaignChart.setOption(option)
-      }
-    } else {
-      isEmpty.campaign = true
+        }
+      )
+      campaignChart.setOption(option)
     }
   } catch (error) {
     console.error('加载活动对比数据失败:', error)
@@ -638,39 +620,37 @@ const loadTodayStats = async () => {
   try {
     const res = await getTodayStats()
 
-    if (res.code === 200 && res.data) {
-      const data = res.data
-      todayStats.value = [
-        {
-          key: 'trigger',
-          label: '今日触发',
-          value: data.trigger_count || 0,
-          compare: data.trigger_compare || '较昨日持平',
-          trend: data.trigger_trend || 'flat'
-        },
-        {
-          key: 'publish',
-          label: '今日发布',
-          value: data.publish_count || 0,
-          compare: data.publish_compare || '较昨日持平',
-          trend: data.publish_trend || 'flat'
-        },
-        {
-          key: 'reward',
-          label: '今日奖励',
-          value: data.reward_count || 0,
-          compare: data.reward_compare || '较昨日持平',
-          trend: data.reward_trend || 'flat'
-        },
-        {
-          key: 'conversion',
-          label: '转化率',
-          value: data.conversion_rate || '0%',
-          compare: data.conversion_compare || '较昨日持平',
-          trend: data.conversion_trend || 'flat'
-        }
-      ]
-    }
+    const data = res
+    todayStats.value = [
+      {
+        key: 'trigger',
+        label: '今日触发',
+        value: data.trigger_count || 0,
+        compare: data.trigger_compare || '较昨日持平',
+        trend: data.trigger_trend || 'flat'
+      },
+      {
+        key: 'publish',
+        label: '今日发布',
+        value: data.publish_count || 0,
+        compare: data.publish_compare || '较昨日持平',
+        trend: data.publish_trend || 'flat'
+      },
+      {
+        key: 'reward',
+        label: '今日奖励',
+        value: data.reward_count || 0,
+        compare: data.reward_compare || '较昨日持平',
+        trend: data.reward_trend || 'flat'
+      },
+      {
+        key: 'conversion',
+        label: '转化率',
+        value: data.conversion_rate || '0%',
+        compare: data.conversion_compare || '较昨日持平',
+        trend: data.conversion_trend || 'flat'
+      }
+    ]
   } catch (error) {
     console.error('加载今日统计数据失败:', error)
   }
@@ -681,9 +661,8 @@ const loadCampaignList = async () => {
   try {
     const res = await getCampaignList({ limit: 50 })
 
-    if (res.code === 200 && res.data) {
-      campaignList.value = res.data.campaigns || []
-    }
+    const data = res
+    campaignList.value = data?.campaigns || []
   } catch (error) {
     console.error('加载活动列表失败:', error)
   }
@@ -767,8 +746,45 @@ const handleExport = async () => {
       type: 'info'
     })
 
-    // TODO: 调用后端导出接口
-    ElMessage.success('导出功能开发中...')
+    const params = {}
+
+    // 构建日期参数
+    if (dateRangeType.value === 'today') {
+      const today = new Date().toISOString().split('T')[0]
+      params.start_date = today
+      params.end_date = today
+    } else if (dateRangeType.value === '7days') {
+      const end = new Date()
+      const start = new Date()
+      start.setDate(start.getDate() - 7)
+      params.start_date = start.toISOString().split('T')[0]
+      params.end_date = end.toISOString().split('T')[0]
+    } else if (dateRangeType.value === '30days') {
+      const end = new Date()
+      const start = new Date()
+      start.setDate(start.getDate() - 30)
+      params.start_date = start.toISOString().split('T')[0]
+      params.end_date = end.toISOString().split('T')[0]
+    } else if (dateRangeType.value === 'custom' && dateRange.value?.length === 2) {
+      params.start_date = dateRange.value[0]
+      params.end_date = dateRange.value[1]
+    }
+
+    params.format = 'excel'
+
+    const blob = await exportReport(params)
+
+    // 创建下载链接
+    const url = window.URL.createObjectURL(new Blob([blob]))
+    const link = document.createElement('a')
+    link.href = url
+    link.setAttribute('download', `推广统计报表_${new Date().toISOString().split('T')[0]}.xlsx`)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(url)
+
+    ElMessage.success('报表导出成功')
   } catch (error) {
     if (error !== 'cancel') {
       console.error('导出失败:', error)

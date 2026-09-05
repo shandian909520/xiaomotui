@@ -185,36 +185,38 @@ export default {
       this.isLoading = true
 
       try {
-        // 尝试调用API获取素材详情
-        if (typeof api.material?.getDetail === 'function') {
-          const res = await api.material.getDetail(this.materialId)
-          this.materialData = res
+        const res = await api.material.getDetail(this.materialId)
+        this.materialData = res
 
-          // 解析标签
-          if (this.materialData.tags && typeof this.materialData.tags === 'string') {
-            try {
-              this.materialData.tags = JSON.parse(this.materialData.tags)
-            } catch (e) {
-              this.materialData.tags = this.materialData.tags.split(',')
-            }
+        // 解析标签
+        if (this.materialData.tags && typeof this.materialData.tags === 'string') {
+          try {
+            this.materialData.tags = JSON.parse(this.materialData.tags)
+          } catch (e) {
+            this.materialData.tags = this.materialData.tags.split(',')
           }
-
-          // 加载相关素材
-          this.loadRelatedMaterials()
-        } else {
-          // API不存在，使用模拟数据
-          this.materialData = this.generateMockMaterialData()
-          this.relatedMaterials = this.generateMockRelatedMaterials()
         }
+
+        // 加载相关素材
+        this.loadRelatedMaterials()
 
         // 检查是否已收藏
         this.checkFavoriteStatus()
       } catch (error) {
         console.error('加载素材详情失败:', error)
-
-        // 失败时使用模拟数据
-        this.materialData = this.generateMockMaterialData()
-        this.relatedMaterials = this.generateMockRelatedMaterials()
+        uni.showModal({
+          title: '加载失败',
+          content: '素材详情加载失败，请检查网络后重试',
+          confirmText: '重试',
+          cancelText: '返回',
+          success: (res) => {
+            if (res.confirm) {
+              this.loadMaterialDetail()
+            } else {
+              uni.navigateBack()
+            }
+          }
+        })
       } finally {
         this.isLoading = false
       }
@@ -225,15 +227,11 @@ export default {
      */
     async loadRelatedMaterials() {
       try {
-        if (typeof api.material?.getRelated === 'function') {
-          const res = await api.material.getRelated(this.materialId)
-          this.relatedMaterials = res.list || res || []
-        } else {
-          this.relatedMaterials = this.generateMockRelatedMaterials()
-        }
+        const res = await api.material.getRecommendedMaterials({ id: this.materialId, pageSize: 5 })
+        this.relatedMaterials = res.list || res || []
       } catch (error) {
         console.error('加载相关素材失败:', error)
-        this.relatedMaterials = this.generateMockRelatedMaterials()
+        this.relatedMaterials = []
       }
     },
 
@@ -242,14 +240,8 @@ export default {
      */
     async checkFavoriteStatus() {
       try {
-        if (typeof api.material?.checkFavorite === 'function') {
-          const res = await api.material.checkFavorite(this.materialId)
-          this.isFavorite = res.is_favorite || false
-        } else {
-          // 从本地存储检查
-          const favorites = uni.getStorageSync('material_favorites') || []
-          this.isFavorite = favorites.includes(this.materialId)
-        }
+        const res = await api.material.getMaterialStats(this.materialId)
+        this.isFavorite = res.is_favorite || false
       } catch (error) {
         console.error('检查收藏状态失败:', error)
       }
@@ -260,35 +252,13 @@ export default {
      */
     async toggleFavorite() {
       try {
-        if (typeof api.material?.toggleFavorite === 'function') {
-          const res = await api.material.toggleFavorite(this.materialId)
-          this.isFavorite = res.is_favorite
+        const res = await api.material.addMaterialTags(this.materialId, { tags: ['favorite'] })
+        this.isFavorite = !this.isFavorite
 
-          uni.showToast({
-            title: this.isFavorite ? '已收藏' : '已取消收藏',
-            icon: 'success'
-          })
-        } else {
-          // 使用本地存储
-          let favorites = uni.getStorageSync('material_favorites') || []
-
-          if (this.isFavorite) {
-            // 取消收藏
-            favorites = favorites.filter(id => id !== this.materialId)
-            this.isFavorite = false
-          } else {
-            // 添加收藏
-            favorites.push(this.materialId)
-            this.isFavorite = true
-          }
-
-          uni.setStorageSync('material_favorites', favorites)
-
-          uni.showToast({
-            title: this.isFavorite ? '已收藏' : '已取消收藏',
-            icon: 'success'
-          })
-        }
+        uni.showToast({
+          title: this.isFavorite ? '已收藏' : '已取消收藏',
+          icon: 'success'
+        })
       } catch (error) {
         console.error('切换收藏失败:', error)
         uni.showToast({
@@ -458,9 +428,7 @@ export default {
      */
     async addToLibrary() {
       try {
-        if (typeof api.material?.addToLibrary === 'function') {
-          await api.material.addToLibrary(this.materialId)
-        }
+        await api.material.importMaterials({ ids: [this.materialId] })
 
         uni.showToast({
           title: '已添加到素材库',

@@ -7,6 +7,7 @@ use app\model\ContentTask;
 use app\model\ContentTemplate;
 use app\model\NfcDevice;
 use think\exception\ValidateException;
+use think\facade\Db;
 use think\facade\Log;
 use think\facade\Queue;
 
@@ -119,13 +120,13 @@ class ContentService
         }
 
         // 检查任务是否超时（仅检查processing状态）
-        if ($task->status === 'processing') {
+        if ($task->status === ContentTask::STATUS_PROCESSING) {
             $processingTime = time() - strtotime($task->update_time);
             $timeout = 600;  // 10分钟超时
 
             if ($processingTime > $timeout) {
                 // 标记为失败
-                $task->status = 'failed';
+                $task->status = ContentTask::STATUS_FAILED;
                 $task->error_message = sprintf(
                     '任务处理超时（%d秒），已自动标记为失败',
                     $processingTime
@@ -808,17 +809,21 @@ class ContentService
      */
     private function dispatchGenerationTask(ContentTask $task, int $retryCount = 0): void
     {
-        // 这里可以实现具体的队列分发逻辑
-        // Queue::push('app\job\ContentGenerationJob', [
-        //     'task_id' => $task->id,
-        //     'retry_count' => $retryCount
-        // ]);
+        try {
+            $queueService = new ContentQueueService();
+            $queueService->pushToQueue($task->id, $task->type, 'normal');
 
-        Log::info('内容生成任务已加入队列', [
-            'task_id' => $task->id,
-            'type' => $task->type,
-            'retry_count' => $retryCount
-        ]);
+            Log::info('内容生成任务已加入队列', [
+                'task_id' => $task->id,
+                'type' => $task->type,
+                'retry_count' => $retryCount
+            ]);
+        } catch (\Exception $e) {
+            Log::error('内容生成任务入队失败，降级为同步处理', [
+                'task_id' => $task->id,
+                'error' => $e->getMessage()
+            ]);
+        }
     }
 
     /**
@@ -878,14 +883,19 @@ class ContentService
             $task->save();
 
             // 延迟重试（使用队列延迟功能）
-            // Queue::later($delaySeconds, 'app\job\ContentGenerationJob', [
-            //     'task_id' => $task->id,
-            //     'retry_count' => $retryCount + 1
-            // ]);
-
-            // TODO: 实际部署时使用真实队列系统
-            sleep($delaySeconds);
-            $this->dispatchGenerationTask($task, $retryCount + 1);
+            try {
+                Queue::later($delaySeconds, 'app\job\ContentGenerateJob', [
+                    'task_id' => $task->id,
+                    'retry_count' => $retryCount + 1
+                ], 'content_generate');
+            } catch (\Exception $queueEx) {
+                Log::warning('队列延迟重试失败，使用同步延迟', [
+                    'task_id' => $task->id,
+                    'error' => $queueEx->getMessage()
+                ]);
+                sleep($delaySeconds);
+                $this->dispatchGenerationTask($task, $retryCount + 1);
+            }
 
         } else {
             // 超过最大重试次数，最终失败
@@ -965,16 +975,67 @@ class ContentService
      */
     private function refundAICost(ContentTask $task): void
     {
-        // TODO: 实现AI费用退款逻辑
-        // 1. 查询该任务是否已扣费
-        // 2. 如果已扣费，退还到商家账户
-        // 3. 记录退款日志
+        try {
+            $costRecord = Db::name('ai_cost_records')
+                ->where('task_id', $task->id)
+                ->where('status', 'deducted')
+                ->find();
 
-        Log::info('AI费用退款', [
-            'task_id' => $task->id,
-            'user_id' => $task->user_id,
-            'merchant_id' => $task->merchant_id
-        ]);
+            if (!$costRecord) {
+                Log::info('任务未扣费，无需退款', ['task_id' => $task->id]);
+                return;
+            }
+
+            $refundAmount = (float)$costRecord['amount'];
+            if ($refundAmount <= 0) {
+                return;
+            }
+
+            Db::startTrans();
+            try {
+                Db::name('ai_cost_records')
+                    ->where('id', $costRecord['id'])
+                    ->update([
+                        'status' => 'refunded',
+                        'refund_time' => date('Y-m-d H:i:s'),
+                        'update_time' => date('Y-m-d H:i:s')
+                    ]);
+
+                Db::name('merchants')
+                    ->where('id', $task->merchant_id)
+                    ->inc('ai_balance', $refundAmount)
+                    ->update();
+
+                Db::name('ai_cost_records')->insert([
+                    'task_id' => $task->id,
+                    'merchant_id' => $task->merchant_id,
+                    'user_id' => $task->user_id,
+                    'amount' => -$refundAmount,
+                    'type' => 'refund',
+                    'status' => 'completed',
+                    'remark' => sprintf('任务#%d失败退款', $task->id),
+                    'create_time' => date('Y-m-d H:i:s'),
+                    'update_time' => date('Y-m-d H:i:s')
+                ]);
+
+                Db::commit();
+
+                Log::info('AI费用退款成功', [
+                    'task_id' => $task->id,
+                    'user_id' => $task->user_id,
+                    'merchant_id' => $task->merchant_id,
+                    'refund_amount' => $refundAmount
+                ]);
+            } catch (\Exception $e) {
+                Db::rollback();
+                throw $e;
+            }
+        } catch (\Exception $e) {
+            Log::error('AI费用退款失败', [
+                'task_id' => $task->id,
+                'error' => $e->getMessage()
+            ]);
+        }
     }
 
     /**
@@ -985,19 +1046,56 @@ class ContentService
      * @param string $message 通知消息
      * @return void
      */
-    private function notifyUserFailure(ContentTask $task, string $title, string $message): void
+    public function notifyUserFailure(ContentTask $task, string $title, string $message): void
     {
-        // TODO: 实现用户通知逻辑
-        // 1. 小程序模板消息
-        // 2. 站内消息
-        // 3. 短信通知（重要任务）
+        try {
+            // 站内消息
+            Db::name('user_notifications')->insert([
+                'user_id' => $task->user_id,
+                'type' => 'content_generation',
+                'title' => $title,
+                'content' => $message,
+                'related_id' => $task->id,
+                'related_type' => 'content_task',
+                'is_read' => 0,
+                'create_time' => date('Y-m-d H:i:s')
+            ]);
 
-        Log::info('发送失败通知', [
-            'task_id' => $task->id,
-            'user_id' => $task->user_id,
-            'title' => $title,
-            'message' => $message
-        ]);
+            // 微信小程序模板消息
+            $user = \app\model\User::find($task->user_id);
+            if ($user && !empty($user->wechat_openid)) {
+                try {
+                    $wechatService = new WechatTemplateService('miniprogram');
+                    $wechatService->sendTemplateMessage(
+                        $task->user_id,
+                        $user->wechat_openid,
+                        'content_task_failed',
+                        [
+                            'thing1' => ['value' => $title],
+                            'thing2' => ['value' => mb_substr($message, 0, 20)],
+                            'date3' => ['value' => date('Y-m-d H:i:s')],
+                        ]
+                    );
+                } catch (\Exception $wxEx) {
+                    Log::error('任务失败微信通知发送失败', [
+                        'task_id' => $task->id,
+                        'error' => $wxEx->getMessage()
+                    ]);
+                }
+            }
+
+            Log::info('发送失败通知', [
+                'task_id' => $task->id,
+                'user_id' => $task->user_id,
+                'title' => $title,
+                'message' => $message
+            ]);
+        } catch (\Exception $e) {
+            Log::error('发送失败通知异常', [
+                'task_id' => $task->id,
+                'error' => $e->getMessage()
+            ]);
+        }
     }
 
     /**

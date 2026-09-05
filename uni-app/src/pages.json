@@ -33,6 +33,14 @@
       }
     },
     {
+      "path": "pages/hub/index",
+      "style": {
+        "navigationBarTitleText": "完成任务领奖励",
+        "navigationBarBackgroundColor": "#6366f1",
+        "navigationBarTextStyle": "white"
+      }
+    },
+    {
       "path": "pages/promo/index",
       "style": {
         "navigationBarTitleText": "帮TA推广",

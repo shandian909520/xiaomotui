@@ -22,6 +22,17 @@ interface SmsDriverInterface
     public function send(string $phone, string $code, array $data = []): array;
 
     /**
+     * 发送模板短信（通知类）
+     *
+     * @param string $phone 手机号码
+     * @param string $templateType 模板类型
+     * @param array $data 模板参数
+     * @return array
+     * @throws \Exception
+     */
+    public function sendTemplate(string $phone, string $templateType, array $data = []): array;
+
+    /**
      * 获取驱动名称
      *
      * @return string

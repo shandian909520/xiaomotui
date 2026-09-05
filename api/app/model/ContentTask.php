@@ -265,7 +265,6 @@ class ContentTask extends Model
     public static function getPendingTasks(int $limit = 10): array
     {
         return self::where('status', self::STATUS_PENDING)
-            ->order('priority', 'desc')
             ->order('create_time', 'asc')
             ->limit($limit)
             ->select()
@@ -280,7 +279,7 @@ class ContentTask extends Model
     public static function getProcessingTasks(): array
     {
         return self::where('status', self::STATUS_PROCESSING)
-            ->order('started_at', 'asc')
+            ->order('update_time', 'asc')
             ->select()
             ->toArray();
     }
@@ -339,11 +338,19 @@ class ContentTask extends Model
             $query->where('merchant_id', $merchantId);
         }
 
-        $total = $query->count();
-        $pending = $query->where('status', self::STATUS_PENDING)->count();
-        $processing = $query->where('status', self::STATUS_PROCESSING)->count();
-        $completed = $query->where('status', self::STATUS_COMPLETED)->count();
-        $failed = $query->where('status', self::STATUS_FAILED)->count();
+        $stats = $query->field([
+            'COUNT(*) as total',
+            'SUM(status = "' . self::STATUS_PENDING . '") as pending',
+            'SUM(status = "' . self::STATUS_PROCESSING . '") as processing',
+            'SUM(status = "' . self::STATUS_COMPLETED . '") as completed',
+            'SUM(status = "' . self::STATUS_FAILED . '") as failed',
+        ])->find();
+
+        $total = (int)($stats['total'] ?? 0);
+        $pending = (int)($stats['pending'] ?? 0);
+        $processing = (int)($stats['processing'] ?? 0);
+        $completed = (int)($stats['completed'] ?? 0);
+        $failed = (int)($stats['failed'] ?? 0);
 
         return [
             'total' => $total,

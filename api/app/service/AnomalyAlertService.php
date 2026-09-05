@@ -180,7 +180,7 @@ class AnomalyAlertService
      * 检测设备异常
      *
      * @param int $deviceId 设备ID
-     * @return array|null 异常信息
+     * @return array|null 异常信息（单个异常时兼容旧接口）或异常列表
      */
     public function detectDeviceAnomaly(int $deviceId): ?array
     {
@@ -245,7 +245,7 @@ class AnomalyAlertService
                 }
             }
 
-            return !empty($anomalies) ? $anomalies[0] : null;
+            return !empty($anomalies) ? $anomalies : null;
 
         } catch (\Exception $e) {
             Log::error('设备异常检测失败', [
@@ -640,9 +640,16 @@ class AnomalyAlertService
                 'severity' => $anomaly['severity']
             ]);
 
-            // 自动发送通知
+            // 自动发送通知（通知失败不影响异常记录）
             $anomaly['id'] = $id;
-            $this->sendAlert($anomaly);
+            try {
+                $this->sendAlert($anomaly);
+            } catch (\Exception $notifyEx) {
+                Log::warning('异常通知发送失败，不影响记录', [
+                    'anomaly_id' => $id,
+                    'error' => $notifyEx->getMessage()
+                ]);
+            }
 
             return $id;
 
@@ -891,7 +898,7 @@ class AnomalyAlertService
 
             $resolutionRate = $totalCount > 0 ? round(($resolvedCount / $totalCount) * 100, 2) : 0;
 
-            // 平均解决时间
+            // 平均解决时间（注意：TIMESTAMPDIFF 是 MySQL 特有函数，其他数据库需适配）
             $avgResolutionTime = Db::name('anomaly_alerts')
                 ->where('merchant_id', $merchantId)
                 ->where('status', 'RESOLVED')
@@ -939,12 +946,19 @@ class AnomalyAlertService
                 $where[] = ['merchant_id', '=', $merchantId];
             }
 
-            $devices = Db::name('nfc_devices')->where($where)->select();
+            $devices = Db::name('nfc_devices')->where($where)->limit(100)->select();
 
             foreach ($devices as $device) {
                 $anomaly = $this->detectDeviceAnomaly($device['id']);
                 if ($anomaly) {
-                    $anomalies[] = $anomaly;
+                    if (isset($anomaly[0])) {
+                        // detectDeviceAnomaly 返回了多个异常
+                        foreach ($anomaly as $item) {
+                            $anomalies[] = $item;
+                        }
+                    } else {
+                        $anomalies[] = $anomaly;
+                    }
                 }
             }
         } catch (\Exception $e) {
@@ -1038,9 +1052,6 @@ class AnomalyAlertService
      */
     protected function getHistoricalData(string $metric, ?int $merchantId, int $days): array
     {
-        // 这里需要根据实际的指标数据存储方式来实现
-        // 示例实现：从缓存或数据库获取历史数据
-
         $cacheKey = "historical_data:{$metric}:{$merchantId}:{$days}";
         $data = Cache::get($cacheKey);
 
@@ -1048,9 +1059,44 @@ class AnomalyAlertService
             return $data;
         }
 
-        // 这里应该从实际的数据源获取历史数据
-        // 暂时返回空数组（实际使用时需要实现真实的数据获取逻辑）
-        return [];
+        // 从 Statistics 表获取历史数据
+        $endDate = date('Y-m-d', strtotime('-1 day'));
+        $startDate = date('Y-m-d', strtotime("-{$days} days"));
+
+        $metricTypeMap = [
+            'trigger_count' => 'nfc_trigger_count',
+            'success_count' => 'nfc_success_count',
+            'fail_count' => 'nfc_fail_count',
+            'content_count' => 'content_generate_count',
+            'publish_count' => 'publish_count',
+            'response_time' => 'nfc_response_time',
+            'conversion_rate' => 'conversion_rate',
+        ];
+
+        $mappedMetric = $metricTypeMap[$metric] ?? $metric;
+
+        $query = Db::name('statistics')
+            ->whereBetween('date', [$startDate, $endDate])
+            ->where('metric_type', $mappedMetric);
+
+        if ($merchantId !== null) {
+            $query->where('merchant_id', $merchantId);
+        }
+
+        $results = $query->field('metric_value')
+            ->order('date', 'asc')
+            ->select()
+            ->toArray();
+
+        $data = array_map(function ($row) {
+            return (float)$row['metric_value'];
+        }, $results);
+
+        if (!empty($data)) {
+            Cache::set($cacheKey, $data, 300);
+        }
+
+        return $data;
     }
 
     /**
@@ -1210,26 +1256,22 @@ class AnomalyAlertService
     {
         try {
             $merchantId = $anomaly['merchant_id'] ?? 0;
-            $cacheKey = "anomaly_notification:merchant_{$merchantId}";
-            $notifications = Cache::get($cacheKey, []);
+            $typeText = self::ANOMALY_TYPES[$anomaly['type']] ?? $anomaly['type'];
 
-            $notifications[] = [
-                'id' => $anomaly['id'] ?? 0,
+            Db::name('notifications')->insert([
+                'merchant_id' => $merchantId > 0 ? $merchantId : 0,
+                'title' => "异常预警：{$typeText}",
+                'content' => $message,
                 'type' => 'anomaly_alert',
-                'title' => self::ANOMALY_TYPES[$anomaly['type']] ?? $anomaly['type'],
-                'message' => $message,
-                'severity' => $anomaly['severity'],
-                'data' => $anomaly,
-                'read' => false,
-                'create_time' => date('Y-m-d H:i:s')
-            ];
-
-            // 保留最近100条通知
-            if (count($notifications) > 100) {
-                $notifications = array_slice($notifications, -100);
-            }
-
-            Cache::set($cacheKey, $notifications, 7 * 24 * 3600);
+                'is_read' => 0,
+                'extra_data' => json_encode([
+                    'anomaly_id' => $anomaly['id'] ?? 0,
+                    'anomaly_type' => $anomaly['type'],
+                    'severity' => $anomaly['severity'],
+                ]),
+                'publish_time' => date('Y-m-d H:i:s'),
+                'create_time' => date('Y-m-d H:i:s'),
+            ]);
 
             return true;
         } catch (\Exception $e) {
@@ -1243,9 +1285,50 @@ class AnomalyAlertService
      */
     protected function sendSmsNotification(string $message, array $anomaly, array $recipients): bool
     {
-        // 实际项目中集成短信服务商SDK
-        Log::info('短信通知（模拟）', ['message' => $message, 'recipients' => $recipients]);
-        return true;
+        $config = Config::get('anomaly.notifications.sms', []);
+        if (isset($config['enabled']) && !$config['enabled']) {
+            Log::info('异常告警短信通知已禁用');
+            return true;
+        }
+
+        $phones = $recipients;
+        if (empty($phones)) {
+            $phones = $config['phones'] ?? [];
+            $merchantId = $anomaly['merchant_id'] ?? 0;
+            if ($merchantId > 0) {
+                $merchantPhones = Config::get("anomaly.notifications.sms.merchants.{$merchantId}", []);
+                $phones = array_merge($phones, $merchantPhones);
+            }
+        }
+
+        if (empty($phones)) {
+            Log::info('异常告警短信无接收人', ['anomaly_type' => $anomaly['type'] ?? '']);
+            return true;
+        }
+
+        $success = true;
+        try {
+            $smsService = new SmsService();
+            foreach ($phones as $phone) {
+                $result = $smsService->sendNotify($phone, [
+                    'template_type' => 'anomaly_alert',
+                    'message' => $message,
+                    'anomaly_type' => $anomaly['type'] ?? '',
+                    'severity' => $anomaly['severity'] ?? '',
+                ]);
+                if (empty($result['success'])) {
+                    $success = false;
+                }
+            }
+        } catch (\Exception $e) {
+            Log::error('异常告警短信发送失败', [
+                'phones' => $phones,
+                'error' => $e->getMessage(),
+            ]);
+            $success = false;
+        }
+
+        return $success;
     }
 
     /**
@@ -1253,9 +1336,55 @@ class AnomalyAlertService
      */
     protected function sendEmailNotification(string $message, array $anomaly, array $recipients): bool
     {
-        // 实际项目中集成邮件服务
-        Log::info('邮件通知（模拟）', ['message' => $message, 'recipients' => $recipients]);
-        return true;
+        $config = Config::get('anomaly.notifications.email', []);
+        if (isset($config['enabled']) && !$config['enabled']) {
+            Log::info('异常告警邮件通知已禁用');
+            return true;
+        }
+
+        $emails = $recipients;
+        if (empty($emails)) {
+            $emails = $config['addresses'] ?? [];
+            $merchantId = $anomaly['merchant_id'] ?? 0;
+            if ($merchantId > 0) {
+                $merchantEmails = Config::get("anomaly.notifications.email.merchants.{$merchantId}", []);
+                $emails = array_merge($emails, $merchantEmails);
+            }
+        }
+
+        if (empty($emails)) {
+            Log::info('异常告警邮件无接收人', ['anomaly_type' => $anomaly['type'] ?? '']);
+            return true;
+        }
+
+        $success = true;
+        try {
+            $typeText = self::ANOMALY_TYPES[$anomaly['type'] ?? ''] ?? ($anomaly['type'] ?? '异常');
+            $severityText = ['CRITICAL' => '严重', 'HIGH' => '高', 'MEDIUM' => '中等', 'LOW' => '低'][$anomaly['severity'] ?? ''] ?? '未知';
+
+            foreach ($emails as $email) {
+                $emailService = EmailService::create();
+                $emailService->setFrom(
+                    Config::get('email.from_address'),
+                    Config::get('email.from_name')
+                );
+                $emailService->addTo($email);
+                $emailService->setSubject("[异常预警] {$severityText} - {$typeText}");
+                $emailService->setHtmlBody(nl2br(htmlspecialchars($message)));
+                $result = $emailService->send();
+                if (empty($result['success'])) {
+                    $success = false;
+                }
+            }
+        } catch (\Exception $e) {
+            Log::error('异常告警邮件发送失败', [
+                'emails' => $emails,
+                'error' => $e->getMessage(),
+            ]);
+            $success = false;
+        }
+
+        return $success;
     }
 
     /**
@@ -1263,9 +1392,61 @@ class AnomalyAlertService
      */
     protected function sendWechatNotification(string $message, array $anomaly): bool
     {
-        // 实际项目中集成微信通知服务
-        Log::info('微信通知（模拟）', ['message' => $message]);
-        return true;
+        $config = Config::get('anomaly.notifications.wechat', []);
+        if (isset($config['enabled']) && !$config['enabled']) {
+            Log::info('异常告警微信通知已禁用');
+            return true;
+        }
+
+        $openids = $config['openids'] ?? [];
+        $merchantId = $anomaly['merchant_id'] ?? 0;
+        if ($merchantId > 0) {
+            $merchantOpenids = Config::get("anomaly.notifications.wechat.merchants.{$merchantId}.openids", []);
+            $openids = array_merge($openids, $merchantOpenids);
+
+            if (empty($merchantOpenids)) {
+                $user = Db::name('users')->where('merchant_id', $merchantId)->whereNotNull('openid')->field('openid')->find();
+                if ($user) {
+                    $openids[] = $user['openid'];
+                }
+            }
+        }
+
+        if (empty($openids)) {
+            Log::info('异常告警微信通知无接收人', ['anomaly_type' => $anomaly['type'] ?? '']);
+            return true;
+        }
+
+        $success = true;
+        try {
+            $wechatService = new WechatTemplateService('official');
+            $typeText = self::ANOMALY_TYPES[$anomaly['type'] ?? ''] ?? ($anomaly['type'] ?? '异常');
+
+            foreach ($openids as $openid) {
+                $extraData = $anomaly['extra_data'] ?? [];
+                $severityText = ['CRITICAL' => '严重', 'HIGH' => '高', 'MEDIUM' => '中等', 'LOW' => '低'][$anomaly['severity'] ?? ''] ?? '异常预警';
+                $sent = $wechatService->sendDeviceAlertNotification(
+                    $merchantId ?: 0,
+                    $openid,
+                    [
+                        'device_name' => "异常告警：{$typeText}",
+                        'device_code' => $extraData['device_code'] ?? $anomaly['metric_name'] ?? '',
+                        'alert_type' => $severityText,
+                    ]
+                );
+                if (!$sent) {
+                    $success = false;
+                }
+            }
+        } catch (\Exception $e) {
+            Log::error('异常告警微信通知发送失败', [
+                'openids' => $openids,
+                'error' => $e->getMessage(),
+            ]);
+            $success = false;
+        }
+
+        return $success;
     }
 
     /**

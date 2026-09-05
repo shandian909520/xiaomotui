@@ -30,9 +30,138 @@
     </div>
 
     <template v-else-if="campaignInfo">
-      <!-- 统计数据卡片 -->
-      <div class="stats-section">
-        <div class="section-title">活动数据</div>
+      <!-- 块 1: 基础信息 -->
+      <el-card class="detail-block" shadow="never">
+        <template #header>
+          <div class="block-header">
+            <el-icon class="block-icon"><InfoFilled /></el-icon>
+            <span class="block-title">基础信息</span>
+          </div>
+        </template>
+        <el-descriptions :column="2" border>
+          <el-descriptions-item label="活动名称">
+            {{ campaignInfo.name }}
+          </el-descriptions-item>
+          <el-descriptions-item label="活动状态">
+            <el-tag :type="getStatusType(campaignInfo.status)" size="small">
+              {{ getStatusLabel(campaignInfo.status) }}
+            </el-tag>
+          </el-descriptions-item>
+          <el-descriptions-item label="关联优惠券">
+            {{ campaignInfo.coupon_name || '无' }}
+          </el-descriptions-item>
+          <el-descriptions-item label="创建时间">
+            {{ formatDate(campaignInfo.create_time) }}
+          </el-descriptions-item>
+          <el-descriptions-item label="活动描述" :span="2">
+            {{ campaignInfo.description || '暂无描述' }}
+          </el-descriptions-item>
+          <el-descriptions-item label="话题标签" :span="2">
+            <el-tag
+              v-for="tag in campaignInfo.tags"
+              :key="tag"
+              type="primary"
+              size="small"
+              style="margin-right: 8px"
+            >
+              {{ tag }}
+            </el-tag>
+            <span v-if="!campaignInfo.tags?.length">暂无标签</span>
+          </el-descriptions-item>
+        </el-descriptions>
+      </el-card>
+
+      <!-- 块 2: 时间窗口 -->
+      <el-card class="detail-block" shadow="never">
+        <template #header>
+          <div class="block-header">
+            <el-icon class="block-icon"><Timer /></el-icon>
+            <span class="block-title">时间窗口</span>
+          </div>
+        </template>
+        <el-descriptions :column="2" border>
+          <el-descriptions-item label="开始时间">
+            {{ formatDate(campaignInfo.start_time) }}
+          </el-descriptions-item>
+          <el-descriptions-item label="结束时间">
+            {{ formatDate(campaignInfo.end_time) }}
+          </el-descriptions-item>
+          <el-descriptions-item label="时长" :span="2">
+            {{ getDurationText(campaignInfo.start_time, campaignInfo.end_time) }}
+          </el-descriptions-item>
+        </el-descriptions>
+      </el-card>
+
+      <!-- 块 3: 任务配置 -->
+      <el-card class="detail-block" shadow="never">
+        <template #header>
+          <div class="block-header">
+            <el-icon class="block-icon"><Setting /></el-icon>
+            <span class="block-title">任务配置</span>
+          </div>
+        </template>
+        <el-descriptions :column="1" border>
+          <el-descriptions-item label="目标平台">
+            <el-tag
+              v-for="platform in campaignInfo.platforms"
+              :key="platform"
+              :type="platform === 'douyin' ? 'danger' : 'warning'"
+              size="small"
+              style="margin-right: 8px"
+            >
+              {{ platform === 'douyin' ? '抖音' : platform === 'kuaishou' ? '快手' : platform === 'xiaohongshu' ? '小红书' : platform }}
+            </el-tag>
+            <span v-if="!campaignInfo.platforms?.length">未配置平台</span>
+          </el-descriptions-item>
+          <el-descriptions-item v-if="campaignInfo.task_type" label="任务类型">
+            {{ campaignInfo.task_type }}
+          </el-descriptions-item>
+          <el-descriptions-item v-if="campaignInfo.reward_rule" label="奖励规则">
+            <div class="promo-text">{{ campaignInfo.reward_rule }}</div>
+          </el-descriptions-item>
+        </el-descriptions>
+      </el-card>
+
+      <!-- 块 4: AI 文案 -->
+      <el-card class="detail-block" shadow="never">
+        <template #header>
+          <div class="block-header">
+            <el-icon class="block-icon"><MagicStick /></el-icon>
+            <span class="block-title">AI 文案</span>
+          </div>
+        </template>
+        <div class="promo-text">{{ campaignInfo.promo_text || '暂无推广文案' }}</div>
+      </el-card>
+
+      <!-- 块 5: 奖励 -->
+      <el-card class="detail-block" shadow="never">
+        <template #header>
+          <div class="block-header">
+            <el-icon class="block-icon"><Present /></el-icon>
+            <span class="block-title">奖励配置</span>
+          </div>
+        </template>
+        <el-descriptions :column="2" border>
+          <el-descriptions-item label="关联优惠券">
+            {{ campaignInfo.coupon_name || '无' }}
+          </el-descriptions-item>
+          <el-descriptions-item v-if="campaignInfo.reward_amount !== undefined" label="奖励金额">
+            {{ campaignInfo.reward_amount }}
+          </el-descriptions-item>
+          <el-descriptions-item v-if="campaignInfo.reward_type" label="奖励类型">
+            {{ campaignInfo.reward_type }}
+          </el-descriptions-item>
+        </el-descriptions>
+      </el-card>
+
+      <!-- 块 6: 活动数据(统计) -->
+      <el-card class="detail-block" shadow="never">
+        <template #header>
+          <div class="block-header">
+            <el-icon class="block-icon"><DataAnalysis /></el-icon>
+            <span class="block-title">活动数据</span>
+          </div>
+        </template>
         <div class="stats-grid">
           <div class="stat-card">
             <div class="stat-icon trigger">
@@ -71,62 +200,7 @@
             </div>
           </div>
         </div>
-      </div>
-
-      <!-- 基本信息 -->
-      <div class="info-section">
-        <div class="section-title">基本信息</div>
-        <div class="info-card">
-          <el-descriptions :column="2" border>
-            <el-descriptions-item label="活动名称">
-              {{ campaignInfo.name }}
-            </el-descriptions-item>
-            <el-descriptions-item label="活动状态">
-              <el-tag :type="getStatusType(campaignInfo.status)" size="small">
-                {{ getStatusLabel(campaignInfo.status) }}
-              </el-tag>
-            </el-descriptions-item>
-            <el-descriptions-item label="活动时间" :span="2">
-              {{ formatDate(campaignInfo.start_time) }} 至 {{ formatDate(campaignInfo.end_time) }}
-            </el-descriptions-item>
-            <el-descriptions-item label="目标平台" :span="2">
-              <el-tag
-                v-for="platform in campaignInfo.platforms"
-                :key="platform"
-                :type="platform === 'douyin' ? 'danger' : 'warning'"
-                size="small"
-                style="margin-right: 8px"
-              >
-                {{ platform === 'douyin' ? '抖音' : '快手' }}
-              </el-tag>
-            </el-descriptions-item>
-            <el-descriptions-item label="活动描述" :span="2">
-              {{ campaignInfo.description || '暂无描述' }}
-            </el-descriptions-item>
-            <el-descriptions-item label="推广文案" :span="2">
-              <div class="promo-text">{{ campaignInfo.promo_text || '暂无推广文案' }}</div>
-            </el-descriptions-item>
-            <el-descriptions-item label="话题标签" :span="2">
-              <el-tag
-                v-for="tag in campaignInfo.tags"
-                :key="tag"
-                type="primary"
-                size="small"
-                style="margin-right: 8px"
-              >
-                {{ tag }}
-              </el-tag>
-              <span v-if="!campaignInfo.tags?.length">暂无标签</span>
-            </el-descriptions-item>
-            <el-descriptions-item label="关联优惠券">
-              {{ campaignInfo.coupon_name || '无' }}
-            </el-descriptions-item>
-            <el-descriptions-item label="创建时间">
-              {{ formatDate(campaignInfo.create_time) }}
-            </el-descriptions-item>
-          </el-descriptions>
-        </div>
-      </div>
+      </el-card>
 
       <!-- 关联变体 -->
       <div class="variants-section">
@@ -288,7 +362,12 @@ import {
   Upload,
   Present,
   VideoPlay,
-  Refresh
+  Refresh,
+  InfoFilled,
+  Timer,
+  Setting,
+  MagicStick,
+  DataAnalysis
 } from '@element-plus/icons-vue'
 import {
   getCampaignDetail,
@@ -455,6 +534,17 @@ const formatFileSize = (bytes) => {
   return `${size.toFixed(1)} ${units[unitIndex]}`
 }
 
+// bug B5: 计算时间窗口时长(天数 + 小时)
+const getDurationText = (start, end) => {
+  if (!start || !end) return '-'
+  const diff = Math.round((new Date(end).getTime() - new Date(start).getTime()) / 1000)
+  if (isNaN(diff) || diff <= 0) return '-'
+  const days = Math.floor(diff / 86400)
+  const hours = Math.floor((diff % 86400) / 3600)
+  if (days > 0) return `${days} 天 ${hours} 小时`
+  return `${hours} 小时`
+}
+
 // 初始化
 onMounted(() => {
   loadCampaignDetail()
@@ -503,6 +593,35 @@ onMounted(() => {
     font-weight: 600;
     color: #303133;
     margin-bottom: 16px;
+  }
+
+  // bug B5: 6 块卡片统一样式
+  .detail-block {
+    margin-bottom: 16px;
+    border-radius: 12px;
+
+    .block-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+
+      .block-icon {
+        font-size: 18px;
+        color: #FF6B35;
+      }
+      .block-title {
+        font-size: 16px;
+        font-weight: 600;
+        color: #303133;
+      }
+    }
+
+    :deep(.el-card__header) {
+      padding: 14px 20px;
+    }
+    :deep(.el-card__body) {
+      padding: 20px;
+    }
   }
 
   .section-header {
@@ -687,8 +806,9 @@ onMounted(() => {
 
     .devices-table {
       background: #fff;
-      border-radius: 8px;
+      border-radius: 12px;
       padding: 20px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
     }
   }
 
@@ -696,8 +816,9 @@ onMounted(() => {
   .distributions-section {
     .distributions-table {
       background: #fff;
-      border-radius: 8px;
+      border-radius: 12px;
       padding: 20px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
     }
   }
 }

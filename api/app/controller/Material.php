@@ -4,6 +4,7 @@ declare (strict_types = 1);
 namespace app\controller;
 
 use app\service\MaterialImportService;
+use app\service\MaterialManageService;
 use think\Request;
 use think\facade\Log;
 
@@ -13,10 +14,35 @@ use think\facade\Log;
 class Material extends BaseController
 {
     protected $materialService;
+    protected $manageService;
 
-    public function __construct()
+    public function __construct(\think\App $app)
     {
+        parent::__construct($app);
         $this->materialService = new MaterialImportService();
+        $this->manageService = new MaterialManageService();
+    }
+
+    /**
+     * 获取商家ID：优先从请求参数，其次从JWT token，管理员默认1
+     */
+    protected function resolveMerchantId(): int
+    {
+        $merchantId = (int)$this->request->param('merchant_id/d', 0);
+        if ($merchantId > 0) {
+            return $merchantId;
+        }
+
+        $merchantId = $this->request->getMerchantId();
+        if ($merchantId > 0) {
+            return $merchantId;
+        }
+
+        if ($this->request->isAdmin()) {
+            return 1;
+        }
+
+        return 0;
     }
 
     /**
@@ -197,7 +223,7 @@ class Material extends BaseController
     /**
      * 验证素材文件
      */
-    public function validate(Request $request)
+    public function validateFile(Request $request)
     {
         try {
             $file = $request->file('file');
@@ -364,9 +390,18 @@ class Material extends BaseController
             $type = $request->get('type');
             $categoryId = $request->get('category_id/d');
             $keyword = $request->get('keyword');
+            $folderId = $request->get('folder_id/d', 0);
+            $materialType = $request->get('material_type');
+            $isAi = $request->get('is_ai');
+            $merchantId = $request->get('merchant_id/d', 0);
 
             $query = \app\model\Material::where('status', 1)
-                                       ->where('audit_status', 1);
+                                       ->where('audit_status', 1)
+                                       ->where('is_deleted', 0);
+
+            if ($merchantId > 0) {
+                $query->where('merchant_id', $merchantId);
+            }
 
             if ($type) {
                 $query->where('type', strtoupper($type));
@@ -374,6 +409,19 @@ class Material extends BaseController
 
             if ($categoryId) {
                 $query->where('category_id', $categoryId);
+            }
+
+            if ($folderId > 0) {
+                $childIds = \app\model\MaterialFolder::getChildIds($folderId);
+                $query->where('folder_id', 'in', $childIds);
+            }
+
+            if ($materialType) {
+                $query->where('material_type', $materialType);
+            }
+
+            if (isset($isAi) && $isAi !== '') {
+                $query->where('is_ai', (int)$isAi);
             }
 
             if ($keyword) {
@@ -474,6 +522,256 @@ class Material extends BaseController
 
         } catch (\Exception $e) {
             return json(['code' => 500, 'message' => '获取失败：' . $e->getMessage()]);
+        }
+    }
+
+    // ========== 文件夹管理 ==========
+
+    public function getFolders(Request $request)
+    {
+        try {
+            $merchantId = $this->resolveMerchantId();
+            if ($merchantId <= 0) {
+                return json(['code' => 400, 'message' => '商家ID不能为空']);
+            }
+
+            $tree = $this->manageService->getFolderTree($merchantId);
+
+            return json([
+                'code' => 200,
+                'message' => '获取成功',
+                'data' => $tree,
+            ]);
+        } catch (\Exception $e) {
+            Log::error('获取文件夹树失败', ['error' => $e->getMessage()]);
+            return json(['code' => 500, 'message' => '获取失败：' . $e->getMessage()]);
+        }
+    }
+
+    public function createFolder(Request $request)
+    {
+        try {
+            $merchantId = $this->resolveMerchantId();
+            $name = trim($request->post('name', ''));
+            $parentId = (int)$request->post('parent_id/d', 0);
+            $sort = (int)$request->post('sort/d', 0);
+
+            if ($merchantId <= 0) {
+                return json(['code' => 400, 'message' => '商家ID不能为空']);
+            }
+            if ($name === '') {
+                return json(['code' => 400, 'message' => '文件夹名称不能为空']);
+            }
+
+            $folderId = $this->manageService->createFolder($merchantId, $name, $parentId, $sort);
+
+            return json([
+                'code' => 200,
+                'message' => '创建成功',
+                'data' => ['folder_id' => $folderId],
+            ]);
+        } catch (\Exception $e) {
+            Log::error('创建文件夹失败', ['error' => $e->getMessage()]);
+            return json(['code' => 500, 'message' => '创建失败：' . $e->getMessage()]);
+        }
+    }
+
+    public function renameFolder(Request $request)
+    {
+        try {
+            $merchantId = $this->resolveMerchantId();
+            $folderId = (int)$request->post('folder_id/d', 0);
+            $name = trim($request->post('name', ''));
+
+            if ($merchantId <= 0 || $folderId <= 0) {
+                return json(['code' => 400, 'message' => '参数不完整']);
+            }
+            if ($name === '') {
+                return json(['code' => 400, 'message' => '文件夹名称不能为空']);
+            }
+
+            $this->manageService->renameFolder($merchantId, $folderId, $name);
+
+            return json(['code' => 200, 'message' => '重命名成功']);
+        } catch (\Exception $e) {
+            Log::error('重命名文件夹失败', ['error' => $e->getMessage()]);
+            return json(['code' => 500, 'message' => '操作失败：' . $e->getMessage()]);
+        }
+    }
+
+    public function deleteFolder(Request $request)
+    {
+        try {
+            $merchantId = $this->resolveMerchantId();
+            $folderId = (int)$request->post('folder_id/d', 0);
+
+            if ($merchantId <= 0 || $folderId <= 0) {
+                return json(['code' => 400, 'message' => '参数不完整']);
+            }
+
+            $this->manageService->deleteFolder($merchantId, $folderId);
+
+            return json(['code' => 200, 'message' => '删除成功']);
+        } catch (\Exception $e) {
+            Log::error('删除文件夹失败', ['error' => $e->getMessage()]);
+            return json(['code' => 500, 'message' => '操作失败：' . $e->getMessage()]);
+        }
+    }
+
+    // ========== 素材操作 ==========
+
+    public function move(Request $request)
+    {
+        try {
+            $merchantId = $this->resolveMerchantId();
+            $materialIds = $request->post('material_ids/a', []);
+            $folderId = (int)$request->post('folder_id/d', 0);
+
+            if ($merchantId <= 0) {
+                return json(['code' => 400, 'message' => '商家ID不能为空']);
+            }
+            if (empty($materialIds)) {
+                return json(['code' => 400, 'message' => '请选择要移动的素材']);
+            }
+
+            $this->manageService->moveMaterials($merchantId, $materialIds, $folderId);
+
+            return json(['code' => 200, 'message' => '移动成功']);
+        } catch (\Exception $e) {
+            Log::error('移动素材失败', ['error' => $e->getMessage()]);
+            return json(['code' => 500, 'message' => '操作失败：' . $e->getMessage()]);
+        }
+    }
+
+    public function batchDelete(Request $request)
+    {
+        try {
+            $merchantId = $this->resolveMerchantId();
+            $materialIds = $request->post('material_ids/a', []);
+
+            if ($merchantId <= 0) {
+                return json(['code' => 400, 'message' => '商家ID不能为空']);
+            }
+            if (empty($materialIds)) {
+                return json(['code' => 400, 'message' => '请选择要删除的素材']);
+            }
+
+            $count = $this->manageService->batchDelete($merchantId, $materialIds);
+
+            return json([
+                'code' => 200,
+                'message' => '删除成功',
+                'data' => ['count' => $count],
+            ]);
+        } catch (\Exception $e) {
+            Log::error('批量删除素材失败', ['error' => $e->getMessage()]);
+            return json(['code' => 500, 'message' => '操作失败：' . $e->getMessage()]);
+        }
+    }
+
+    public function softDelete(Request $request)
+    {
+        try {
+            $merchantId = $this->resolveMerchantId();
+            $materialIds = $request->post('material_ids/a', []);
+
+            if ($merchantId <= 0) {
+                return json(['code' => 400, 'message' => '商家ID不能为空']);
+            }
+            if (empty($materialIds)) {
+                return json(['code' => 400, 'message' => '请选择要删除的素材']);
+            }
+
+            $count = $this->manageService->batchDelete($merchantId, $materialIds);
+
+            return json([
+                'code' => 200,
+                'message' => '已移入回收站',
+                'data' => ['count' => $count],
+            ]);
+        } catch (\Exception $e) {
+            Log::error('软删除素材失败', ['error' => $e->getMessage()]);
+            return json(['code' => 500, 'message' => '操作失败：' . $e->getMessage()]);
+        }
+    }
+
+    public function getTrash(Request $request)
+    {
+        try {
+            $merchantId = $this->resolveMerchantId();
+            if ($merchantId <= 0) {
+                return json(['code' => 400, 'message' => '商家ID不能为空']);
+            }
+
+            $params = [
+                'page' => $request->get('page/d', 1),
+                'limit' => $request->get('limit/d', 20),
+                'material_type' => $request->get('material_type'),
+                'keyword' => $request->get('keyword'),
+            ];
+
+            $result = $this->manageService->getTrashList($merchantId, $params);
+
+            return json([
+                'code' => 200,
+                'message' => '获取成功',
+                'data' => $result,
+            ]);
+        } catch (\Exception $e) {
+            Log::error('获取回收站列表失败', ['error' => $e->getMessage()]);
+            return json(['code' => 500, 'message' => '获取失败：' . $e->getMessage()]);
+        }
+    }
+
+    public function restore(Request $request)
+    {
+        try {
+            $merchantId = $this->resolveMerchantId();
+            $materialIds = $request->post('material_ids/a', []);
+
+            if ($merchantId <= 0) {
+                return json(['code' => 400, 'message' => '商家ID不能为空']);
+            }
+            if (empty($materialIds)) {
+                return json(['code' => 400, 'message' => '请选择要恢复的素材']);
+            }
+
+            $count = $this->manageService->restoreMaterials($merchantId, $materialIds);
+
+            return json([
+                'code' => 200,
+                'message' => '恢复成功',
+                'data' => ['count' => $count],
+            ]);
+        } catch (\Exception $e) {
+            Log::error('恢复素材失败', ['error' => $e->getMessage()]);
+            return json(['code' => 500, 'message' => '操作失败：' . $e->getMessage()]);
+        }
+    }
+
+    public function permanentDelete(Request $request)
+    {
+        try {
+            $merchantId = $this->resolveMerchantId();
+            $materialIds = $request->post('material_ids/a', []);
+
+            if ($merchantId <= 0) {
+                return json(['code' => 400, 'message' => '商家ID不能为空']);
+            }
+            if (empty($materialIds)) {
+                return json(['code' => 400, 'message' => '请选择要彻底删除的素材']);
+            }
+
+            $count = $this->manageService->permanentDelete($merchantId, $materialIds);
+
+            return json([
+                'code' => 200,
+                'message' => '已彻底删除',
+                'data' => ['count' => $count],
+            ]);
+        } catch (\Exception $e) {
+            Log::error('彻底删除素材失败', ['error' => $e->getMessage()]);
+            return json(['code' => 500, 'message' => '操作失败：' . $e->getMessage()]);
         }
     }
 }

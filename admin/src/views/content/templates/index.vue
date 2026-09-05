@@ -148,6 +148,7 @@
 import { ref, reactive, onMounted, nextTick } from 'vue'
 import { getTemplateList, deleteTemplate, createTemplate, updateTemplate } from '@/api/content'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { normalizePagination } from '@/utils/responseHelper'
 
 const list = ref([])
 const total = ref(0)
@@ -186,11 +187,10 @@ const rules = {
 
 function getList() {
   listLoading.value = true
-  getTemplateList(listQuery).then(response => {
-    if (response.data) {
-      list.value = response.data.data || response.data.list || []
-      total.value = response.data.total || 0
-    }
+  getTemplateList(listQuery).then(res => {
+    const { list: items, total: t } = normalizePagination(res)
+    list.value = items
+    total.value = t
     listLoading.value = false
   }).catch(() => {
     listLoading.value = false

@@ -100,8 +100,8 @@ class AlertController extends BaseController
             }
 
             // 分页参数
-            $page = $params['page'] ?? 1;
-            $limit = $params['limit'] ?? 20;
+            $page = (int)($params['page'] ?? 1);
+            $limit = (int)($params['limit'] ?? 20);
 
             // 查询告警列表
             $query = DeviceAlert::where($where)
@@ -112,11 +112,12 @@ class AlertController extends BaseController
             $alerts = $query->page($page, $limit)->select()->toArray();
 
             // 格式化告警数据
+            $alertModel = new DeviceAlert();
             foreach ($alerts as &$alert) {
-                $alert['alert_type_text'] = DeviceAlert::getAlertTypeTextAttr(null, $alert);
-                $alert['alert_level_text'] = DeviceAlert::getAlertLevelTextAttr(null, $alert);
-                $alert['status_text'] = DeviceAlert::getStatusTextAttr(null, $alert);
-                $alert['level_color'] = DeviceAlert::getLevelColorAttr(null, $alert);
+                $alert['alert_type_text'] = $alertModel->getAlertTypeTextAttr(null, $alert);
+                $alert['alert_level_text'] = $alertModel->getAlertLevelTextAttr(null, $alert);
+                $alert['status_text'] = $alertModel->getStatusTextAttr(null, $alert);
+                $alert['level_color'] = $alertModel->getLevelColorAttr(null, $alert);
             }
 
             return $this->paginate($alerts, $total, $page, $limit, '告警列表获取成功');

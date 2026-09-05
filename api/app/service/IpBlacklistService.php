@@ -382,6 +382,7 @@ class IpBlacklistService
 
     /**
      * 记录请求次数（用于统计）
+     * 注：兼容 file driver（Cache::inc 在 file driver 不可用）
      *
      * @param string $ip
      * @return void
@@ -389,7 +390,19 @@ class IpBlacklistService
     public function recordRequest(string $ip): void
     {
         $requestKey = $this->prefix . 'requests:' . date('Ymd') . ':' . $ip;
-        Cache::inc($requestKey);
-        Cache::expire($requestKey, 86400 * 2); // 保留2天
+        try {
+            $store = \think\facade\Cache::store();
+            $handler = method_exists($store, 'handler') ? $store->handler() : null;
+            if ($handler instanceof \Redis) {
+                $handler->set($requestKey, 0, ['nx', 'ex' => 86400 * 2]);
+                $handler->incr($requestKey);
+                return;
+            }
+        } catch (\Throwable $e) {
+            // Redis 不可用，落到 file counter
+        }
+        // file driver 兜底：用 Cache::set 原子覆盖（不保证原子 inc，但用于统计可接受）
+        $current = (int)\think\facade\Cache::get($requestKey, 0);
+        \think\facade\Cache::set($requestKey, $current + 1, 86400 * 2);
     }
 }

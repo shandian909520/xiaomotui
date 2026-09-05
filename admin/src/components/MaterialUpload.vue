@@ -128,9 +128,13 @@ const uploadAction = computed(() => {
   return `${baseUrl}/merchant/promo/materials`
 })
 
-const uploadHeaders = computed(() => ({
-  Authorization: `Bearer ${getToken()}`
-}))
+const uploadHeaders = computed(() => {
+  const token = getToken()
+  // 防御性检查：确保 token 为合法的 JWT 格式（仅含 ASCII 字符）
+  // 避免 XMLHttpRequest setRequestHeader 因非 ISO-8859-1 字符而报错
+  const isValidToken = token && typeof token === 'string' && /^[A-Za-z0-9\-_]+\.[A-Za-z0-9\-_]+\.[A-Za-z0-9\-_]+$/.test(token)
+  return isValidToken ? { Authorization: `Bearer ${token}` } : {}
+})
 
 // 接受的文件类型
 const acceptTypes = computed(() => {

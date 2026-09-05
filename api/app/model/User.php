@@ -240,7 +240,7 @@ class User extends Model
      */
     public function userCoupons()
     {
-        return $this->hasMany(\app\model\UserCoupon::class);
+        return $this->hasMany(\app\model\CouponUser::class);
     }
 
     /**

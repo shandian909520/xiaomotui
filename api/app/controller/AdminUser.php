@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace app\controller;
 
 use app\model\User;
+use app\model\SystemSetting;
 use app\service\OperationLogService;
 use think\facade\Config;
 use think\facade\Log;
@@ -141,8 +142,27 @@ class AdminUser extends BaseController
     public function updateSettings(): Response
     {
         try {
-            // 系统设置更新（当前仅返回成功，实际可写入配置文件或数据库）
-            return $this->success(null, '设置已更新');
+            $data = $this->request->post();
+
+            if (empty($data)) {
+                return $this->error('没有提交设置数据', 400);
+            }
+
+            $allowedGroups = ['site', 'ai', 'notification', 'system'];
+            $saved = [];
+
+            foreach ($data as $group => $settings) {
+                if (!in_array($group, $allowedGroups) || !is_array($settings)) {
+                    continue;
+                }
+
+                SystemSetting::batchSave($settings, $group);
+                $saved[] = $group;
+            }
+
+            OperationLogService::record('system', 'update_settings', '更新系统设置：' . implode(', ', $saved));
+
+            return $this->success(['updated_groups' => $saved], '设置已更新');
         } catch (\Exception $e) {
             Log::error('更新系统设置失败', ['error' => $e->getMessage()]);
             return $this->error('更新系统设置失败：' . $e->getMessage());

@@ -5,6 +5,7 @@ namespace app\controller;
 
 use app\service\ViolationHandlerService;
 use app\service\MerchantNotificationService;
+use think\App;
 use think\facade\Log;
 use think\Response;
 
@@ -16,9 +17,9 @@ class Violation extends BaseController
     protected ViolationHandlerService $violationService;
     protected MerchantNotificationService $notificationService;
 
-    public function __construct()
+    public function __construct(App $app)
     {
-        parent::__construct();
+        parent::__construct($app);
         $this->violationService = new ViolationHandlerService();
         $this->notificationService = new MerchantNotificationService();
     }

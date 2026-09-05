@@ -1,47 +1,28 @@
 <template>
-  <div class="main-container">
-    <div class="main-content">
-      <router-view v-slot="{ Component }">
-        <transition name="fade-transform" mode="out-in">
-          <component :is="Component" />
-        </transition>
-      </router-view>
-    </div>
-  </div>
+  <main class="main">
+    <router-view v-slot="{ Component }">
+      <transition name="page-fade" mode="out-in">
+        <component :is="Component" />
+      </transition>
+    </router-view>
+  </main>
 </template>
 
-<script setup>
-// 主内容区域
-</script>
-
 <style lang="scss" scoped>
-.main-container {
+.main {
   flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  background: #f5f5f5;
-
-  .main-content {
-    flex: 1;
-    padding: 20px;
-    overflow-y: auto;
-  }
+  overflow-y: auto;
+  padding: 12px 16px 22px;
+  background: #f8f3ff;
 }
 
-// 路由过渡动画
-.fade-transform-leave-active,
-.fade-transform-enter-active {
-  transition: all 0.3s;
+.page-fade-enter-active,
+.page-fade-leave-active {
+  transition: opacity 0.18s ease;
 }
 
-.fade-transform-enter-from {
+.page-fade-enter-from,
+.page-fade-leave-to {
   opacity: 0;
-  transform: translateX(-10px);
-}
-
-.fade-transform-leave-to {
-  opacity: 0;
-  transform: translateX(10px);
 }
 </style>

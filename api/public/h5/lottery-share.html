@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#FF6B35">
+<title>中奖结果 · 小魔推</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:none;-webkit-touch-callout:none}
+html,body{overflow-x:hidden;height:100%}
+body{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Helvetica Neue","Microsoft YaHei",sans-serif;background:linear-gradient(180deg,#FF6B35 0%,#FF8E53 50%,#FFD0B5 100%);color:#222;min-height:100vh;min-height:100dvh;display:flex;align-items:center;justify-content:center;padding:24px 16px}
+
+.card{background:#fff;border-radius:18px;padding:32px 24px;width:100%;max-width:380px;text-align:center;box-shadow:0 16px 40px rgba(0,0,0,.18)}
+.icon{font-size:80px;margin-bottom:12px;line-height:1}
+.title{font-size:24px;font-weight:800;color:#FF6B35;margin-bottom:8px}
+.title.lose{color:#999}
+.subtitle{font-size:13px;color:#999;margin-bottom:20px;line-height:1.5}
+.prize-box{background:linear-gradient(135deg,#FFE6D5,#FFF5EE);border-radius:14px;padding:24px 16px;margin-bottom:20px;border:2px dashed #FFD0B5}
+.prize-name{font-size:28px;font-weight:800;color:#FF6B35;line-height:1.3;word-break:break-word}
+.prize-type{font-size:12px;color:#999;margin-top:6px}
+.divider{height:1px;background:#eee;margin:20px 0}
+.info-row{display:flex;justify-content:space-between;font-size:12px;color:#999;margin-bottom:6px;text-align:left}
+.info-row .v{color:#666;font-weight:500}
+.actions{display:flex;flex-direction:column;gap:10px;margin-top:8px}
+.btn{padding:13px 0;border-radius:24px;font-size:15px;font-weight:700;text-align:center}
+.btn.primary{background:linear-gradient(135deg,#FF6B35,#FF8E53);color:#fff}
+.btn.outline{background:#FAFAFA;color:#666;border:1px solid #eee}
+.btn:active{transform:scale(.97)}
+.tip{font-size:11px;color:#bbb;margin-top:14px;line-height:1.6}
+</style>
+</head>
+<body>
+
+<div id="app" v-cloak>
+  <div class="card">
+    <div class="icon">{{ isWin ? '🎉' : '🙃' }}</div>
+    <div class="title" :class="{lose: !isWin}">{{ isWin ? '恭喜中奖!' : '谢谢参与' }}</div>
+    <div class="subtitle">{{ isWin ? '请凭此页面到店核销奖品' : '别灰心,明天再来挑战' }}</div>
+
+    <div v-if="isWin" class="prize-box">
+      <div class="prize-name">{{ prizeName }}</div>
+      <div v-if="prizeType" class="prize-type">{{ prizeTypeText }}</div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="info-row"><span>抽奖活动</span><span class="v">{{ activityName }}</span></div>
+    <div class="info-row"><span>抽奖时间</span><span class="v">{{ drawTime }}</span></div>
+    <div class="info-row"><span>活动期</span><span class="v">{{ deviceCode }}</span></div>
+
+    <div class="actions">
+      <div class="btn primary" @click="backToLottery">返回转盘</div>
+      <div class="btn outline" @click="closePage">关闭页面</div>
+    </div>
+
+    <div class="tip">* 中奖信息仅供本人参考,具体核销规则请咨询门店工作人员</div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+<script>
+(function(){
+  const { createApp, ref, computed, onMounted } = Vue;
+  const params = new URLSearchParams(location.search);
+  const DEVICE_CODE = params.get('device_code') || '';
+  const ACTIVITY_ID = params.get('activity_id') || '';
+  const PRIZE_NAME = params.get('prize_name') || '';
+  const PRIZE_TYPE = params.get('prize_type') || '';
+  const PRIZE_ID = params.get('prize_id') || '';
+
+  createApp({
+    setup() {
+      const prizeName = ref(PRIZE_NAME || '神秘奖品');
+      const prizeType = ref(PRIZE_TYPE);
+      const isWin = computed(()=> prizeName.value && prizeName.value !== '谢谢参与');
+      const prizeTypeText = computed(()=> {
+        const map = { COUPON: '优惠券', POINTS: '积分', THANKS: '谢谢参与', GIFT: '实物奖品' };
+        return map[prizeType.value] || '';
+      });
+      const drawTime = ref(formatNow());
+      const deviceCode = ref(DEVICE_CODE);
+      const activityName = ref('幸运大转盘');
+
+      async function fetchActivity() {
+        if (!DEVICE_CODE) return;
+        try {
+          const r = await fetch('/api/lottery/device?device_code=' + encodeURIComponent(DEVICE_CODE));
+          const j = await r.json();
+          if (j.code === 200 && j.data && j.data.name) {
+            activityName.value = j.data.name;
+          }
+        } catch(e) {}
+      }
+
+      function formatNow() {
+        const d = new Date();
+        const pad = n => n < 10 ? '0'+n : n;
+        return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+      }
+
+      function backToLottery() {
+        if (DEVICE_CODE) {
+          location.href = './lottery.html?device_code=' + encodeURIComponent(DEVICE_CODE) + '&activity_id=' + ACTIVITY_ID;
+        } else {
+          history.back();
+        }
+      }
+      function closePage() {
+        // 微信 H5 中尝试关闭
+        window.close();
+        setTimeout(()=>{
+          if (history.length > 1) history.back();
+        }, 100);
+      }
+
+      onMounted(fetchActivity);
+
+      return { prizeName, prizeType, isWin, prizeTypeText, drawTime, deviceCode, activityName, backToLottery, closePage };
+    }
+  }).mount('#app');
+})();
+</script>
+</body>
+</html>

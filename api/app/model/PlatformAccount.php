@@ -347,9 +347,11 @@ class PlatformAccount extends Model
             $query->where('user_id', $userId);
         }
 
-        $total = $query->count();
-        $valid = $query->where('status', self::STATUS_VALID)->count();
-        $invalid = $query->where('status', self::STATUS_INVALID)->count();
+        $stats = $query->field([
+            'COUNT(*) as total',
+            'SUM(status = "' . self::STATUS_VALID . '") as valid',
+            'SUM(status = "' . self::STATUS_INVALID . '") as invalid',
+        ])->find();
 
         // 按平台统计
         $platformStats = static::field('platform, count(*) as count')
@@ -361,9 +363,9 @@ class PlatformAccount extends Model
             ->toArray();
 
         return [
-            'total' => $total,
-            'valid' => $valid,
-            'invalid' => $invalid,
+            'total' => (int)($stats['total'] ?? 0),
+            'valid' => (int)($stats['valid'] ?? 0),
+            'invalid' => (int)($stats['invalid'] ?? 0),
             'by_platform' => $platformStats
         ];
     }

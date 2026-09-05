@@ -84,44 +84,54 @@ class AuthService
      */
     public function adminLogin(string $username, string $password): array
     {
+        // 商家登录优先：开发模式下从 merchants 表查手机号（允许任意密码）
+        if (env('APP_DEBUG')) {
+            $merchant = \app\model\Merchant::where('phone', $username)->find();
+            if ($merchant) {
+                $token = $this->generateAdminToken('merchant_' . $merchant->id);
+                return [
+                    'token' => $token['access_token'],
+                    'expires_in' => $token['expires_in'],
+                    'user' => [
+                        'id' => $merchant->id,
+                        'username' => $username,
+                        'nickname' => $merchant->name,
+                        'role' => 'merchant',
+                        'version' => $merchant->version ?? 'basic',
+                    ],
+                ];
+            }
+        }
+
+        // 管理员登录
         $configUsername = env('ADMIN_USERNAME') ?: 'admin';
         $passwordHash = env('ADMIN_PASSWORD_HASH');
         $plainPassword = env('ADMIN_PASSWORD');
 
-        // 验证密码：优先使用哈希，后备明文比对
         $isPasswordValid = false;
-
         if (!empty($passwordHash)) {
-            // 优先使用密码哈希验证
             $isPasswordValid = password_verify($password, $passwordHash);
         } elseif (!empty($plainPassword)) {
-            // 后备方案：明文比对（开发环境使用）
             $isPasswordValid = ($password === $plainPassword);
         } elseif ($username === 'admin' && $password === 'admin123456') {
-            // 最终后备：开发环境默认密码（仅限开发环境，生产环境必须配置密码）
             $isPasswordValid = true;
-            // 记录警告日志
-            \think\facade\Log::warning('使用默认管理员密码，生产环境必须配置ADMIN_PASSWORD或ADMIN_PASSWORD_HASH');
-        } else {
-            throw new \RuntimeException('管理员密码未配置，请设置ADMIN_PASSWORD或ADMIN_PASSWORD_HASH环境变量');
         }
 
-        if ($username !== $configUsername || !$isPasswordValid) {
-            throw new ValidateException('用户名或密码错误');
+        if ($username === $configUsername && $isPasswordValid) {
+            $token = $this->generateAdminToken($username);
+            return [
+                'token' => $token['access_token'],
+                'expires_in' => $token['expires_in'],
+                'user' => [
+                    'id' => 0,
+                    'username' => $username,
+                    'nickname' => '管理员',
+                    'role' => 'admin',
+                ],
+            ];
         }
 
-        $token = $this->generateAdminToken($username);
-
-        return [
-            'token' => $token['access_token'],
-            'expires_in' => $token['expires_in'],
-            'user' => [
-                'id' => 0,
-                'username' => $username,
-                'nickname' => '管理员',
-                'role' => 'admin',
-            ],
-        ];
+        throw new ValidateException('用户名或密码错误');
     }
 
 
@@ -388,7 +398,7 @@ class AuthService
      * @return array
      * @throws \Exception
      */
-    public function bindPhone(int $userId, string $phone, string $code): array
+    public function bindPhone(int $userId, string $phone, string $code = ''): array
     {
         // 验证验证码（这里暂时跳过验证码验证，实际项目中需要实现）
         // if (!$this->verifySmsCode($phone, $code)) {
@@ -447,5 +457,38 @@ class AuthService
             'expires_in' => $tokenData['expires_in'],
             'user' => $user->hidden([])->toArray()
         ];
+    }
+
+    /**
+     * 获取角色权限列表
+     *
+     * @param string $role
+     * @return array
+     */
+    public function getRolePermissions(string $role): array
+    {
+        $rolePermissions = [
+            'admin' => ['*'],
+            'merchant' => [
+                'store/*', 'material/*', 'video/*', 'library/*', 'activity/*',
+                'promo/*', 'coupon/*', 'device/*', 'nfc/*', 'content/*',
+                'statistics/*', 'design/*', 'task/*', 'merchant/*',
+                'auth/info', 'auth/update', 'auth/logout', 'upload/*',
+            ],
+            'chain' => [
+                'store/*', 'material/*', 'video/*', 'library/*', 'activity/*',
+                'promo/*', 'coupon/*', 'device/*', 'nfc/*', 'content/*',
+                'statistics/*', 'design/*', 'task/*', 'merchant/*', 'chain/*',
+                'auth/info', 'auth/update', 'auth/logout', 'upload/*',
+            ],
+            'user' => [
+                'auth/info', 'auth/update', 'auth/logout', 'auth/bind-phone',
+                'content/*', 'task/*', 'library/*',
+                'coupon/receive', 'coupon/my', 'coupon/use',
+                'upload/avatar',
+            ],
+        ];
+
+        return $rolePermissions[$role] ?? $rolePermissions['user'];
     }
 }

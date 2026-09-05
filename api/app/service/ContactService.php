@@ -195,9 +195,186 @@ class ContactService
      */
     private function generateWechatQrcodeByApi(string $wechatId): array
     {
-        // 这里可以集成微信小程序的二维码生成API
-        // 目前先返回占位数据
-        throw new \Exception('微信API生成二维码功能暂未实现，请使用手动模式');
+        $appId = $this->wechatConfig['app_id'] ?? '';
+        $appSecret = $this->wechatConfig['app_secret'] ?? '';
+
+        if (empty($appId) || empty($appSecret)) {
+            Log::warning('微信小程序配置不完整，使用二维码库生成');
+            return $this->generateWechatQrcodeByLibrary($wechatId);
+        }
+
+        $accessToken = $this->getWechatAccessToken($appId, $appSecret);
+
+        $scene = md5($wechatId);
+        $qrcodeSize = $this->wechatConfig['qrcode_size'] ?? 430;
+
+        $body = json_encode([
+            'scene' => $scene,
+            'page' => $this->wechatConfig['qrcode_page'] ?? 'pages/contact/index',
+            'width' => $qrcodeSize,
+            'auto_color' => false,
+            'line_color' => ['r' => 0, 'g' => 0, 'b' => 0],
+        ]);
+
+        $url = "https://api.weixin.qq.com/wxa/getwxacodeunlimit?access_token={$accessToken}";
+
+        try {
+            $response = $this->httpClient->post($url, [
+                'body' => $body,
+                'headers' => ['Content-Type' => 'application/json'],
+            ]);
+
+            $contentType = $response->getHeaderLine('Content-Type');
+            $responseBody = $response->getBody()->getContents();
+
+            if (strpos($contentType, 'image') !== false) {
+                $storagePath = public_path() . ($this->wechatConfig['qrcode_storage_path'] ?? 'uploads/qrcode/wechat/');
+                if (!is_dir($storagePath)) {
+                    mkdir($storagePath, 0755, true);
+                }
+
+                $fileName = md5($wechatId) . '_' . time() . '.jpg';
+                $fullPath = $storagePath . $fileName;
+
+                file_put_contents($fullPath, $responseBody);
+
+                $qrcodeUrl = ($this->wechatConfig['qrcode_url_prefix'] ?? '') . $fileName;
+
+                Log::info('微信小程序二维码生成成功', [
+                    'wechat_id' => $wechatId,
+                    'qrcode_url' => $qrcodeUrl,
+                ]);
+
+                return [
+                    'qrcode_url' => $qrcodeUrl,
+                    'wechat_id' => $wechatId,
+                    'expire_time' => $this->wechatConfig['qrcode_expire'] ?? 0,
+                    'mode' => 'wechat_api',
+                    'scene' => $scene,
+                ];
+            }
+
+            $result = json_decode($responseBody, true);
+            $errMsg = $result['errmsg'] ?? '未知错误';
+            $errCode = $result['errcode'] ?? 0;
+            Log::error('微信二维码生成失败', [
+                'errcode' => $errCode,
+                'errmsg' => $errMsg,
+            ]);
+
+            return $this->generateWechatQrcodeByLibrary($wechatId);
+        } catch (RequestException $e) {
+            Log::error('微信API调用失败', ['error' => $e->getMessage()]);
+            return $this->generateWechatQrcodeByLibrary($wechatId);
+        }
+    }
+
+    /**
+     * 使用PHP二维码库生成联系人二维码
+     */
+    private function generateWechatQrcodeByLibrary(string $wechatId): array
+    {
+        $storagePath = public_path() . ($this->wechatConfig['qrcode_storage_path'] ?? 'uploads/qrcode/wechat/');
+        if (!is_dir($storagePath)) {
+            mkdir($storagePath, 0755, true);
+        }
+
+        $fileName = md5($wechatId) . '.png';
+        $fullPath = $storagePath . $fileName;
+
+        if (file_exists($fullPath) && !($this->wechatConfig['force_regenerate'] ?? false)) {
+            $qrcodeUrl = ($this->wechatConfig['qrcode_url_prefix'] ?? '') . $fileName;
+            return [
+                'qrcode_url' => $qrcodeUrl,
+                'wechat_id' => $wechatId,
+                'expire_time' => 0,
+                'mode' => 'library',
+            ];
+        }
+
+        $qrContent = "https://u.wechat.com/{$wechatId}";
+        $qrcodeSize = $this->wechatConfig['qrcode_size'] ?? 430;
+
+        if (class_exists(\Endroid\QrCode\Builder\Builder::class)) {
+            \Endroid\QrCode\Builder\Builder::create()
+                ->data($qrContent)
+                ->size($qrcodeSize)
+                ->margin(10)
+                ->build()
+                ->saveToFile($fullPath);
+        } elseif (class_exists(\TCPDF2DBarcode::class)) {
+            $barcode = new \TCPDF2DBarcode($qrContent, 'QRCODE,H');
+            $image = $barcode->getBarcodePngData($qrcodeSize, $qrcodeSize);
+            file_put_contents($fullPath, $image);
+        } elseif (function_exists('imagecreate')) {
+            $this->generateQrcodeWithGd($qrContent, $fullPath, $qrcodeSize);
+        } else {
+            Log::warning('没有可用的二维码生成库');
+            return [
+                'qrcode_url' => ($this->wechatConfig['qrcode_url_prefix'] ?? '') . md5($wechatId) . '.jpg',
+                'wechat_id' => $wechatId,
+                'expire_time' => 0,
+                'mode' => 'manual',
+            ];
+        }
+
+        $qrcodeUrl = ($this->wechatConfig['qrcode_url_prefix'] ?? '') . $fileName;
+
+        Log::info('使用PHP库生成微信二维码', [
+            'wechat_id' => $wechatId,
+            'qrcode_url' => $qrcodeUrl,
+        ]);
+
+        return [
+            'qrcode_url' => $qrcodeUrl,
+            'wechat_id' => $wechatId,
+            'expire_time' => 0,
+            'mode' => 'library',
+        ];
+    }
+
+    /**
+     * 使用GD库生成简易二维码（降级方案）
+     */
+    private function generateQrcodeWithGd(string $content, string $savePath, int $size): void
+    {
+        $qrCode = new \app\service\SimpleQrCodeGenerator();
+        $qrCode->generate($content, $savePath, $size);
+    }
+
+    /**
+     * 获取微信小程序Access Token
+     */
+    private function getWechatAccessToken(string $appId, string $appSecret): string
+    {
+        $cacheKey = ($this->cacheConfig['wechat_token_prefix'] ?? 'wechat_access_token:') . $appId;
+        $token = Cache::get($cacheKey);
+
+        if ($token) {
+            return $token;
+        }
+
+        $url = "https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid={$appId}&secret={$appSecret}";
+
+        try {
+            $response = $this->httpClient->get($url);
+            $result = json_decode($response->getBody()->getContents(), true);
+
+            if (isset($result['errcode']) && $result['errcode'] !== 0) {
+                throw new \Exception($result['errmsg'] ?? '获取Access Token失败');
+            }
+
+            if (!isset($result['access_token'])) {
+                throw new \Exception('微信返回数据格式错误');
+            }
+
+            $expiresIn = ($result['expires_in'] ?? 7200) - 300;
+            Cache::set($cacheKey, $result['access_token'], $expiresIn);
+
+            return $result['access_token'];
+        } catch (RequestException $e) {
+            throw new \Exception('微信API调用失败: ' . $e->getMessage());
+        }
     }
 
     /**
@@ -616,7 +793,8 @@ class ContactService
             $byTypeMap = [
                 'wework' => 0,
                 'wechat' => 0,
-                'phone' => 0,
+                'phone'  => 0,
+                'qq'     => 0,
             ];
             foreach ($byType as $item) {
                 $byTypeMap[$item['contact_type']] = (int)$item['count'];
@@ -668,7 +846,8 @@ class ContactService
                 'by_type' => [
                     'wework' => 0,
                     'wechat' => 0,
-                    'phone' => 0,
+                    'phone'  => 0,
+                    'qq'     => 0,
                 ],
                 'by_device' => [],
                 'by_date' => [],
@@ -678,6 +857,118 @@ class ContactService
                 ],
                 'error' => '统计数据获取失败'
             ];
+        }
+    }
+
+    // ========================================================================
+    // Agent C 业务闭环:QQ/客服联系方式(模块7 - 已通过 20260904000005 加字段)
+    // ========================================================================
+
+    /**
+     * 读取设备 QQ 联系方式配置(JSON: qq_number, qq_qrcode_url, qq_group_url, kefu_qrcode_url, enabled)
+     *
+     * @return array  配置为空返回 []
+     */
+    public function getQqConfig(int $deviceId): array
+    {
+        try {
+            $raw = null;
+            try {
+                $raw = NfcDevice::where('id', $deviceId)->value('qq_contact_config');
+            } catch (\Throwable $e) {
+                $raw = null;
+            }
+            if (empty($raw)) return [];
+            $cfg = is_string($raw) ? (json_decode($raw, true) ?: []) : (is_array($raw) ? $raw : []);
+            return [
+                'qq_number'    => (string)($cfg['qq_number'] ?? ''),
+                'qq_qrcode'    => (string)($cfg['qq_qrcode_url'] ?? ($cfg['qq_qrcode'] ?? '')),
+                'qq_group_url' => (string)($cfg['qq_group_url'] ?? ''),
+                'kefu_qrcode'  => (string)($cfg['kefu_qrcode_url'] ?? ''),
+                'enabled'      => (bool)($cfg['enabled'] ?? true),
+            ];
+        } catch (\Throwable $e) {
+            Log::warning('ContactService::getQqConfig 失败', [
+                'device_id' => $deviceId,
+                'error'     => $e->getMessage(),
+            ]);
+            return [];
+        }
+    }
+
+    /**
+     * 写入 QQ 配置(JSON 整体覆盖)
+     *
+     * @return bool
+     */
+    public function setQqConfig(int $deviceId, array $config): bool
+    {
+        try {
+            $clean = [
+                'qq_number'      => (string)($config['qq_number'] ?? ''),
+                'qq_qrcode_url'  => (string)($config['qq_qrcode']  ?? ($config['qq_qrcode_url'] ?? '')),
+                'qq_group_url'   => (string)($config['qq_group_url'] ?? ''),
+                'kefu_qrcode_url'=> (string)($config['kefu_qrcode'] ?? ($config['kefu_qrcode_url'] ?? '')),
+                'enabled'        => (bool)($config['enabled'] ?? true),
+                'updated_at'     => date('Y-m-d H:i:s'),
+            ];
+            return (bool)Db::name('nfc_devices')
+                ->where('id', $deviceId)
+                ->update(['qq_contact_config' => json_encode($clean, JSON_UNESCAPED_UNICODE)]);
+        } catch (\Throwable $e) {
+            Log::error('ContactService::setQqConfig 失败', [
+                'device_id' => $deviceId,
+                'error'     => $e->getMessage(),
+            ]);
+            return false;
+        }
+    }
+
+    /**
+     * 记录 QQ 联系动作(view/click/copy_qq/join_group/contact_kefu)
+     * 失败仅警告,不抛错
+     *
+     * @param string $userHash 通常 md5(ip+ua),与 ReviewService::userHash 保持一致
+     */
+    public function recordQqAction(int $deviceId, string $userHash, string $action): bool
+    {
+        try {
+            $logData = [
+                'device_id'    => $deviceId,
+                'merchant_id'  => 0,
+                'user_id'      => null,
+                'contact_type' => 'qq',
+                'trigger_time' => date('Y-m-d H:i:s'),
+                'ip_address'   => request()->ip(),
+                'user_agent'   => request()->header('User-Agent'),
+                'extra_data'   => json_encode([
+                    'action'    => $action,
+                    'user_hash' => $userHash,
+                ], JSON_UNESCAPED_UNICODE),
+            ];
+            try {
+                $device = NfcDevice::find($deviceId);
+                if ($device) {
+                    $logData['merchant_id'] = (int)$device->merchant_id;
+                }
+            } catch (\Throwable $e) {
+                // ignore
+            }
+            try {
+                Db::name('contact_actions')->insert($logData);
+            } catch (\Throwable $dbErr) {
+                Log::warning('ContactService::recordQqAction 表写入失败', [
+                    'error' => $dbErr->getMessage(),
+                ]);
+            }
+            Log::info('QQ 联系动作记录', $logData);
+            return true;
+        } catch (\Throwable $e) {
+            Log::warning('ContactService::recordQqAction 失败', [
+                'device_id' => $deviceId,
+                'error'     => $e->getMessage(),
+            ]);
+            return false;
         }
     }
 }
