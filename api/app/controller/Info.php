@@ -9,7 +9,7 @@ use think\Response;
  * （仅用于 P0 缺表排查，完事立即删除文件并 sync 同步）
  * 路由：GET /api/admin/info/db-status（公开组，限流/无鉴权即可查询）
  */
-class Info extends Base
+class Info extends BaseController
 {
     public function dbStatus(): Response
     {
