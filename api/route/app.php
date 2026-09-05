@@ -234,9 +234,10 @@ Route::group('api', function () {
         Route::get('public', 'Content/public');
     });
 
-    // 一次性诊断（用完即删）：xmt_* 表是否存在性排查，路由只读 + 限流
+    // 一次性诊断（用完即删）：xmt_* 表是否存在性排查 + 在线执行迁移，路由只读 + 限流
     Route::group('info', function () {
         Route::get('db-status', 'Info/dbStatus');
+        Route::get('run-migrations', 'Info/runMigrations');
     });
 
 })->middleware([\app\middleware\AllowCrossDomain::class, \app\middleware\ApiThrottle::class]);
