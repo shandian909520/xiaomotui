@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS `xmt_lottery_prizes` (
   `total_stock` int(11) unsigned NOT NULL DEFAULT 0 COMMENT '总库存(0=不限)',
   `prize_type` varchar(20) NOT NULL DEFAULT 'NONE' COMMENT '类型 COUPON/THANKS/CUSTOM/POINTS',
   `coupon_id` int(11) unsigned DEFAULT NULL COMMENT '奖品类型为COUPON时,关联 xmt_coupons.id',
-  `extra_data` json DEFAULT NULL COMMENT '扩展数据(POINTS额度/CUSTOM兑换码 等)',
+  `extra_data` LONGTEXT COMMENT '扩展数据 JSON 字符串(POINTS额度/CUSTOM兑换码 等)（生产 MySQL 5.6 不支持 JSON 列类型,改用 LONGTEXT）',
   `sort` int(11) unsigned NOT NULL DEFAULT 0 COMMENT '转盘展示顺序',
   `status` tinyint(1) NOT NULL DEFAULT 1 COMMENT '状态 0停用 1启用',
   `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',

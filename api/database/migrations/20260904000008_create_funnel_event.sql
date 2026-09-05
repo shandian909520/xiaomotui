@@ -36,7 +36,7 @@ CREATE TABLE IF NOT EXISTS `xmt_funnel_event` (
   `step`        varchar(32) NOT NULL DEFAULT '' COMMENT '漏斗层级: nfc_trigger / h5_enter / hub_view / task_start / task_complete / reward_claim / wifi_connect / contact_copy / add_wechat / add_qq / add_wework / review_post / lottery_draw / coupon_claim',
   `block`       varchar(32) NOT NULL DEFAULT '' COMMENT '区块: hub / wifi / publish / groupbuy / review / contact / lottery',
   `action`      varchar(32) NOT NULL DEFAULT '' COMMENT '动作: view / click / submit / copy / scan / long_press / claim',
-  `meta`        json DEFAULT NULL COMMENT '附加 JSON: {ref_id, source, page_url, device_code, extra}',
+  `meta`        LONGTEXT COMMENT '附加 JSON 字符串: {ref_id, source, page_url, device_code, extra}（生产 MySQL 5.6 不支持 JSON 列类型,改用 LONGTEXT 存储序列化字符串）',
   `created_at`  datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '记录时间',
   PRIMARY KEY (`id`),
   KEY `idx_device_step` (`device_id`, `step`),

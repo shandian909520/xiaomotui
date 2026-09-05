@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS `xmt_review_actions` (
   `draft_index` int(11) DEFAULT NULL COMMENT '第几条草稿(用于A/B分析)',
   `ip` varchar(45) DEFAULT NULL COMMENT '客户端IP',
   `ua` varchar(255) DEFAULT NULL COMMENT 'User-Agent 摘要',
-  `extra_data` json DEFAULT NULL COMMENT '额外字段',
+  `extra_data` LONGTEXT COMMENT '额外字段,JSON 序列化字符串（生产 MySQL 5.6 不支持 JSON 列类型,改用 LONGTEXT）',
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   PRIMARY KEY (`id`),
   KEY `idx_device` (`device_id`),

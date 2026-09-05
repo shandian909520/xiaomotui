@@ -62,11 +62,13 @@ class FunnelService
                 'step'        => substr($step, 0, 32),
                 'block'       => substr($block, 0, 32),
                 'action'      => substr($action, 0, 32),
-                'meta'        => empty($meta) ? null : json_encode($meta, JSON_UNESCAPED_UNICODE),
+                'meta'        => empty($meta) ? null : $meta,
                 'created_at'  => date('Y-m-d H:i:s'),
             ];
 
             // 直接 insert,失败仅记录日志(埋点不应阻塞主流程)
+            // 注：FunnelEvent 模型对 meta 字段声明 type=json,ORM 会自动 json_encode/decode,
+            //   这里不能再 json_encode 一次,否则数据库里会出现双重编码的字符串
             FunnelEvent::create($payload);
             return true;
         } catch (\Throwable $e) {
