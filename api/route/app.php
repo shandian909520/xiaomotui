@@ -234,15 +234,6 @@ Route::group('api', function () {
         Route::get('public', 'Content/public');
     });
 
-    // 一次性诊断（用完即删）：缺表排查 / 在线迁移 / 前端 dist 写入 pengh5 目录
-    Route::group('info', function () {
-        Route::get('db-status', 'Info/dbStatus');
-        Route::get('run-migrations', 'Info/runMigrations');
-        Route::get('discover-frontend-root', 'Info/discoverFrontendRoot');
-        Route::post('deploy-admin', 'Info/deployAdmin');
-        Route::post('deploy-batch', 'Info/deployBatch');
-    });
-
 })->middleware([\app\middleware\AllowCrossDomain::class, \app\middleware\ApiThrottle::class]);
 
 // API路由组 - 需要认证的路由（应用频率限制）
