@@ -33,6 +33,7 @@ class Info extends BaseController
 
     public function dbStatus(): Response
     {
+        $version = Db::query("SELECT VERSION() AS v")[0]['v'] ?? 'unknown';
         $rows = [];
         try {
             $rows = Db::query(
@@ -47,6 +48,7 @@ class Info extends BaseController
         $existing = array_column($rows, 'TABLE_NAME');
         $missing  = array_values(array_diff($this->expected, $existing));
         return $this->success([
+            'mysql_version' => $version,
             'existing' => $existing,
             'missing'  => $missing,
             'summary'  => sprintf('existing=%d missing=%d', count($existing), count($missing)),
