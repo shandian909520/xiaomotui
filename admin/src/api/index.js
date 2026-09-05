@@ -88,21 +88,21 @@ export const couponApi = {
   }
 }
 
-// 商户管理接口
+// 商户管理接口（P0 安全修复 2026-09-05：从公开组 /api/merchants 迁入鉴权组 /api/admin/merchants）
 export const merchantApi = {
   // 获取商户列表
   getMerchants(params) {
-    return request.get('/merchants', { params })
+    return request.get('/admin/merchants', { params })
   },
 
   // 创建商户
   createMerchant(data) {
-    return request.post('/merchants', data)
+    return request.post('/admin/merchants', data)
   },
 
   // 更新商户
   updateMerchant(id, data) {
-    return request.put(`/merchants/${id}`, data)
+    return request.put(`/admin/merchants/${id}`, data)
   }
 }
 
