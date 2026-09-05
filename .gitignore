@@ -145,3 +145,4 @@ api/.env.original
 # ===== 部署凭据（本地保存，禁止入库）=====
 deploy/ftp.env
 *.env.ftp
+deploy/__pycache__/
