@@ -5,7 +5,9 @@
  */
 return [
     // 默认使用的AI服务提供商
-    'default' => env('AI_DEFAULT_PROVIDER', 'glm'),
+    // 注意：.env 中该键位于 [AI] 段内，ThinkPHP 会存为 AI_AI_DEFAULT_PROVIDER，
+    // 故此处必须用 env('AI.AI_DEFAULT_PROVIDER') 读取
+    'default' => env('AI.AI_DEFAULT_PROVIDER', env('AI_DEFAULT_PROVIDER', 'glm')),
 
     // 百度文心一言配置
     'wenxin' => [
@@ -122,16 +124,19 @@ return [
     // MiniMax 文字生成配置（使用 Anthropic API 兼容接口）
     'minimax' => [
         // API 认证配置
-        'auth_token' => env('ANTHROPIC_AUTH_TOKEN', ''),
-        'base_url' => env('ANTHROPIC_BASE_URL', 'https://api.minimaxi.com/anthropic'),
+        // .env 中位于 [AI] 段内 -> 存储键 AI_ANTHROPIC_AUTH_TOKEN
+        'auth_token' => env('AI.ANTHROPIC_AUTH_TOKEN', env('ANTHROPIC_AUTH_TOKEN', '')),
+        'base_url' => env('AI.ANTHROPIC_BASE_URL', env('ANTHROPIC_BASE_URL', 'https://api.minimaxi.com/anthropic')),
 
         // 模型配置
-        'model' => env('AI.MINIMAX_MODEL', 'MiniMax-M2.7-highspeed'),
+        'model' => env('AI.MINIMAX_MODEL', 'MiniMax-3'),
 
         // 可用的模型列表
         'models' => [
+            'MiniMax-3' => 'MiniMax-3 (最新旗舰)',
             'MiniMax-M2.7-highspeed' => 'MiniMax-M2.7-highspeed (高速)',
             'MiniMax-M2.7' => 'MiniMax-M2.7 (标准)',
+            'MiniMax-M1' => 'MiniMax-M1 (长文本)',
         ],
 
         // 请求参数配置

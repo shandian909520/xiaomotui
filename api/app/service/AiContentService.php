@@ -95,7 +95,18 @@ class AiContentService
      */
     public function generateText(array $params): array
     {
-        $provider = $params['provider'] ?? self::PROVIDER_WENXIN;
+        // provider 优先级：入参 > 后台系统配置 > ai.default 全局配置
+        // 原实现硬编码回退 wenxin，导致文心 key 未配置时即使默认 provider 是
+        // minimax/glm 也会走文心分支报错
+        $provider = $params['provider'] ?? null;
+        if (empty($provider)) {
+            try {
+                $provider = \app\model\SystemSetting::getSetting('provider', 'ai', '');
+            } catch (\Throwable $e) {
+                $provider = '';
+            }
+            $provider = $provider ?: config('ai.default', self::PROVIDER_WENXIN);
+        }
         $scene = $params['scene'] ?? '通用场景';
         $style = $params['style'] ?? '吸引人的';
         $requirements = $params['requirements'] ?? '';
